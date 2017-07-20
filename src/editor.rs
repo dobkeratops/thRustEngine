@@ -1,6 +1,6 @@
 use super::*;
-use ::bsp::bspdraw as draw;
-use window as w;
+//use window as w;
+use window::{Flow,Event,MouseButtons};
 type V3=(f32,f32,f32);
 
 struct Cam{
@@ -14,10 +14,9 @@ pub struct Editor {
     edges:Vec<[VertexIndex;2]>,
     cam:Cam,
     tool:Tool,
-    state:ES
+    state:EState
 }
 
-///todo: grow a MeshEditor interface.
 impl Editor{
     fn add_vertex(&mut self,p:V3)->VertexIndex{
         let vi=self.vertices.len();
@@ -29,18 +28,18 @@ impl Editor{
     }
 }
 
-pub fn new() -> sto<w::State> {
+pub fn new() -> sto<window::State> {
     new!(Editor{
         vertices: vec![(-0.5f32,0.0f32,0.5f32),(0.5f32,-0.5f32,0.5f32),
                     (-1.0,-1.0,0.0),(1.0,1.0,0.0)],
         edges:vec![[0,1],[2,3]],
         cam:Cam{pos:(0.0,0.0,0.0),zoom:1.0},
         tool:Tool::DrawLine,
-        state:ES::None,
-    }=>w::State)
+        state:EState::None,
+    }=>window::State)
 }
 
-type DragStart=w::KeyAt;
+type DragStart=window::KeyAt;
 type AfterDrag=Tool;
 
 #[derive(Clone,Debug,Copy)]
@@ -54,64 +53,58 @@ enum Tool {
 impl Default for Tool{fn default()->Self{Tool::DrawLine}}
 
 #[derive(Clone,Debug,Copy)]
-enum ES{
+enum EState{
     None,
     LastPoint(i32),
     Move(DragStart),
     Line(DragStart),
     Rect(DragStart),
 }
-impl Default for ES{fn default()->Self{ES::None}}
+impl Default for EState{fn default()->Self{EState::None}}
 
-impl w::State for Editor{
-    fn key_mappings(&mut self,f:&mut w::KeyMappings){
+impl window::State for Editor{
+
+    fn key_mappings(&mut self,f:&mut window::KeyMappings){
         f('\x1b',"back",  &mut ||Flow::Pop());
-        f('1',"add obj",  &mut ||Flow::Pop());
-        f('2',"add trigger", &mut ||Flow::Pop());
+        f('1',"foo",  &mut ||Flow::Pop());
+        f('2',"bar", &mut ||Flow::Pop());
     }
+    fn on_key(&mut self,p:window::KeyAt)->Flow{
 
-    fn on_key(&mut self,p:w::KeyAt)->w::Flow{
         match (p.0,p.1) {
             //s
-            ('\x1b',true)=>w::Pop(),
-            _=>w::Continue()
+            ('\x1b',true)=>Flow::Pop(),
+            _=>Flow::Continue()
         }
     }
-    fn render(&self,_:f32){
+    fn render(&self,rc:&window::RenderContext){
+
         for l in self.edges.iter(){
-            draw::line(&self.vertices[l[0] as usize], &self.vertices[l[1] as usize], 0xff00ff00)
+            draw::line_c(&self.vertices[l[0] as usize], &self.vertices[l[1] as usize], 0xff00ff00)
         }
-        draw::main_mode_text("editor");
+        draw::main_mode_text("lmb-draw rmb-cancel");
     }
-    fn event(&mut self, e:w::Event)->w::Flow{
+    fn event(&mut self, e: Event)->Flow{
         println!("event:");dump!(e);
         match e{
-            w::MouseButton(w::LeftButton,true,(x,y))=>{
+            Event::Button(MouseButtons::Left,true,(x,y))=>{
                 let ve=self.add_vertex((x,y,0.0f32));
                 match self.state{
-                    ES::LastPoint(vs)=> self.add_edge(ve,vs),
+                    EState::LastPoint(vs)=> self.add_edge(ve,vs),
                     _=>{}
                 }
-                self.state=ES::LastPoint(ve);
+                self.state=EState::LastPoint(ve);
             },
-            w::MouseButton(w::RightButton,true,(x,y))=> {
-                self.state=ES::None;
+            Event::Button(MouseButtons::Right,true,(x,y))=> {
+                self.state=EState::None;
             },
             _=>{}
         }
-
-        w::Continue()
+		Flow::Continue()
     }
 }
 
-/*
-trait Pane {
-    fn size(&self)->w::PixelSize;
 
-}
-*/
-
-// map view may rend
 
 
 
