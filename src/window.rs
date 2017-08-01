@@ -22,7 +22,7 @@ pub type PixelRect=(PixelPos,PixelPos);
 pub type ViewPos=(f32,f32);
 pub fn screen_size()->PixelPos{ unsafe{g_screensize} }
 
-pub type ViewController = State;
+pub type ViewController<A> = State<A>;
 // example,
 //#[derive(Clone,Debug)]
 pub enum Command {
@@ -73,37 +73,37 @@ enum Drag {
 
 /// returned value controls flow between states
 #[repr(u32)]
-pub enum Flow{
+pub enum Flow<A>{
     Continue(),
     Redraw(),           /// if not animating, input responses can request redraw
     Info(String),       /// feedback text, otherwise 'continue'
-    Push(sto<State>),
+    Push(sto<State<A>>),
     PassThru(),           /// Send command to next, if an overlay.
     Pop(),
     SendToOwner(),
     SendToAll(),
-    Replace(sto<State>),
-    Overlay(sto<State>),    /// e.g. popup menu
-    SetBackground(sto<State>),  /// equivalent to Replace(x)+Overlay(Self)
-    SetRoot(sto<State>),
+    Replace(sto<State<A>>),
+    Overlay(sto<State<A>>),    /// e.g. popup menu
+    SetBackground(sto<State<A>>),  /// equivalent to Replace(x)+Overlay(Self)
+    SetRoot(sto<State<A>>),
     SwapWith(i32),      /// swap with relative indexed state
     Cycle(),            //
     Back(),            //
     Forward(),            //
     Toggle(),            // rotate top with forward stack
-    NewWindow(sto<State>), // multi-windowing
+    NewWindow(sto<State<A>>), // multi-windowing
 }
 
 pub type Rect=(ViewPos,ViewPos);
 
-pub type KeyMappings = FnMut(KeyCode,&str, &mut FnMut()->Flow);
-pub trait State {            //'C' the user defined commands it can respond to.
+pub type KeyMappings<A> = FnMut(KeyCode,&str, &mut FnMut()->Flow<A>);
+pub trait State<A> {            //'C' the user defined commands it can respond to.
 	fn name(&self)->&str		{"none"}
-    fn on_activate(&mut self)   {}
-    fn on_deactivate(&mut self) {}
-    fn render(&self, _:&RC)      {}  // todo render with mousepos
+    fn on_activate(&mut self, app:&mut A)   {}
+    fn on_deactivate(&mut self, app:&mut A) {}
+    fn render(&self,a:&A, _:&RC)      {}  // todo render with mousepos
     fn info(&self)->String      { String::new()}
-    fn update(&mut self,dt:f32)->Flow {Flow::Continue()}   // controller access..
+    fn update(&mut self,app:&mut A,dt:f32)->Flow<A> {Flow::Continue()}   // controller access..
 
     // TODO: all this could be eliminated?
     // just use event() and clients switch.
@@ -112,8 +112,8 @@ pub trait State {            //'C' the user defined commands it can respond to.
 
     // iterate key mappings, along with functionality, to automate
     // rolling statusbar/tooltips/menu assignment
-    fn key_mappings(&mut self, kmf:&mut KeyMappings){}
-    fn on_mouse_move(&mut self, xy:ViewPos)->Flow {
+    fn key_mappings(&self,app:&A, kmf:&mut KeyMappings<A>){}
+    fn on_mouse_move(&mut self, app:&mut A, xy:ViewPos)->Flow<A> {
         // TODO - unsure if this is better dispatched by framework.
         /*
         if let Some(p)=unsafe{g_ldrag_start}{
@@ -129,99 +129,99 @@ pub trait State {            //'C' the user defined commands it can respond to.
     }
     // hooks for each specific dragable button state,
     // streamline rolling a tool
-    fn on_passive_move(&mut self,pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_ldragging(&mut self,start:ViewPos,pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_mdragging(&mut self,start:ViewPos,pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_rdragging(&mut self,start:ViewPos,pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_wheel_up(&mut self,pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_wheel_down(&mut self,pos:ViewPos)->Flow{Flow::PassThru()}
+    fn on_passive_move(&mut self,app:&mut A, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_ldragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_rdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_wheel_up(&mut self, app:&mut A,pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_wheel_down(&mut self, app:&mut A,pos:ViewPos)->Flow<A>{Flow::PassThru()}
     // click - mouse pressed with no motion
-    fn on_lclick(&mut self, p:ViewPos)->Flow{println!("lclick{:?}",p);Flow::PassThru()}
-    fn on_rclick(&mut self, p:ViewPos)->Flow{println!("rclick{:?}",p);Flow::PassThru()}
-    fn on_mclick(&mut self, p:ViewPos)->Flow{println!("mclick{:?}",p);Flow::PassThru()}
+    fn on_lclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("lclick{:?}",p);Flow::PassThru()}
+    fn on_rclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("rclick{:?}",p);Flow::PassThru()}
+    fn on_mclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("mclick{:?}",p);Flow::PassThru()}
 
-    fn on_mouse_dragged(&mut self, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow{
+    fn on_mouse_dragged(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
         println!("dragged{:?} {:?} {:?}",start,pos,mode);
         Flow::PassThru()
     }
 
-    fn on_mouse_dragging(&mut self, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow{
+    fn on_mouse_dragging(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
         match mb{
-            LeftButton => self.on_ldragging(start,pos),
-            RightButton => self.on_ldragging(start,pos),
-            MidButton => self.on_mdragging(start,pos),
+            LeftButton => self.on_ldragging(app,start,pos),
+            RightButton => self.on_ldragging(app,start,pos),
+            MidButton => self.on_mdragging(app,start,pos),
             _=>Flow::PassThru()
         }
     }
 
-    fn on_lbutton_down(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_rbutton_down(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_lbutton_up(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_rbutton_up(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_mbutton_down(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_mbutton_up(&mut self, pos:ViewPos)->Flow{Flow::PassThru()}
-    fn on_mouse_button(&mut self, mb:MouseButtons,s:bool,pos:ViewPos)->Flow {
+    fn on_lbutton_down(&mut self,app:&mut A, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_rbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_lbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_rbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mouse_button(&mut self,app:&mut A,  mb:MouseButtons,s:bool,pos:ViewPos)->Flow<A> {
         match (mb,s){
-            (MouseButtons::Left,true)=>self.on_lbutton_down(pos),
-            (MouseButtons::Left,false)=>self.on_lbutton_up(pos),
-            (MouseButtons::Right,true)=>self.on_lbutton_down(pos),
-            (MouseButtons::Right,false)=>self.on_rbutton_up(pos),
-            (MouseButtons::Mid,true)=>self.on_mbutton_down(pos),
-            (MouseButtons::Mid,false)=>self.on_mbutton_up(pos),
-            (MouseButtons::WheelUp,true)=>self.on_wheel_up(pos),
-            (MouseButtons::WheelDown,true)=>self.on_wheel_down(pos),
+            (MouseButtons::Left,true)=>self.on_lbutton_down(app,pos),
+            (MouseButtons::Left,false)=>self.on_lbutton_up(app,pos),
+            (MouseButtons::Right,true)=>self.on_lbutton_down(app,pos),
+            (MouseButtons::Right,false)=>self.on_rbutton_up(app,pos),
+            (MouseButtons::Mid,true)=>self.on_mbutton_down(app,pos),
+            (MouseButtons::Mid,false)=>self.on_mbutton_up(app,pos),
+            (MouseButtons::WheelUp,true)=>self.on_wheel_up(app,pos),
+            (MouseButtons::WheelDown,true)=>self.on_wheel_down(app,pos),
 			_=>Flow::PassThru()
         }
     }
-    fn try_drag(&self,mbpos:(MouseButtons,ViewPos))->DragMode{
+    fn try_drag(&self, app:&A,mbpos:(MouseButtons,ViewPos))->DragMode{
         trace!();
         DragMode::Rect
     }
-    fn on_click(&mut self, mbvpos:(MouseButtons,ViewPos))->Flow{
+    fn on_click(&mut self, app:&mut A, mbvpos:(MouseButtons,ViewPos))->Flow<A>{
         // dispatch to specific button if so desired.
         let (mb,vpos)=mbvpos;
         match mb{
-            MouseButtons::Left=>self.on_lclick(vpos),
-            MouseButtons::Right=>self.on_rclick(vpos),
-            MouseButtons::Mid=>self.on_mclick(vpos),
+            MouseButtons::Left=>self.on_lclick(app,vpos),
+            MouseButtons::Right=>self.on_rclick(app,vpos),
+            MouseButtons::Mid=>self.on_mclick(app,vpos),
             _=>{warn!();Flow::Continue()}
         }
     }
-    fn on_key_down(&mut self, k:KeyCode, pos:ViewPos)->Flow { Flow::PassThru() }
-    fn on_key_up(&mut self, k:KeyCode, pos:ViewPos)->Flow { Flow::PassThru() }
-    fn on_key(&mut self, k:KeyAt)->Flow{
+    fn on_key_down(&mut self,app:&mut A, k:KeyCode, pos:ViewPos)->Flow<A> { Flow::PassThru() }
+    fn on_key_up(&mut self, app:&mut A,k:KeyCode, pos:ViewPos)->Flow<A> { Flow::PassThru() }
+    fn on_key(&mut self,app:&mut A, k:KeyAt)->Flow<A>{
         let KeyAt(kc,s,pos)=k;
         //default : route to seperate keydown,keyup
-        match s{ true=>self.on_key_down(kc,pos),false=>self.on_key_up(kc,pos)}
+        match s{ true=>self.on_key_down(app,kc,pos),false=>self.on_key_up(app,kc,pos)}
     }
     //fn on_drop(&mut self,f:path::Path,sp:ScreenPos)           {}
-    fn command(&mut self, c:Command)->Flow{ Flow::PassThru() }
+    fn command( &mut self, app:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
 
     // enum of every event,
     // defaults to calling the fn's
-    fn event(&mut self, e:Event)->Flow{
+    fn event(&mut self,app:&mut A, e:Event)->Flow<A>{
 		use self::Event as Ev;
         match e{
-            Ev::Update(dt)  =>{self.update(dt);Flow::Continue()},
+            Ev::Update(dt)  =>{self.update(app,dt);Flow::Continue()},
             Ev::Render(t)   =>{
-				self.render(&RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(), t:0.0f32});
+				self.render(app,&RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(), t:0.0f32});
 				Flow::Continue()
 			},
-            Ev::Activate()  =>{self.on_activate();Flow::Continue()},
-            Ev::Deactivate()    =>{self.on_deactivate();Flow::Continue()},
-            Ev::Key(k)     =>self.on_key(k),
-            Ev::Move(pos)  =>self.on_mouse_move(pos),
+            Ev::Activate()  =>{self.on_activate(app);Flow::Continue()},
+            Ev::Deactivate()    =>{self.on_deactivate(app);Flow::Continue()},
+            Ev::Key(k)     =>self.on_key(app,k),
+            Ev::Move(pos)  =>self.on_mouse_move(app,pos),
             Ev::TryBeginDrag(mb,pos)=>{
                 match get_dragmode(){
-                    DragMode::None=>set_dragmode(self.try_drag((mb,pos))),
+                    DragMode::None=>set_dragmode(self.try_drag(app,(mb,pos))),
                     _=>{}
                 };
                 Flow::Continue()
             }
-            Ev::Clicked(mb,pos)=>self.on_click((mb,pos)),
-            Ev::Dragging(mb,start,current,dm) =>self.on_mouse_dragging(mb,start,current,dm),
-            Ev::Dragged(mb,start,current,dm)  =>self.on_mouse_dragged(mb,start,current,dm),
-            Ev::Button(mb,s,pos)           =>self.on_mouse_button(mb,s,pos),
+            Ev::Clicked(mb,pos)=>self.on_click(app,(mb,pos)),
+            Ev::Dragging(mb,start,current,dm) =>self.on_mouse_dragging(app,mb,start,current,dm),
+            Ev::Dragged(mb,start,current,dm)  =>self.on_mouse_dragged(app,mb,start,current,dm),
+            Ev::Button(mb,s,pos)           =>self.on_mouse_button(app,mb,s,pos),
             _               =>Flow::Continue(),
         }
     }
@@ -452,10 +452,10 @@ fn render_end(){
     }
 }
 type IsOverlay=bool;
-type Windows=(Vec<(Box<State>,IsOverlay)>,WindowId);
+type Windows<A>=(Vec<(Box<State<A>>,IsOverlay)>,WindowId);
 
 
-fn process_flow(next:Flow,wins:&mut Windows){
+fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
 // process state flow.
     //assert!(unsafe {glutGetWindow()}==wins.1);
 
@@ -545,7 +545,7 @@ unsafe fn render_drag_overlay(){
         _=>{},
     }
 }
-fn render_and_update(wins:&mut Windows){
+fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
     unsafe{
         //render.
         let top=wins.0 .len();
@@ -558,15 +558,15 @@ fn render_and_update(wins:&mut Windows){
                 // if it's an overlay , render previous first.
                 if i > 0 && win.1 {
                     // todo- generalize, any number of overlays
-                    wins.0[i - 1].0.render(&rc);
+                    wins.0[i - 1].0.render(a,&rc);
                 }
-                win.0.render(&rc);
+                win.0.render(a,&rc);
                 // check the keymappings,
             }
             {
                 let mut y = 0.9f32;
                 let win = &mut wins.0[i];
-                win.0.key_mappings(&mut move |k, name, _| {
+                win.0.key_mappings(a,&mut move |k, name, _| {
                     draw::char_at(&(-0.95f32, y, 0.0f32), 0x00ff00, k);
                     draw::string_at(&(-0.9f32, y, 0.0f32), 0x00ff00, name);
                     y -= 0.05f32;
@@ -585,7 +585,7 @@ fn render_and_update(wins:&mut Windows){
             if top>0 {
                 process_flow(
                     {let win = &mut wins.0[top - 1];
-                        win.0 .event(e)}
+                        win.0 .event(a,e)}
                     ,wins);
             }
         }
@@ -594,13 +594,13 @@ fn render_and_update(wins:&mut Windows){
         if top>0{
             // overlays still allow base to update.
             if top>1 && wins.0[top-1].1 {
-                let flow=wins.0[top-1].0 .update(dt);
+                let flow=wins.0[top-1].0 .update(a,dt);
                 process_flow(flow,wins);
             }
             let flow= {
                 let l=wins .0 .len();
                 let win = &mut wins.0[l - 1];
-                win.0 .update(dt)
+                win.0 .update(a,dt)
             };
             process_flow(flow,wins)
         }
@@ -609,8 +609,8 @@ fn render_and_update(wins:&mut Windows){
 
 
 // you have to push an initial state, which is a window.
-pub fn run_loop(mut w:sto<State>) {
-    let mut wins:Windows=(vec![],0);
+pub fn run_loop<APP>(mut w:sto<State<APP>>, app:&mut APP) {
+    let mut wins:Windows<APP>=(vec![],0);
     push(&mut wins, w);
 
     unsafe {
@@ -646,12 +646,12 @@ pub fn run_loop(mut w:sto<State>) {
         while true {
             glutCheckLoop();//draw
 
-            render_and_update(&mut wins);
+            render_and_update(&mut wins,app);
         }
     }
 }
 
-pub fn push(wins:&mut Windows, w:sto<State>){
+pub fn push<A>(wins:&mut Windows<A>, w:sto<State<A>>){
     unsafe{
         wins.0 .push((w,false));
         wins.1 = glutGetWindow();
