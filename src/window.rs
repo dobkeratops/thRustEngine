@@ -1,6 +1,7 @@
 use super::*;
 use std::path;
 
+
 //type sto<T>=Rc<RefCell<T>>;g_mo
 pub type sto<T>=Box<T>; //might be shared trait object
 pub type Renderer=();
@@ -14,7 +15,13 @@ pub trait TextOutput {
 pub type KeyCode=char;
 
 #[derive(Debug,Clone,Copy)]
-pub struct KeyAt(pub KeyCode,pub bool,pub ViewPos);
+pub enum KeyTransition{
+    KeyDown,KeyUp
+}
+pub use self::KeyTransition::*;
+
+#[derive(Debug,Clone,Copy)]
+pub struct KeyAt(pub KeyCode,pub KeyTransition,pub ViewPos);
 pub type PixelPos=(i32,i32);
 pub type PixelVec=(i32,i32);
 pub type PixelSize=(i32,i32);
@@ -203,7 +210,9 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
     fn on_key(&mut self,app:&mut A, k:KeyAt)->Flow<A>{
         let KeyAt(kc,s,pos)=k;
         //default : route to seperate keydown,keyup
-        match s{ true=>self.on_key_down(app,kc,pos),false=>self.on_key_up(app,kc,pos)}
+        match s{
+            KeyDown=>self.on_key_down(app,kc,pos),
+            KeyUp=>self.on_key_up(app,kc,pos)}
     }
     fn on_drop(&mut self, f:&str, sp:ViewPos)           {}
     fn command( &mut self, app:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
@@ -330,7 +339,7 @@ mod callbacks {
     pub fn keyboard_func_sub(key: u8, isdown: bool, x: i32, y: i32) {
         unsafe {
             g_key[key as usize] = isdown;
-            let kp = KeyAt(key as KeyCode, isdown, to_viewpos((x, y)));
+            let kp = KeyAt(key as KeyCode, if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
             push_event(Event::Key(kp));
         }
     }
@@ -342,7 +351,7 @@ mod callbacks {
     pub fn special_func_sub(key: GLuint, isdown: bool, x: i32, y: i32) {
         assert!((key as u32 & 0xff) == key as u32);
         unsafe {
-            let kp = KeyAt(key as u8 as KeyCode, isdown, to_viewpos((x, y)));
+            let kp = KeyAt(key as u8 as KeyCode, if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
             push_event(Event::Key(kp));
             g_key[key as usize] = isdown;
         }
