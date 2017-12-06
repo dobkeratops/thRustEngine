@@ -13,6 +13,7 @@ pub trait TextOutput {
 
 // glut/whatever interaction, and handles states.
 pub type KeyCode=char;
+pub use self::State as Window; // rename imminent
 
 #[derive(Debug,Clone,Copy)]
 pub enum KeyTransition{
