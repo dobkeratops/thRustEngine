@@ -2,7 +2,7 @@ use super::*;
 use std::path;
 
 //type sto<T>=Rc<RefCell<T>>;g_mo
-pub type sto<T>=Box<T>; //shared trait object
+pub type sto<T>=Box<T>; //might be shared trait object
 pub type Renderer=();
 pub trait TextOutput {
 
@@ -96,14 +96,25 @@ pub enum Flow<A>{
 
 pub type Rect=(ViewPos,ViewPos);
 
+pub enum ForeachResult{
+    Continue,
+    Quit,
+}
+
+
 pub type KeyMappings<A> = FnMut(KeyCode,&str, &mut FnMut()->Flow<A>);
 pub trait State<A> {            //'C' the user defined commands it can respond to.
+
+    fn ask_size(&self)->Option<ViewPos> { None }
 	fn name(&self)->&str		{"none"}
     fn on_activate(&mut self, app:&mut A)   {}
     fn on_deactivate(&mut self, app:&mut A) {}
     fn render(&self,a:&A, _:&RC)      {}  // todo render with mousepos
     fn info(&self)->String      { String::new()}
     fn update(&mut self,app:&mut A,dt:f32)->Flow<A> {Flow::Continue()}   // controller access..
+
+    //todo on_enter/on_exit
+
 
     // TODO: all this could be eliminated?
     // just use event() and clients switch.
@@ -194,40 +205,98 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
         //default : route to seperate keydown,keyup
         match s{ true=>self.on_key_down(app,kc,pos),false=>self.on_key_up(app,kc,pos)}
     }
-    //fn on_drop(&mut self,f:path::Path,sp:ScreenPos)           {}
+    fn on_drop(&mut self, f:&str, sp:ViewPos)           {}
     fn command( &mut self, app:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
 
     // enum of every event,
     // defaults to calling the fn's
-    fn event(&mut self,app:&mut A, e:Event)->Flow<A>{
-		use self::Event as Ev;
+    fn event_dispatch(&mut self, app:&mut A, e:Event)->Flow<A>{
         match e{
-            Ev::Update(dt)  =>{self.update(app,dt);Flow::Continue()},
-            Ev::Render(t)   =>{
-				self.render(app,&RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(), t:0.0f32});
-				Flow::Continue()
-			},
-            Ev::Activate()  =>{self.on_activate(app);Flow::Continue()},
-            Ev::Deactivate()    =>{self.on_deactivate(app);Flow::Continue()},
-            Ev::Key(k)     =>self.on_key(app,k),
-            Ev::Move(pos)  =>self.on_mouse_move(app,pos),
-            Ev::TryBeginDrag(mb,pos)=>{
+            Event::Update(dt)  =>{self.update(app,dt);Flow::Continue()},
+            Event::Render(t)   =>{
+                self.render(app,&RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(), t:0.0f32});
+                Flow::Continue()
+            },
+            Event::Activate()  =>{self.on_activate(app);Flow::Continue()},
+            Event::Deactivate()    =>{self.on_deactivate(app);Flow::Continue()},
+            Event::Key(k)     =>self.on_key(app,k),
+            Event::Move(pos)  =>self.on_mouse_move(app,pos),
+            Event::TryBeginDrag(mb,pos)=>{
                 match get_dragmode(){
                     DragMode::None=>set_dragmode(self.try_drag(app,(mb,pos))),
                     _=>{}
                 };
                 Flow::Continue()
             }
-            Ev::Clicked(mb,pos)=>self.on_click(app,(mb,pos)),
-            Ev::Dragging(mb,start,current,dm) =>self.on_mouse_dragging(app,mb,start,current,dm),
-            Ev::Dragged(mb,start,current,dm)  =>self.on_mouse_dragged(app,mb,start,current,dm),
-            Ev::Button(mb,s,pos)           =>self.on_mouse_button(app,mb,s,pos),
+            Event::Clicked(mb,pos)=>self.on_click(app,(mb,pos)),
+            Event::Dragging(mb,start,current,dm) =>self.on_mouse_dragging(app,mb,start,current,dm),
+            Event::Dragged(mb,start,current,dm)  =>self.on_mouse_dragged(app,mb,start,current,dm),
+            Event::Button(mb,s,pos)           =>self.on_mouse_button(app,mb,s,pos),
             _               =>Flow::Continue(),
         }
     }
+    // main event dispatch: override to iter sub
+    fn event(&mut self,app:&mut A, e:Event, r:Rect)->Flow<A>{
+		use self::Event as Ev;
+        self.event_dispatch(app,e)
+    }
+    //fn foreach_child(&self, r:Option<Rect>, f:&FnMut(&State<A>,Option<Rect>)->ForeachResult);
+    //fn foreach_child_mut(&mut self, r:Option<Rect>, f:&FnMut(&mut State<A>,Option<Rect>)->ForeachResult);
+
 }
 // actually we could make it a mutable trait object taking the message
 // and sugar wrapper for
+
+
+// implement this to open a 'gridview' on something
+// texture-palette, toolbox etc.
+type Index=i32;
+
+
+pub trait WindowContainer<A> {
+	fn sub_win_count(&self)->usize;
+    fn sub_win_get(&self,i:usize)->Option<&window::State<A>>;
+    fn sub_win_set(&mut self, i:usize, optbox<window::State<A>>);
+	fn sub_win_push(&mut self, optbox<window::State<A>>);
+    fn sub_win_take(&self,i:usize)->optbox<window::State<A>>;
+}
+
+//impl<A> HasCells<A> for WindowContainer<A> {
+//}
+/*
+pub trait HasCells<A> {
+	fn render_cell(&self, i:usize, r:RenderContext);
+	fn num_cells(&self)->usize;
+}
+
+pub trait TabView<A> : WindowContainer<A>{
+}
+
+
+pub trait GridView<A> : HasCells<A>{
+    fn select(item:Index);
+    fn scroll(&mut self, dxy:(i32,i32));
+    fn grid_size(&self,r:Rect)->(Index,Index);
+}
+*/
+/*
+impl<T:A> window::State<A> for T:GridView<A> {
+    // render grid..
+    // click down , ..
+    //event -
+}
+*/
+/*
+inheritance:-
+ class window
+   class gridView : window
+     class mygridview..
+
+rustic:-
+impl window for T:gridview
+impl gridview for mygridview  // gets 'window'
+
+*/
 
 
 static mut g_key:[bool;256]=[false;256];
@@ -383,6 +452,8 @@ mod callbacks {
 
         set_mouse_pos(x,y);
     }
+
+
 }
 fn drag_mdist(a:PixelPos,b:PixelPos)->i32{
     let dx=b.0-a.0;
@@ -532,6 +603,7 @@ unsafe fn render_drag_overlay(){
             draw::lines_xy(get_drag_points(), 0.0f32, true);
 
         }
+
         DragMode::Default=> {
             draw::line(sv, ev);
             draw::rect_corners_xy(sv, ev, 0.1);
@@ -546,6 +618,7 @@ unsafe fn render_drag_overlay(){
     }
 }
 fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
+    let whole_rect = ((0.0,0.0),(1.0,1.0));
     unsafe{
         //render.
         let top=wins.0 .len();
@@ -585,7 +658,7 @@ fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
             if top>0 {
                 process_flow(
                     {let win = &mut wins.0[top - 1];
-                        win.0 .event(a,e)}
+                        win.0 .event(a,e,whole_rect)}
                     ,wins);
             }
         }
