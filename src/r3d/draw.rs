@@ -23,6 +23,12 @@ pub fn end(){
 pub fn gl_vertex(a:Vec3){
 	unsafe {glVertex3f(a.x,a.y,a.z);}
 }
+pub fn v3_gl_vertex(a:V3){
+	unsafe {glVertex3f(a.0,a.1,a.2);}
+}
+pub fn gl_vertex_v2(a:V2){
+	unsafe {glVertex3f(a.0,a.1,0.0f32);}
+}
 
 pub fn clear(color:u32){
     unsafe {
@@ -65,22 +71,43 @@ pub fn line_strip2(a:Vec3,b:Vec3,c:Vec3){
 pub fn line_strip3(a:Vec3,b:Vec3,c:Vec3,d:Vec3){
     line(a,b);line(b,c);line(c,d);
 }
-pub fn rect_vertices(a:Vec3,b:Vec3)->(Vec3,Vec3,Vec3,Vec3) {
+pub fn rect_vertices_xy(a:Vec3,b:Vec3)->(Vec3,Vec3,Vec3,Vec3) {
     (Vec3(a.x, a.y, a.z),
     Vec3(b.x, a.y, a.z),
     Vec3(a.x, b.y, a.z),
     Vec3(b.x, b.y, a.z))
 }
+pub fn rect_vertices_v2(a:V2,b:V2)->(V2,V2,V2,V2) {
+    ((a.0, a.1),
+    (b.0, a.1),
+    (a.0, b.1),
+    (b.0, b.1))
+}
 
 pub fn rect(a:Vec3,b:Vec3) {
-    let (aa,ab,ba,bb)=rect_vertices(a,b);
+    let (aa,ab,ba,bb)=rect_vertices_xy(a,b);
     quad(aa,ab,ba,bb);
 }
-pub fn rect_outline(a:Vec3,b:Vec3) {
-    let (aa,ab,ba,bb)=rect_vertices(a,b);
-    line(aa,ab);line(ab,bb);line(bb,ba);line(ba,aa);
 
+pub fn rect_outline(a:Vec3,b:Vec3) {
+    let (aa,ab,ba,bb)=rect_vertices_xy(a,b);
+    line(aa,ab);line(ab,bb);line(bb,ba);line(ba,aa);
 }
+
+pub fn rect_outline_v2(a:V2,b:V2,color:u32) {
+    let (aa,ab,ba,bb)=rect_vertices_v2(a,b);
+	unsafe{
+	glBegin(GL_LINE_STRIP);
+	gl_color(color);
+	gl_vertex_v2(aa);
+	gl_vertex_v2(ab);
+	gl_vertex_v2(bb);
+	gl_vertex_v2(ba);
+	gl_vertex_v2(aa);
+	glEnd();
+	}
+}
+
 pub fn rect_corners_xy(a:Vec3,b:Vec3,corner_fraction:f32) {
     let dx=b.x-a.x;
     let dy=b.y-a.y;
@@ -289,6 +316,43 @@ pub fn line_c(&(x0,y0,z0):&(f32,f32,f32),&(x1,y1,z1):&(f32,f32,f32), color:u32) 
 		glVertex3f(x0,y0,z0); glVertex3f(x1,y1,z1);
 		glEnd();
 	}
+}
+pub fn arrow(vs:&V3, ve:&V3, head:f32,color:u32){
+	let axis=v3sub_norm(ve,vs);
+	let base=v3mad(ve,&axis,-head);
+	let ofs=v3scale(&(axis.1,-axis.0,axis.2),head*0.5f32);
+	let b0=v3add(&base,&ofs);
+	let b1=v3sub(&base,&ofs);
+	unsafe{
+		glBegin(GL_LINE_STRIP);
+		gl_color(color);
+		gl_vertex_v3(&base);
+		gl_vertex_v3(&b0);
+		gl_vertex_v3(ve);
+		gl_vertex_v3(&b1);
+		gl_vertex_v3(&base);
+		gl_vertex_v3(vs);
+		glEnd();
+	}
+}
+pub fn circle_fill_xy_c(&(x,y,z):&V3,r2:f32, color:u32){
+    //actually a square first.
+	let r=r2*0.5f32;
+    unsafe{
+        glBegin(GL_TRIANGLE_STRIP);
+        gl_color(color);
+        glVertex3f(x-r,y-r2,z);
+        glVertex3f(x+r,y-r2,z);
+        glVertex3f(x-r2,y-r,z);
+        glVertex3f(x+r2,y-r,z);
+        glVertex3f(x-r2,y+r,z);
+        glVertex3f(x+r2,y+r,z);
+        glVertex3f(x-r,y+r2,z);
+        glVertex3f(x+r,y+r2,z);
+
+        glEnd();
+    }
+
 }
 pub fn cuboid(size:&V3,color:u32) {
 	cuboid_aabb_at(&(0.0f32,0.0f32,0.0f32),size,color)

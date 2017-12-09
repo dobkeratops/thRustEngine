@@ -15,11 +15,9 @@ pub fn v3div<T:Num>((x0,y0,z0):(T,T,T),(x1,y1,z1):(T,T,T))->(T,T,T){
 pub fn v3sub<T:Num>((x0,y0,z0):(T,T,T),(x1,y1,z1):(T,T,T))->(T,T,T){
 	(x0-x1,y0-y1,z0-z1)
 }
-
 pub fn v3dot<T:Num>((x0,y0,z0):(T,T,T),(x1,y1,z1):(T,T,T))->T{
 	x0*x1+y0*y1+z0*z1
 }
-
 pub fn v3mul<T:Num>((x0,y0,z0):(T,T,T),(x1,y1,z1):(T,T,T))->(T,T,T){
 	(x0*x1,y0*y1,z0*z1)
 }

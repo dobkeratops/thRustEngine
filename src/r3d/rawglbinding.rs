@@ -208,6 +208,7 @@ extern
 	pub fn glutDestroyWindow(x:c_int);
 	pub fn glutSetWindow(win:c_int);
 	pub fn glutGetWindow()->c_int;
+	pub fn glutGetModifiers()->c_int;
 	pub fn glutSetWindowTitle(x:*const c_char);
 	pub fn glutSetIconTitle(x:*const c_char);
 	pub fn glutReshapeWindow(x:GLint, y:GLint);

@@ -423,9 +423,15 @@ pub fn div_rem<T:Div<T,Output=T>+Rem<T,Output=T>+Copy>(a:T,b:T)->(T,T){(a/b,a%b)
 
 // todo - math UT, ask if they can go in the stdlib.
 
+// TODO - this is ordered as per hlsl,
+// but wouldn't curry-friendly order also be nice?
 pub fn clamp<T:Ord>(x:T, (lo,hi):(T,T))->T {
 	max(min(x,hi),lo)
 }
+pub fn inrange<T:PartialOrd>(x:T, (lo,hi):(T,T))->bool {
+	x>=lo && x<=hi
+}
+
 pub fn clamp_s<T:Ord+Neg<Output=T>+Clone>(value:T, limit:T)->T {
 	clamp(value,(-limit.clone(),limit))
 }
@@ -672,6 +678,8 @@ pub type M33=(V3,V3,V3);	pub type M43=(V3,V3,V3,V3);	pub type M44=(V4,V4,V4,V4);
 pub fn v3neg(&(x,y,z):&V3)->V3			{ (-x,-y,-z)}
 pub fn v3scale(&(x,y,z):&V3,s:f32)->V3		{ (x*s,y*s,z*s)}
 pub fn v3sub(&(x0,y0,z0):&V3,&(x1,y1,z1):&V3)->V3	{	(x0-x1,y0-y1,z0-z1)}
+pub fn v3min(a:&V3,b:&V3)->V3{(min(a.0,b.0),min(a.1,b.1),min(a.2,b.2))}
+pub fn v3max(a:&V3,b:&V3)->V3{(max(a.0,b.0),max(a.1,b.1),max(a.2,b.2))}
 pub fn v3add(&(x0,y0,z0):&V3,&(x1,y1,z1):&V3)->V3	{	(x0+x1,y0+y1,z0+z1)}
 pub fn v3add4(a:&V3,b:&V3,c:&V3,d:&V3)->V3	{v3add(&v3add(a,b),&v3add(c,d))}
 pub fn v3add3(a:&V3,b:&V3,c:&V3)->V3		{v3add(&v3add(a,b),c)}
@@ -690,12 +698,31 @@ pub fn v3mat_lookat(pos:&V3, at:&V3,up:&V3)->M43	{ let az=v3sub_norm(at,pos); le
 pub fn v3mat_identity()->M43 						{((1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0),(0.0,0.0,0.0))}
 pub fn v3triangle_norm(v0:&V3,v1:&V3,v2:&V3)->V3			{ let v01=v3sub(v1,v0); let v02=v3sub(v2,v0); v3norm(&v3cross(&v02,&v01))}
 // inv only if orthonormal
-
+pub fn v3dist_squared(v0:&V3,v1:&V3)->f32 {let ofs=v3sub(v0,v1); return v3dot(&ofs,&ofs);}
+pub fn v3length(v0:&V3)->f32{return sqrt(v3dot(v0,v0));}
+pub fn v3addto(dst:&mut V3, src:&V3){ let v=v3add(dst,src); *dst=v;}
+pub fn v3madto(dst:&mut V3, src:&V3, f:f32){ let v=v3mad(dst,src,f); *dst=v;}
+pub fn v3fromv2(xy:&V2,f:f32)->V3{ return (xy.0, xy.1, f)}
 pub fn v3mat_inv(&(ref mx,ref my,ref mz,ref pos):&M43 )->M43{
     let (ax,ay,az)=((mx.0,my.0,mz.0),(mx.1,my.1,mz.1),(mx.2,my.2,mz.2));
     let invpos= (-v3dot(&ax,pos), -v3dot(&ay,pos), -v3dot(&az,pos));
     (ax,ay,az, invpos) }
-
+pub fn v2sub(a:&V2,b:&V2)->V2{
+    (a.0-b.0, a.1-b.1)
+}
+pub fn v2add(a:&V2,b:&V2)->V2{
+    (a.0+b.0, a.1+b.1)
+}
+pub fn v2min(a:&V2,b:&V2)->V2{
+	(min(a.0,b.0),min(a.1,b.1))
+}
+pub fn v2max(a:&V2,b:&V2)->V2{
+	(max(a.0,b.0),max(a.1,b.1))
+}
+pub fn v2is_inside(v:&V2, (minv,maxv):(&V2,&V2))->bool{
+	inrange(v.0, (minv.0, maxv.0))&&
+	inrange(v.1, (minv.1, maxv.1))
+}
 /// intersection returns the shape
 trait Intersect<T>{
     type Output;

@@ -14,7 +14,6 @@ pub fn new<A>()->sto<window::State<A>>{
         pos:(0.0f32,0.0f32,0.0f32),
         hdg:0.0f32
     })
-    as _//sto<ws>
 }
 
 trait Render{

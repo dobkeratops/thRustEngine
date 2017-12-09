@@ -21,8 +21,9 @@ pub enum KeyTransition{
 }
 pub use self::KeyTransition::*;
 
+pub type Modifiers=u32;
 #[derive(Debug,Clone,Copy)]
-pub struct KeyAt(pub KeyCode,pub KeyTransition,pub ViewPos);
+pub struct KeyAt(pub KeyCode,pub Modifiers, pub KeyTransition,pub ViewPos);
 pub type PixelPos=(i32,i32);
 pub type PixelVec=(i32,i32);
 pub type PixelSize=(i32,i32);
@@ -60,6 +61,7 @@ pub enum Event {
 
 pub type MouseAt=(MouseButtons,ViewPos);
 
+static mut g_firstdrag:bool=false;
 #[repr(u32)]
 #[derive(Clone,Debug,Copy)]
 pub enum DragMode {
@@ -131,24 +133,43 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
 
     // iterate key mappings, along with functionality, to automate
     // rolling statusbar/tooltips/menu assignment
-    fn key_mappings(&self,app:&A, kmf:&mut KeyMappings<A>){}
-    fn on_mouse_move(&mut self, app:&mut A, xy:ViewPos)->Flow<A> {
+    fn key_mappings(&mut self,app:&A, kmf:&mut KeyMappings<A>){}
+    fn on_mouse_move(&mut self, app:&mut A,opos:ViewPos, xy:ViewPos)->Flow<A> {
         // TODO - unsure if this is better dispatched by framework.
-        /*
-        if let Some(p)=unsafe{g_ldrag_start}{
-                    self.on_ldragging(p ,xy)
+
+        if let Some(ds)=unsafe{g_ldrag_start} {
+            unsafe {
+
+                if g_firstdrag {
+                    println!("first drag begin\n");
+                    self.on_ldrag_begin(app, to_viewpos(ds), xy);
+                    g_firstdrag = false;
+                }
+            }
+            self.on_ldragging(app, to_viewpos(ds) ,xy)
         } else
-        if let Some(p)=unsafe{g_rdrag_start}{
-            self.on_rdragging(p ,xy)
+        if let Some(ds)=unsafe{g_rdrag_start}{
+            unsafe {
+                if g_firstdrag {
+                    self.on_rdrag_begin(app, to_viewpos(ds), xy);
+                    unsafe { g_firstdrag = false; }
+                }
+            }
+            self.on_rdragging(app, to_viewpos(ds) ,xy)
         } else{
-            self.on_passive_move(p,xy)
+            self.on_passive_move(app,opos,xy)
         }
-        */
-        Flow::PassThru()
     }
     // hooks for each specific dragable button state,
     // streamline rolling a tool
-    fn on_passive_move(&mut self,app:&mut A, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_passive_move(&mut self,app:&mut A, opos:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    // first frame of dragging might have special behaviour; by default, just issue normal move
+    fn on_ldrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mdrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_rdrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_ldrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_mdrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_rdrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_ldragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_mdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_rdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
@@ -161,12 +182,27 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
 
     fn on_mouse_dragged(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
         println!("dragged{:?} {:?} {:?}",start,pos,mode);
-        Flow::PassThru()
+        match mb {
+            LeftButton=>self.on_ldrag_end(app, start, pos),
+            MiddleButton=>self.on_mdrag_end(app, start, pos),
+            RightButton=>self.on_rdrag_end(app, start, pos),
+
+
+            _=>Flow::PassThru()
+        }
     }
 
     fn on_mouse_dragging(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
+
         match mb{
-            LeftButton => self.on_ldragging(app,start,pos),
+            LeftButton =>{
+                if unsafe{g_firstdrag} {
+                    println!("first drag begin\n");
+                    self.on_ldrag_begin(app, start, pos);
+                    unsafe{g_firstdrag = false;}
+                }
+                self.on_ldragging(app,start,pos)
+            },
             RightButton => self.on_ldragging(app,start,pos),
             MidButton => self.on_mdragging(app,start,pos),
             _=>Flow::PassThru()
@@ -175,7 +211,13 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
 
     fn on_lbutton_down(&mut self,app:&mut A, pos:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_rbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_lbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_lbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{
+        match unsafe{g_ldrag_start} {
+            Some(prev)=>{println!("lbutton up (dragged)");}
+            None=>{println!("lbutton up (no drag)");}
+        }
+        Flow::PassThru()
+    }
     fn on_rbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_mbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
     fn on_mbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
@@ -206,14 +248,14 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
             _=>{warn!();Flow::Continue()}
         }
     }
-    fn on_key_down(&mut self,app:&mut A, k:KeyCode, pos:ViewPos)->Flow<A> { Flow::PassThru() }
+    fn on_key_down(&mut self,app:&mut A,  k:KeyCode, modifiers:u32, pos:ViewPos)->Flow<A> { Flow::PassThru() }
     fn on_key_up(&mut self, app:&mut A,k:KeyCode, pos:ViewPos)->Flow<A> { Flow::PassThru() }
-    fn on_key(&mut self,app:&mut A, k:KeyAt)->Flow<A>{
-        let KeyAt(kc,s,pos)=k;
+    fn on_key(&mut self,app:&mut A,k:KeyAt)->Flow<A>{
+        let KeyAt(keycode,modk,state,pos)=k;
         //default : route to seperate keydown,keyup
-        match s{
-            KeyDown=>self.on_key_down(app,kc,pos),
-            KeyUp=>self.on_key_up(app,kc,pos)}
+        match state{
+            KeyDown=>self.on_key_down(app,keycode,modk,pos),
+            KeyUp=>self.on_key_up(app,keycode,pos)}
     }
     fn on_drop(&mut self, f:&str, sp:ViewPos)           {}
     fn command( &mut self, app:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
@@ -224,13 +266,18 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
         match e{
             Event::Update(dt)  =>{self.update(app,dt);Flow::Continue()},
             Event::Render(t)   =>{
-                self.render(app,&RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(), t:0.0f32});
+                self.render(app,
+					&RC{
+						rect:((0.0,0.0),(1.0,1.0)),
+						mouse_old_pos:get_mouse_ovpos(),
+						mouse_pos:get_mouse_vpos(), 
+						t:0.0f32});
                 Flow::Continue()
             },
             Event::Activate()  =>{self.on_activate(app);Flow::Continue()},
             Event::Deactivate()    =>{self.on_deactivate(app);Flow::Continue()},
             Event::Key(k)     =>self.on_key(app,k),
-            Event::Move(pos)  =>self.on_mouse_move(app,pos),
+            Event::Move(pos)  =>self.on_mouse_move(app,get_mouse_ovpos(), pos),
             Event::TryBeginDrag(mb,pos)=>{
                 match get_dragmode(){
                     DragMode::None=>set_dragmode(self.try_drag(app,(mb,pos))),
@@ -312,6 +359,7 @@ impl gridview for mygridview  // gets 'window'
 static mut g_key:[bool;256]=[false;256];
 static mut g_mouse_button:u32=0;
 static mut g_mouse_pos:PixelPos=(0,0);
+static mut g_mouse_opos:PixelPos=(0,0);
 static mut g_dragmode:DragMode=DragMode::None;
 static mut g_ldrag_start:Option<PixelPos>=None;
 static mut g_rdrag_start:Option<PixelPos>=None;
@@ -323,8 +371,20 @@ const  MaxEvent:usize=256;
 static mut g_ui_event:[Event;MaxEvent]=[Event::None;MaxEvent];
 static mut g_head:i32=0;
 static mut g_tail:i32=0;
+pub const CTRL:u32=0x0001;
+pub const SHIFT:u32=0x0002;
+pub const ALT:u32=0x0004;
 
-
+fn get_modifiers()->u32{
+	unsafe {let modk:u32=glutGetModifiers() as u32;	
+	let ret=0u32
+	|if modk & GLUT_ACTIVE_SHIFT!=0{SHIFT}else{0}
+	|if modk & GLUT_ACTIVE_CTRL!=0{CTRL}else{0}
+	|if modk & GLUT_ACTIVE_ALT!=0{ALT}else{0};
+	
+	dump!(modk,ret);
+	ret}
+}
 mod callbacks {
     use super::*;
     pub fn reshape_func(x: i32, y: i32) {
@@ -340,7 +400,7 @@ mod callbacks {
     pub fn keyboard_func_sub(key: u8, isdown: bool, x: i32, y: i32) {
         unsafe {
             g_key[key as usize] = isdown;
-            let kp = KeyAt(key as KeyCode, if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
+            let kp = KeyAt(key as KeyCode,get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
             push_event(Event::Key(kp));
         }
     }
@@ -352,7 +412,7 @@ mod callbacks {
     pub fn special_func_sub(key: GLuint, isdown: bool, x: i32, y: i32) {
         assert!((key as u32 & 0xff) == key as u32);
         unsafe {
-            let kp = KeyAt(key as u8 as KeyCode, if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
+            let kp = KeyAt(key as u8 as KeyCode,get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
             push_event(Event::Key(kp));
             g_key[key as usize] = isdown;
         }
@@ -416,9 +476,15 @@ mod callbacks {
         let pos=(x,y);
         let vpos = to_viewpos(pos);
         let oldbs=unsafe{g_mouse_button};
-        println!("mouse event {:?} {:?}",state, (x,y));
-        dump!(state,x,y);
-        if state==GLUT_DOWN{g_mouse_button|=button} else {g_mouse_button&=!button};
+        //println!("mouse event {:?} {:?} fd={:?}",state, (x,y),unsafe{g_firstdrag});
+        //dump!(state,x,y);
+        if state==GLUT_DOWN{
+            g_mouse_button|=button;
+            unsafe{
+                g_firstdrag=true;
+            }
+        }
+            else {g_mouse_button&=!button};
 
         // raw up-down events pass to window,
         push_event(Event::Button  (
@@ -477,8 +543,9 @@ fn to_viewpos(s:PixelPos)->ViewPos{
         -(divf32(s.1,g_screensize.1)*2.0f32-1.0f32)
     )}
 }
-fn set_mouse_pos(x:i32,y:i32){unsafe{g_mouse_pos=(x,y)};}
+fn set_mouse_pos(x:i32,y:i32){unsafe{g_mouse_opos=g_mouse_pos; g_mouse_pos=(x,y)};}
 fn get_mouse_vpos()->ViewPos{unsafe{to_viewpos(g_mouse_pos)}}
+fn get_mouse_ovpos()->ViewPos{unsafe{to_viewpos(g_mouse_opos)}}
 fn get_mouse_ppos()->PixelPos{unsafe{g_mouse_pos}}
 fn push_event(e:Event){
     unsafe {
@@ -572,9 +639,10 @@ fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
 fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3{Vec3(x,y,z)}
 
 pub struct RC {
-    rect:Rect,
-	mouse_pos:ViewPos,
-	t:f32
+    pub rect:Rect,
+	pub mouse_old_pos:ViewPos,
+	pub mouse_pos:ViewPos,
+	pub t:f32
 }
 fn set_dragmode(d:DragMode){
     unsafe{ g_dragmode=d;}
@@ -636,7 +704,7 @@ fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
             render_begin();
             let i = top - 1;
             {
-				let rc=RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(),t:0.0f32};
+				let rc=RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(),mouse_old_pos:get_mouse_ovpos(),t:0.0f32};
                 let win = &wins.0[i];
                 // if it's an overlay , render previous first.
                 if i > 0 && win.1 {
@@ -726,7 +794,7 @@ pub fn run_loop<APP>(mut w:sto<State<APP>>, app:&mut APP) {
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
         //glutMainLoop();
-        while true {
+        loop {
             glutCheckLoop();//draw
 
             render_and_update(&mut wins,app);
