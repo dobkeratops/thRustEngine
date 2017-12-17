@@ -920,14 +920,22 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
 #[cfg(target_os = "emscripten")]
 unsafe fn glutCheckLoop(){
 }
+#[cfg(target_os = "linux")]
+unsafe fn glutCheckLoop(){
+	glutMainLoopEvent();
+}
 
 #[cfg(target_os = "emscripten")]
 unsafe fn extra_callbacks(){
 }
+
 #[cfg(not(target_os = "emscripten"))]
 unsafe fn extra_callbacks(){
+	// joystick on linux broken :(
+	#[cfg(not(target_os = "linux"))]
         glutJoystickFunc(callbacks::joystick_func as *const u8,16);
 }
+
 
 #[cfg(not(target_os = "emscripten"))]
 fn run_main_loop(){

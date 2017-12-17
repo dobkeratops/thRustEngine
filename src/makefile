@@ -7,7 +7,8 @@ ifeq ($(shell uname),Darwin)
 else
 	CFLAGS += $(shell sdl2-config --cflags) $(shell pkg-config --cflags pango)
 	LFLAGS += $(shell sdl2-config --libs)
-	LFLAGS += -lGL $(shell pkg-config --libs pango)
+	LFLAGS += -lGL -lglut $(shell pkg-config --libs pango)
+	RUSTFLAGS = -lGL -lglut
 endif
 
 #-l framework=SDL2
