@@ -18,14 +18,18 @@ SOURCES:=$(shell find . -name "*.rs")
 
 
 
-run_cargo: $(SOURCES)
+run_cargo: $(SOURCES) link_data
 	cargo run
+	echo "ok; (also see targets asmjs shadertest)"
 
 shadertest: $(SOURCES)
 	rustc main.rs $(RUSTFLAGS) --cfg shadertest -o shadertest
 
 main: desktop asmjs shadertest
 	echo "built all versions"
+
+link_data:
+	if [! -d data] ln -s ../data data
 
 asmjs: $(SOURCES)
 	rustc --version
