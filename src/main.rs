@@ -13,6 +13,7 @@
 #![allow(unreachable_patterns)]
 //#[warn(unused_macros)]
 #![allow(unused_macros)]
+#![feature(link_args)]
 //#![feature(drop_types_in_const)]
 //#![overflow_checks(off)]
 //#![feature(link_args)]
@@ -35,7 +36,12 @@ pub use window::Window;
 pub use emscripten::*;
 pub use std::fs::File;
 
+#[cfg(not(target_os="emscripten"))]
 extern crate image;
+
+#[cfg(target_os="macos")]
+#[link_args="-framework OpenGL -framework glut -L/usr/local/lib -F/Library/Frameworks -framework SDL2 -framework Cocoa"]
+extern{}
 
 #[cfg(target_os = "android")]
 extern { fn android_logw(s:*const c_char);}
@@ -204,6 +210,12 @@ fn vec_from_fn<T:Sized+Clone,F:Fn(usize)->T>(num:usize , f:&F)->Vec<T>{
 	r
 }
 
+#[cfg(target_os="emscripten")]
+fn get_texture(filename:&str)->GLuint{
+	return 0;
+}
+
+#[cfg(not(target_os="emscripten"))]
 fn get_texture(filename:&str)->GLuint{
 	use std::io::prelude::*;
 	use std::fs::File;
@@ -912,10 +924,14 @@ fn map_shader_params(prog:GLuint)->(VertexAttr,UniformTable)
 		)
 	}	
 }
-
 #[cfg(any(target_os = "android",target_os="emscripten"))]
-fn get_shader_prefix(is_ps:int)->&'static str {
-	if is_ps==0 {vertex_shader_prefix_gles} else {pixel_shader_prefix_gles}
+fn get_shader_prefix(st:ShaderType)->&'static str {
+	use ShaderType::*;
+	match st{
+		ShaderType::Pixel=>pixel_shader_prefix_gles,
+		ShaderType::Vertex=>vertex_shader_prefix_gles,
+		_=>panic!("can't deal with this case")
+	}
 }
 
 /*
@@ -925,11 +941,8 @@ fn get_shader_prefix(is_ps:int)->&'static str {
 }
 */
 
-enum ShaderType{
-	PixelShader,VertexShader
-}
 #[cfg(any(target_os = "macos",target_os="linux"))]
-fn get_shader_prefix(is_ps:i32)->&'static str {
+fn get_shader_prefix(st:ShaderType)->&'static str {
 	shader_prefix_desktop
 }
 
@@ -943,15 +956,16 @@ fn	create_shaders()
 		android_logw(c_str("create shaders"));
 		println!("CREATE MAIN SHADER\n");
 		let (vsh,psh,prg)=create_shader_program( 
-			&[	get_shader_prefix(1),
+			&[	get_shader_prefix(ShaderType::Pixel),
 				g_PS_DeclUniforms,
 				ps_vs_interface0,
 				g_PS_Tex0/*g_PS_Alpha*/
 			],
-			&[	get_shader_prefix(0),
+			&[	get_shader_prefix(ShaderType::Vertex),
 				ps_vertex_format0,
 				ps_vs_interface0, 
 				g_VS_PassThruTweak
+
 			]);
 		g_vertex_shader=vsh;
 		g_pixel_shader=psh;	
@@ -962,14 +976,14 @@ fn	create_shaders()
 		println!("su={:?}",su);
 		g_vertex_shader_attrib=vs;
 		g_shader_uniforms[RenderMode::Default]=su;
-		g_shader_uniforms[RenderMode::Default].mat_proj=0;
-		g_shader_uniforms[RenderMode::Default].mat_model_view=4;
-		g_shader_uniforms[RenderMode::Default].mat_model_view_proj=8;
+//		g_shader_uniforms[RenderMode::Default].mat_proj=0;
+//		g_shader_uniforms[RenderMode::Default].mat_model_view=4;
+//		g_shader_uniforms[RenderMode::Default].mat_model_view_proj=8;
 		println!("CREATE DEBUG SHADER\n");
 
 		let (vsh1,psh1,prg1)=create_shader_program( 
-			&[get_shader_prefix(1),ps_vs_interface0,g_PS_Alpha],
-			&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
+			&[get_shader_prefix(ShaderType::Pixel),ps_vs_interface0,g_PS_Alpha],
+			&[get_shader_prefix(ShaderType::Vertex), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
 		g_shader_program[RenderMode::Debug]=prg1;
 		
 
@@ -1265,9 +1279,10 @@ pub fn	render_no_swap(debug:u32)
 */
 
 			{
-			//	let mat_ident=matrix::identity();
-				let shu=&g_shader_uniforms[RenderMode::Debug];
-				glUseProgram(g_shader_program[RenderMode::Debug]);
+				let render_mode=(i as usize) % RenderMode::Count;
+			// todo - render modes x vertex formats.
+				let shu=&g_shader_uniforms[render_mode];
+				glUseProgram(g_shader_program[render_mode]);
 				glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
 				glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
 				g_grid_mesh.render_mesh_shader();

@@ -19,7 +19,7 @@ SOURCES:=$(shell find . -name "*.rs")
 
 
 run_cargo: $(SOURCES)
-	cd .. &&cargo run
+	cargo run
 
 shadertest: $(SOURCES)
 	rustc main.rs $(RUSTFLAGS) --cfg shadertest -o shadertest

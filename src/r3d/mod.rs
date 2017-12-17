@@ -57,6 +57,12 @@ pub use vector::{Vec3f,Vec2f,Vec4f, Vec1,Vec3,Vec4,Vec2};
 pub use matrix::{Mat33f,Mat34f,Mat43f,Mat44f,Mat34,Mat44,Mat33,Mat43};
 //pub use dimensionval;
 
+
+pub enum ShaderType{
+	Pixel,Vertex,Geometry,Compute
+}
+
+
 //pub static GL_TEXTURE_2D:rawglbinding::uint=0x0DE1;
 
 pub unsafe fn c_str(s:&str)->*const c_char {
