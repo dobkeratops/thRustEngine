@@ -990,9 +990,8 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
         let mut argc:c_int=0;
         let argv=Vec::<*const c_char>::new();
         glutInit((&mut argc) as *mut c_int,0 as *const *const c_char );
-
         glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
-        let win=glutCreateWindow(c_str("world main loop"));
+        let win=glutCreateWindow(cstr!("world main loop"));
 		println!("{:?},{:?}",glutGet(GLUT_WINDOW_WIDTH),
 			glutGet(GLUT_WINDOW_HEIGHT));
 		//return;
@@ -1075,6 +1074,14 @@ impl<O,E> Window<O> for MainWindow<E> {
         Flow::Continue()
     }
     fn render(&self,a:&O, wc:&WinCursor){
+		unsafe{
+			glActiveTexture(GL_TEXTURE1+0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glDisable(GL_TEXTURE_2D);
+			glActiveTexture(GL_TEXTURE0+0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glDisable(GL_TEXTURE_2D);
+		}
         gl_scissor_s(&wc.rect);
         self.subwindow.render(&self.content,wc);
     }

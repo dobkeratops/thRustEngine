@@ -33,9 +33,9 @@ pub mod emscripten;
 pub use window::sto;
 pub use window::Window;
 pub use emscripten::*;
+pub use std::fs::File;
 
-//extern crate image;
-
+extern crate image;
 
 #[cfg(target_os = "android")]
 extern { fn android_logw(s:*const c_char);}
@@ -168,6 +168,62 @@ fn vec_from_fn<T:Sized+Clone,F:Fn(usize)->T>(num:usize , f:&F)->Vec<T>{
 	r
 }
 
+fn get_texture(filename:&str)->GLuint{
+	use std::io::prelude::*;
+	use std::fs::File;
+
+	let mut data=Vec::<u8>::new();
+	let mut ff=File::open(filename);
+	let md=fs::metadata(filename).unwrap();
+	println!("{} len={}",filename, md.len());
+	match File::open(filename){
+		Err(_)=>{println!("could not open {}",filename);return 0;}
+		Ok(mut f)=>{println!("opened {} {}",filename,f.metadata().unwrap().len());f.read_to_end(&mut data);}
+	}
+	
+	println!("loaded {} bytes from {}",data.len(),filename);
+	let imr=image::load_from_memory(&data);
+
+	match imr{
+		Err(x)=>{println!("failed to init {}",filename); return 0;},
+		Ok(image::DynamicImage::ImageRgb8(img))=>{
+			
+			let (usize,vsize)=img.dimensions();
+			println!("loaded rgb image {}x{}",usize,vsize);
+//			let bfr=img.into_raw();
+			let mut texid:GLuint=0;
+			let fmt=GL_RGB;
+			let mut my=Vec::<u8>::new();
+			for j in (0..vsize){
+				for i in (0..usize){
+					let p=img.get_pixel(i as u32,j as u32);
+					my.push(p.data[0]);
+					my.push(p.data[1]);
+					my.push(p.data[2]);
+					if (0==i&15) &&( 0==j&15){print!("{}",if p.data[1]>128{if p.data[1]>192{"O"}else{"o"}}else{if p.data[1]>64{"."}else{" "}});}
+				}
+				if 0==j&15{print!("\n");}
+			}
+			unsafe {
+			glGenTextures(1,&mut texid);
+			glBindTexture(GL_TEXTURE_2D,texid);
+		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE as GLint);
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as GLint);
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as GLint);
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as GLint);
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as GLint);
+
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, fmt, GL_UNSIGNED_BYTE, &my[0]);
+			}
+			return texid;
+		},
+		Ok(image::DynamicImage::ImageRgba8(img))=>{
+//			return create_tex(img,GL_RGBA)
+			return 0;
+		},
+		_=>{println!("image not handled");return 0;}
+	}
+}
 
 unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&[&str]) ->GLuint
 {
@@ -684,6 +740,23 @@ void main() { \n\
 }\
 ";
 
+static g_PS_Tex0:&'static str=&"\
+uniform sampler2D s_tex0;\n\
+uniform sampler2D s_tex1;\n\
+uniform sampler2D s_tex2;\n\
+uniform vec4 uSpecularDir;\n\
+uniform float uSpecularPower;\n\
+uniform vec4 uSpecularColor;\n\
+uniform vec4 uAmbient;\n\
+uniform vec4 uDiffuseDX;\n\
+uniform vec4 uDiffuseDY;\n\
+uniform vec4 uDiffuseDZ;\n\
+void main() { \n\
+	vec4 t0=texture2D(s_tex0, v_tex0);\n\
+	gl_FragColor =t0;\n\
+}\
+";
+
 
 #[derive(Clone,Debug)]
 struct UniformTable {
@@ -803,7 +876,7 @@ fn	create_shaders()
 	unsafe {
 		android_logw(c_str("create shaders"));
 		let (vsh,psh,prg)=create_shader_program( 
-						&[get_shader_prefix(1),ps_vs_interface0,g_PS_Alpha],
+						&[get_shader_prefix(1),ps_vs_interface0,g_PS_Tex0/*g_PS_Alpha*/],
 						&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_PassThruTweak]);
 		g_vertex_shader=vsh;
 		g_pixel_shader=psh;	
@@ -818,8 +891,8 @@ fn	create_shaders()
 		g_shader_uniforms_main.mat_model_view_proj=8;
 
 		let (vsh1,psh1,prg1)=create_shader_program( 
-						&[get_shader_prefix(1),ps_vs_interface0,g_PS_Alpha],
-						&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
+			&[get_shader_prefix(1),ps_vs_interface0,g_PS_Tex0/*g_PS_Alpha*/],
+			&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
 		g_shader_program_debug=prg1;
 		
 
@@ -898,7 +971,6 @@ impl Mesh {
 				let (i,dj)=div_rem(i2,2);	// i hope that inlines to >> &
 				let ai= i as isize; let adj = dj as isize;
 				let aj = j as isize;
-				println!("indexx{:?} i={:?} j={:?}", ij, i, j);
 				(((aj+adj)%(num1 as isize))*(num0 as isize)+(i % (num0 as isize))) as GLuint
 			}
 		);
@@ -1007,9 +1079,9 @@ impl Mesh {
 		safe_set_uniform(shu.fog_falloff, &Vec4(0.5f32,0.25f32,0.0f32,0.0f32));
 
 		glActiveTexture(GL_TEXTURE0+0);
-		glBindTexture(GL_TEXTURE_2D, g_textures[0]);
+		glBindTexture(GL_TEXTURE_2D, g_textures[1]);
 		glActiveTexture(GL_TEXTURE0+1);
-		glBindTexture(GL_TEXTURE_2D, g_textures[0]);
+		glBindTexture(GL_TEXTURE_2D, g_textures[1]);
 
 //		glVertexAttribPointer(VAI_pos as GLuint,	3,GL_FLOAT, GL_FALSE, stride, &((*baseVertex).pos[0]) as *f32 as *c_void);
 		// to do: Rustic struct element offset macro
@@ -1045,12 +1117,11 @@ pub fn	render_no_swap()
 {
 	//android_logw("render noswap");
 	
-	println!("shadetest::render_no_swap");
 	lazy_create_resources();	
 	let x:StringMap<usize>;
 	unsafe {
-		android_logw(c_str("render_no_swap"));
-		println!("{:?}",g_grid_mesh);
+//		android_logw(c_str("render_no_swap"));
+//		println!("{:?}",g_grid_mesh);
 		g_angle+=0.0025f32;
 
 //		glDrawBuffer(GL_BACK);
@@ -1133,8 +1204,29 @@ pub fn	render_no_swap()
 		glVertex3f(0.0f32,0.0f32,z);
 		glColor3f(0.0f32,1.0f32,1.0f32);
 		glEnd();
-		draw::rect_tex(&Vec2(-0.4,-0.4),&Vec2(0.2,0.1),z);
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D,g_textures[1]);
+		draw::rect_tex(&Vec2(-0.4,-0.4),&Vec2(0.2,0.2),z);
 		draw::end();
+		glBegin(GL_TRIANGLE_STRIP);
+
+		glTexCoord2f(0.0,0.0);
+		glColor3f(1.0f32,1.0f32,1.0f32);
+		glVertex3f(0.0f32,0.0f32,z);
+
+		glTexCoord2f(100.0,0.0);
+		glColor3f(1.0f32,1.0f32,1.0f32);
+		glVertex3f(1.0f32,0.0f32,z);
+
+		glTexCoord2f(0.0,100.0);
+		glColor3f(1.0f32,1.0f32,0.0f32);
+		glVertex3f(0.0f32,1.0f32,z);
+
+		glTexCoord2f(100.0,100.0);
+		glColor3f(1.0f32,1.0f32,1.0f32);
+		glVertex3f(1.0f32,1.0f32,z);
+
+		glEnd();
 
 		for x in 0..10 {
 			for y in 0..10 {
@@ -1182,14 +1274,14 @@ fn	create_textures() {
 			(i+j*256+255*256*256) as u32
 		});
 		for i in 0 as GLint..8 as GLint {
-			glTexImage2D(GL_TEXTURE_2D, i, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, as_void_ptr(&buffer[0]));
+			glTexImage2D(GL_TEXTURE_2D, i, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0] as *const _ as _);
 		}
 		glBindTexture(GL_TEXTURE_2D,0);
 	
-//		g_textures[1] = get_texture(&"data/rocktile.tga");
-//		g_textures[4] = get_texture(&"data/pebbles_texture.tga");
-//		g_textures[3] = get_texture(&"data/grass.tga");
-//		g_textures[2] = get_texture(&"data/cliffs.tga");
+		g_textures[1] = get_texture("data/mossy_rock.jpg");
+		g_textures[2] = get_texture("data/cliffs.tga");
+		g_textures[3] = get_texture("data/grass.tga");
+		g_textures[4] = get_texture("data/pebbles_texture.tga");
 	}
 }
 
@@ -1206,7 +1298,6 @@ pub fn lazy_create_resources() {
 			g_lazy_init=true;
 			g_grid_mesh = Mesh::new_torus((16,16)); //new GridMesh(16,16);
 		} else {
-			println!("lazy init alredy done ok\n");
 		}
 	}
 }
@@ -1353,7 +1444,7 @@ fn create_texture_from_url(url:&str,waiting_color:u32)->GLuint{
 			waiting_color
 		});
 		for i in 0 as GLint..8 as GLint {
-			glTexImage2D(GL_TEXTURE_2D, i, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, as_void_ptr(&buffer[0]));
+			glTexImage2D(GL_TEXTURE_2D, i, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0] as *const _ as _);
 		}
 		texname
 	}
@@ -1405,11 +1496,12 @@ pub fn test_seq(){
 }
 
 pub fn main(){
+
  	#[cfg(shadertest)]
-	window::run_loop(vec![Box::new(ShaderTest{time:30})],&mut ());
+	window::run_loop(vec![Box::new(ShaderTest{time:30000})],&mut ());
 
 	#[cfg(not(target_os = "emscripten"))]
-	window::run_loop(vec![world::new()],&mut ());
+	window::run_loop(vec![world::new(),Box::new(ShaderTest{time:3000})],&mut ());
 
 	#[cfg(target_os = "emscripten")]
     window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());

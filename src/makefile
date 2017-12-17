@@ -16,9 +16,15 @@ endif
 SOURCES:=$(shell find . -name "*.rs")
 # main.rs r3d/vector.rs window.rs r3d/matrix.rs r3d/quaternion.rs r3d/meshbuilder.rs r3d/draw.rs r3d/render.rs bsp/mod.rs bsp/bspdraw.rs editor.rs
 
-main: desktop asmjs
 
-asmjs: env
+
+shadertest: $(SOURCES)
+	rustc main.rs $(RUSTFLAGS) --cfg shadertest -o shadertest
+
+main: desktop asmjs shadertest
+	echo "built all versions"
+
+asmjs: $(SOURCES)
 	rustc --version
 	rustc main.rs --target=asmjs-unknown-emscripten
 

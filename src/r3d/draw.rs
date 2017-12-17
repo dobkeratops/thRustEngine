@@ -367,10 +367,10 @@ pub fn rect_tex_c_crop<V2:HasXY<Elem=f32>>(a:&V2,b:&V2,z:f32,col:u32,uv0:&V2,uv1
 	let v1=uv1.y();
 	unsafe {
 	glBegin(GL_TRIANGLE_STRIP);
-	gl_vertex_tc(&Vec3(x0,y0,z), &Vec2(u0,v0),col);
-	gl_vertex_tc(&Vec3(x1,y0,z), &Vec2(u1,v0),col);
-	gl_vertex_tc(&Vec3(x0,y1,z), &Vec2(u0,v1),col);
-	gl_vertex_tc(&Vec3(x1,y1,z), &Vec2(u1,v1),col);
+	gl_vertex_tc(&Vec3(x0,y0,z), &Vec2(0.0,0.0),col);
+	gl_vertex_tc(&Vec3(x1,y0,z), &Vec2(0.0,1.0),col);
+	gl_vertex_tc(&Vec3(x0,y1,z), &Vec2(1.0,0.0),col);
+	gl_vertex_tc(&Vec3(x1,y1,z), &Vec2(1.0,1.0),col);
 	glEnd();
 	}
 }
@@ -533,7 +533,7 @@ pub fn create_texture<Texel>((w,h):(u32,u32), raw_pixels:&Vec<Texel>, alpha_bits
 		glBindTexture(GL_TEXTURE_2D,tx[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR as GLint);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR as GLint);
-		glTexImage2D(GL_TEXTURE_2D, 0, fmt as GLint, w as GLsizei,h as GLsizei, 0, fmt, fmt2, raw_pixels.as_ptr() as *const c_void); 
+		glTexImage2D(GL_TEXTURE_2D, 0, fmt as GLint, w as GLsizei,h as GLsizei, 0, fmt, fmt2, &raw_pixels[0]  as *const _ as _); 
 		tx[0]
 	}
 }

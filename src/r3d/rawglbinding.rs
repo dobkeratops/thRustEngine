@@ -176,7 +176,7 @@ pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
                                     internalFormat:GLint ,
                                     width:GLsizei, height:GLsizei ,
                                     border:GLint , format:GLenum , _type:GLenum,
-                                    pixels: PGLvoid );
+                                    pixels: *const u8 );
 
 	pub fn glGetTexImage( target:GLenum, level:GLint,
                                      format:GLenum, _type:GLenum,

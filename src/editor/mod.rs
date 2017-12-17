@@ -603,7 +603,7 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         Flow::Continue()
     }
     fn render(&self,ed:&Editor<T>, wc:&WinCursor){
-
+			
 
         draw::rect_outline_v2(&wc.rect.min, &wc.rect.max, if v2is_inside(&wc.pos, (&wc.rect.min, &wc.rect.max)){0xa0a0a0}else{0x909090});
 
