@@ -117,9 +117,45 @@ pub struct	Mesh
 	pub num_vertices:GLuint,num_indices:GLuint
 }
 
+// todo - enum looked like it needed horrid casts
+pub mod RenderMode{
+	pub const Default:usize=0;
+	pub const Debug:usize=1;
+/*	Flat,
+	Color,
+	Normal,
+	Light,
+	TexCoord
+*/
+	pub const Count:usize=2;
+}
+
 static mut g_textures:[GLuint;5]=[0;5];
-static mut g_shader_program_main:GLuint=-1i32 as uint;
-static mut g_shader_program_debug:GLuint=-1i32 as uint;
+static mut g_shader_program:[GLuint;RenderMode::Count]=[-1i32 as uint;RenderMode::Count];
+static mut g_shader_uniforms:[UniformTable;RenderMode::Count]=[
+UniformTable{
+	mat_proj:-1,
+	mat_model_view:-1,
+	mat_model_view_proj:-1,
+	mat_color:-1,
+	mat_env_map:-1,
+	tex0:-1,
+	tex1:-1,
+	cam_in_obj:-1,
+	ambient:-1,
+	diffuse_dx:-1,
+	diffuse_dy:-1,
+	diffuse_dz:-1,
+	specular_color:-1,
+	specular_dir:-1,
+	sky_dir:-1,
+	test_vec_4:-1,
+	fog_color:-1,
+	fog_falloff:-1,
+	light0_pos_r:-1,
+	light0_color:-1,
+};RenderMode::Count
+];
 static mut g_pixel_shader:GLuint=-1i32 as uint;
 static mut g_vertex_shader:GLuint=-1i32 as uint;
 
@@ -300,6 +336,7 @@ static mut g_vertex_shader_attrib_debug:VertexAttr=VertexAttr{
 };
 
 //g_vertex_attr_empty;
+
 
 static mut g_shader_uniforms_main:UniformTable=UniformTable{
 	mat_proj:-1,
@@ -777,7 +814,7 @@ void main() {\n\
 ";
 
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Default,Copy)]
 struct UniformTable {
 	mat_proj:UniformIndex,
 	mat_model_view:UniformIndex,
@@ -918,28 +955,28 @@ fn	create_shaders()
 			]);
 		g_vertex_shader=vsh;
 		g_pixel_shader=psh;	
-		g_shader_program_main=prg;
+		g_shader_program[RenderMode::Default]=prg;
 		println!("CREATE MAIN SHADERdone\n");
-		let (vs, su)=map_shader_params(g_shader_program_main);
+		let (vs, su)=map_shader_params(g_shader_program[RenderMode::Default]);
 		println!("vs={:?}",vs);
 		println!("su={:?}",su);
 		g_vertex_shader_attrib=vs;
-		g_shader_uniforms_main=su;
-		g_shader_uniforms_main.mat_proj=0;
-		g_shader_uniforms_main.mat_model_view=4;
-		g_shader_uniforms_main.mat_model_view_proj=8;
+		g_shader_uniforms[RenderMode::Default]=su;
+		g_shader_uniforms[RenderMode::Default].mat_proj=0;
+		g_shader_uniforms[RenderMode::Default].mat_model_view=4;
+		g_shader_uniforms[RenderMode::Default].mat_model_view_proj=8;
 		println!("CREATE DEBUG SHADER\n");
 
 		let (vsh1,psh1,prg1)=create_shader_program( 
 			&[get_shader_prefix(1),ps_vs_interface0,g_PS_Alpha],
 			&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
-		g_shader_program_debug=prg1;
+		g_shader_program[RenderMode::Debug]=prg1;
 		
 
 		{
-			let (vs, su)=map_shader_params(g_shader_program_debug);
+			let (vs, su)=map_shader_params(g_shader_program[RenderMode::Debug]);
 			g_vertex_shader_attrib_debug=vs;
-			g_shader_uniforms_debug=su;
+			g_shader_uniforms[RenderMode::Debug]=su;
 		}
 		println!("CREATE DEBUG SHADERdone\n");
 
@@ -1207,11 +1244,11 @@ pub fn	render_no_swap(debug:u32)
 //			println!("[{:?}]{:?} {:?}",i, matP,rot_trans);
 			let (prg,shu)={
 				if debug!=0 && false{
-					(g_shader_program_debug,
-					&g_shader_uniforms_debug)
+					(g_shader_program[RenderMode::Debug],
+					&g_shader_uniforms[RenderMode::Debug])
 				} else{
-					(g_shader_program_main,
-					&g_shader_uniforms_main)
+					(g_shader_program[RenderMode::Default],
+					&g_shader_uniforms[RenderMode::Default])
 				}
 			};
 			glUseProgram(prg);
@@ -1229,8 +1266,8 @@ pub fn	render_no_swap(debug:u32)
 
 			{
 			//	let mat_ident=matrix::identity();
-				let shu=&g_shader_uniforms_debug;
-				glUseProgram(g_shader_program_debug);
+				let shu=&g_shader_uniforms[RenderMode::Debug];
+				glUseProgram(g_shader_program[RenderMode::Debug]);
 				glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
 				glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
 				g_grid_mesh.render_mesh_shader();
