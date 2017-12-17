@@ -29,7 +29,7 @@ main: desktop asmjs shadertest
 	echo "built all versions"
 
 link_data:
-	if [! -d data] ln -s ../data data
+	if [! -d data];then ln -s ../data data;fi
 
 asmjs: $(SOURCES)
 	rustc --version

@@ -955,6 +955,7 @@ fn	create_shaders()
 	unsafe {
 		android_logw(c_str("create shaders"));
 		println!("CREATE MAIN SHADER\n");
+//		let create_sub=|i,sh,vs
 		let (vsh,psh,prg)=create_shader_program( 
 			&[	get_shader_prefix(ShaderType::Pixel),
 				g_PS_DeclUniforms,
@@ -976,9 +977,6 @@ fn	create_shaders()
 		println!("su={:?}",su);
 		g_vertex_shader_attrib=vs;
 		g_shader_uniforms[RenderMode::Default]=su;
-//		g_shader_uniforms[RenderMode::Default].mat_proj=0;
-//		g_shader_uniforms[RenderMode::Default].mat_model_view=4;
-//		g_shader_uniforms[RenderMode::Default].mat_model_view_proj=8;
 		println!("CREATE DEBUG SHADER\n");
 
 		let (vsh1,psh1,prg1)=create_shader_program( 
