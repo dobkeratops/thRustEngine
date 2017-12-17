@@ -5,7 +5,11 @@ pub fn main()
 	unsafe {
 		draw::init();
 		let mut palette=Vec::<u8>::new();
-		File::open("/Users/walter/data/palette.lmp").unwrap().read_to_end(&mut palette);
+		let x=File::open("/Users/walter/data/palette.lmp").unwrap().read_to_end(&mut palette);
+        match x{
+            Err(x)=>{println!("error loading file");}
+            _=>{}
+        };
 		for i in 0..256*3 {g_palette[i]=palette[i];}
 
 

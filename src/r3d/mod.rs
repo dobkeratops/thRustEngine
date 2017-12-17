@@ -23,6 +23,7 @@ pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,con
 pub use io::Read;
 pub use fmt::Debug;
 
+use ::std::f32::consts::PI;
 
 pub use ffi::{CString,CStr};
 pub use ffi::CString as c_str;
@@ -59,16 +60,38 @@ pub use matrix::{Mat33f,Mat34f,Mat43f,Mat44f,Mat34,Mat44,Mat33,Mat43};
 //pub static GL_TEXTURE_2D:rawglbinding::uint=0x0DE1;
 
 pub unsafe fn c_str(s:&str)->*const c_char {
-	s.as_ptr() as *const c_char
+	// unfortunately thats not how it works. these need to be manually null terminated!
+	//assert!(s.len()>0);
+	let r=s.as_ptr() as *const c_char;
+	//assert!(*r.offset(s.len() as isize-1)==('\0' as c_char));
+	r
 }
+
+macro_rules! cstr{
+	($txt:expr)=>{
+		c_str(concat!($txt,"\0"))
+	}
+}
+
 pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 	ptr as *const T as *const c_void
+}
+#[derive(Clone,Debug)]
+pub struct	MyVertex 
+{
+	pub pos:[f32;3],
+	pub color:[f32;4],
+	pub norm:[f32;3],
+	pub tex0:[f32;2]
 }
 
 
 pub struct PackedARGB(pub u32);	// 'Color', most commonly packed 8888
+pub struct PackedS8x4(pub u32);	// packed vector in -1 to 1 range
 pub struct PackedARGB1555(pub u16);	// 'Color', most commonly packed 8888
-type Color = PackedARGB;
+pub struct PackedRGB565(pub u16);	// 'Color', most commonly packed 8888
+type Color = PackedARGB;        // ånother synonym
+type PackedARGB8888=PackedARGB;    // explicit
 							// other representations can be more specific.
 type Point3= vector::Vec3<f32>;
 // todo: f16
@@ -77,6 +100,32 @@ struct PackedXYZ(pub u32);
 
 fn to_u32(f:f32)->u32{
 	(f*255.0f32) as u32
+}
+
+type Radians=f32;	// the most natural mathematical angle gets the raw type.
+// anything which can be an angle..
+
+pub trait Angle :Sized {
+	fn to_radians(&self)->Radians{unimplemented!()}
+	fn to_degrees(&self)->Degrees{unimplemented!()}
+	fn from_fraction(&self,num:isize,denom:isize )->Self{unimplemented!()}
+	fn to_fraction_num(&self,denom:isize)->isize{unimplemented!()}
+	fn sin(&self)->f32{unimplemented!()}
+	fn cos(&self)->f32{unimplemented!()}
+	fn tan(&self)->f32{unimplemented!()}
+	fn sin_cos(&self)->(f32,f32){(self.sin(),self.cos())}
+}
+impl Angle for Radians{
+	fn to_fraction_num(&self,denom:isize)->isize{
+		((*self) * (denom as f32 / (PI*2.0f32))) as isize
+	}
+	fn to_degrees(&self)->Degrees{ Degrees(*self * 360.0f32 / (2.0f32*PI)) }
+}
+
+pub struct Degrees(f32);
+
+impl Angle for Degrees{
+	fn to_radians(&self)->Radians{self.0*(PI*2.0f32/360.0f32)}
 }
 
 /// means of throwing ints into the typesys
@@ -133,7 +182,7 @@ impl<T,X:TNum> From<FixedPt<T,X>> for f32 where T:Into<f32>{
 }
 
 
-impl From<PackedARGB> for vector::Vec4<f32> {
+impl From<PackedARGB8888> for vector::Vec4<f32> {
 	fn from(src:PackedARGB)->Self{
 		let scale=1.0f32/255.0f32;		
 		vector::Vec4(
@@ -361,24 +410,49 @@ impl<'a> Zero for &'a f64 {
 }
 */
 
-
-pub trait Float : Num+Half {
+/// TODO - figure out which parts of this live in 'vector
+/// we have better traits for this with dimensionable output
+pub trait Float : Num+Half+Clone+Default {
 	fn sin(self)->Self;
 	fn cos(self)->Self;
 	fn sin_cos(self)->(Self,Self){(self.sin(),self.cos())}
 	fn tan(self)->Self;
+    fn exp(self)->Self;
+    fn ln(self)->Self;
+    fn log(self,Self)->Self;
+    fn powf(self,s:Self)->Self;
+    fn acos(self)->Self;
+    fn asin(self)->Self;
+    fn atan(self)->Self;
+    fn recip(self)->Self;
 }
 impl Float for f32{
 	fn tan(self)->Self { self.tan()}
+    fn atan(self)->Self { self.atan()}
+    fn powf(self,s:Self)->Self{self.powf(s)}
+    fn exp(self)->Self{self.exp()}
+    fn ln(self)->Self{self.ln()}
+    fn log(self,base:Self)->Self{self.log(base)}
+    fn asin(self)->Self { self.asin()}
+    fn acos(self)->Self { self.acos()}
 	fn sin(self)->Self { self.sin()}
 	fn cos(self)->Self { self.cos()}
 	fn sin_cos(self)->(Self,Self){self.sin_cos()}
+    fn recip(self)->Self { self.recip()}
 }
 impl Float for f64{
 	fn tan(self)->Self {self.tan()}
+    fn atan(self)->Self {self.atan()}
+    fn powf(self,s:Self)->Self{self.powf(s)}
+    fn exp(self)->Self{self.exp()}
+    fn ln(self)->Self{self.ln()}
+    fn log(self,base:Self)->Self{self.log(base)}
+    fn acos(self)->Self {self.acos()}
+    fn asin(self)->Self {self.asin()}
 	fn sin(self)->Self {self.sin()}
 	fn cos(self)->Self {self.cos()}
 	fn sin_cos(self)->(Self,Self){self.sin_cos()}
+    fn recip(self)->Self { self.recip()}
 }
 impl Half for f32{
 	fn half()->f32{0.5f32}
@@ -630,7 +704,7 @@ macro_rules! new{
 macro_rules! dump{ ($($a:expr),*)=>
     (   {   let mut txt=String::new(); txt.push_str(format!("{:?}:{:?}",file!(),line!()).as_str());
             $( {
-                let s=format!("\t{:?}={:?};",stringify!($a),$a);
+                let s=format!("{}={:?};",stringify!($a),$a);
                 txt.push_str(s.as_str());
                 }
             );*;
@@ -669,59 +743,126 @@ macro_rules! seq{
 	}};
 
 }
+// impl 'hasXY' etc to get these simple vector maths helpers
+// TODO rework main vector maths to work this way
+// these are mutually exclusive, e.g. HasXY !=HasXYZ
+// named x() y() etc to avoid conflict with existing vx vx vy HasX etc
+pub trait HasXY :Sized+Clone {
+    type Elem : PartialOrd+Num+Zero+One+Default+Clone;
+    fn x(&self)->Self::Elem;
+    fn y(&self)->Self::Elem;
+    fn from_xy(x:Self::Elem,y:Self::Elem)->Self;
 
+	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xy(self.x()+f,self.y())}
+	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xy(self.x(),self.y()+f)}
 
+}
+pub trait HasXYZ:Sized+Clone {
+    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
+	type Appended : HasXYZW<Elem=Self::Elem>;
+    fn x(&self)->Self::Elem;
+    fn y(&self)->Self::Elem;
+    fn z(&self)->Self::Elem;
+    fn from_xyz(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self;
+	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xyz(self.x()+f,self.y(),self.z())}
+	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xyz(self.x(),self.y()+f,self.z())}
+	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyz(self.x(),self.y(),self.z()+f)}
+	fn append_w(&self,f:Self::Elem)->Self::Appended{Self::Appended::from_xyzw(self.x(),self.y(),self.z(),f)}
+//	fn to_vec3(&self)->Vec3<Self::Elem>{Vec3(self.x(),self.y(),self.z())}
+}
+pub trait HasXYZW :Sized+Clone{
+    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
+    fn x(&self)->Self::Elem;
+    fn y(&self)->Self::Elem;
+    fn z(&self)->Self::Elem;
+    fn w(&self)->Self::Elem;
+    fn from_xyzw(x:Self::Elem,y:Self::Elem,z:Self::Elem,w:Self::Elem)->Self;
+	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w())}
+	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w())}
+	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w())}
+	fn vadd_w(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y(),self.z(),self.w()+f)}
+}
+impl<T:Float+Default> HasXY for (T,T){
+    type Elem=T;
+    fn x(&self)->T{self.0}
+    fn y(&self)->T{self.1}
+    fn from_xy(x:T,y:T)->Self{(x,y)}
+}
+impl<T:Float+Default> HasXYZ for (T,T,T){
+    type Elem=T;
+	type Appended=(T,T,T,T);
+    fn x(&self)->T{self.0}
+    fn y(&self)->T{self.1}
+    fn z(&self)->T{self.2}
+    fn from_xyz(x:T,y:T,z:T)->Self{(x,y,z)}
+}
+impl<T:Float+Default> HasXYZW for (T,T,T,T){
+    type Elem=T;
+    fn x(&self)->T{self.0}
+    fn y(&self)->T{self.1}
+    fn z(&self)->T{self.2}
+    fn w(&self)->T{self.3}
+    fn from_xyzw(x:T,y:T,z:T,w:T)->Self{(x,y,z,w)}
+}
 
+type VF3<F>=(F,F,F);
+type VF2<F>=(F,F,F);
 /// minimal tuple vmath.. vecmath capability without dependancies.
 pub type V2=(f32,f32);		pub type V3=(f32,f32,f32);	pub type V4=(f32,f32,f32,f32);
-pub type M33=(V3,V3,V3);	pub type M43=(V3,V3,V3,V3);	pub type M44=(V4,V4,V4,V4);
-pub fn v3neg(&(x,y,z):&V3)->V3			{ (-x,-y,-z)}
-pub fn v3scale(&(x,y,z):&V3,s:f32)->V3		{ (x*s,y*s,z*s)}
-pub fn v3sub(&(x0,y0,z0):&V3,&(x1,y1,z1):&V3)->V3	{	(x0-x1,y0-y1,z0-z1)}
-pub fn v3min(a:&V3,b:&V3)->V3{(min(a.0,b.0),min(a.1,b.1),min(a.2,b.2))}
-pub fn v3max(a:&V3,b:&V3)->V3{(max(a.0,b.0),max(a.1,b.1),max(a.2,b.2))}
-pub fn v3add(&(x0,y0,z0):&V3,&(x1,y1,z1):&V3)->V3	{	(x0+x1,y0+y1,z0+z1)}
-pub fn v3add4(a:&V3,b:&V3,c:&V3,d:&V3)->V3	{v3add(&v3add(a,b),&v3add(c,d))}
-pub fn v3add3(a:&V3,b:&V3,c:&V3)->V3		{v3add(&v3add(a,b),c)}
-pub fn v3mad(v0:&V3,v1:&V3,f:f32)->V3 	{ v3add(v0,&v3scale(v1,f))}
-pub fn v3lerp(v0:&V3,v1:&V3,f:f32)->V3	{ v3add(v0,&v3scale(&v3sub(v1,v0),f))}
-pub fn v3dot(a:&V3,b:&V3)->f32			{	a.0*b.0+a.1*b.1+a.2*b.2 }
-pub fn v3cross(a:&V3,b:&V3)->V3			{ ((a.1*b.2-a.2*b.1),(a.2*b.0-b.2*a.0),(a.0*b.1-b.0*a.1)) }
-pub fn v3norm(v0:&V3)->V3				{ v3scale(v0,1.0/(v3dot(v0,v0).sqrt())) }
-pub fn v3sub_norm(v0:&V3,v1:&V3)->V3	{ v3norm(&v3sub(v0,v1))}
-pub fn v3perp(v0:&V3,axis:&V3)->V3		{ v3mad(v0, axis, -v3dot(v0,axis))}
-pub fn v3para_perp(v0:&V3,axis:&V3)->(V3,V3){ let para=v3scale(axis, v3dot(v0,axis)); (para, v3sub(v0,&para)) }
-pub fn v3mat_mul(m:&M43, p:&V3)->V3 { v3add4(&v3scale(&m.0,p.0), &v3scale(&m.1,p.1), &v3scale(&m.2,p.2),&m.3 ) }
+pub type M33<V=V3>=(V,V,V);	pub type M43<V/*:HasXYZ*/=V3>=(V,V,V,V);	pub type M44<V/*:HasXYZW*/=V4>=(V,V,V,V);
+pub fn v3neg<F:Float>(&(x,y,z):&VF3<F>)->VF3<F>			{ (-x,-y,-z)}
+pub fn v3scale<V:HasXYZ>(v:&V,s:V::Elem)->V		{ V::from_xyz(v.x()*s,v.y()*s,v.z()*s)}
+pub fn v3sub<V:HasXYZ>(a:&V,b:&V)->V	{	V::from_xyz(a.x()-b.x(),a.y()-b.y(),a.z()-b.z())}
+pub fn v3add<V:HasXYZ>(a:&V,b:&V)->V	{	V::from_xyz(a.x()+b.x(),a.y()+b.y(),a.z()+b.z())}
+pub fn v3min<V:HasXYZ>(a:&V,b:&V)->V{V::from_xyz(min(a.x(),b.x()),min(a.y(),b.y()),min(a.z(),b.z()))}
+pub fn v3max<V:HasXYZ>(a:&V,b:&V)->V{V::from_xyz(max(a.x(),b.x()),max(a.y(),b.y()),max(a.z(),b.z()))}
+pub fn v3zero<V:HasXYZ>()->V{V::from_xyz(zero(),zero(),zero())}
+pub fn v3add4<V:HasXYZ>(a:&V,b:&V,c:&V,d:&V)->V	{v3add(&v3add(a,b),&v3add(c,d))}
+pub fn v3add3<V:HasXYZ>(a:&V,b:&V,c:&V)->V		{v3add(&v3add(a,b),c)}
+pub fn v3mad<V:HasXYZ>(v0:&V,v1:&V,f:V::Elem)->V 	{ v3add(v0,&v3scale(v1,f))}
+pub fn v3lerp<V:HasXYZ>(v0:&V,v1:&V,f:V::Elem)->V	{ v3add(v0,&v3scale(&v3sub(v1,v0),f))}
+pub fn v3dot<V:HasXYZ>(a:&V,b:&V)->V::Elem			{	a.x()*b.x()+a.y()*b.y()+a.z()*b.z() }
+pub fn v3cross<V:HasXYZ>(a:&V,b:&V)->V			{ panic!("cross product untested");V::from_xyz((a.y()*b.z()-a.z()*b.y()),(a.z()*b.x()-a.x()*b.z()),(a.x()*b.y()-a.y()*b.x())) }
+pub fn v3norm<T:Float+Default,V:HasXYZ<Elem=T>>(v0:&V)->V { v3scale(v0,one::<T>()/(v3dot(v0,v0).sqrt())) }
+pub fn v3sub_norm<V:HasXYZ>(v0:&V,v1:&V)->V	 where V::Elem:Float{ v3norm(&v3sub(v0,v1))}
+pub fn v3perp<V:HasXYZ>(v0:&V,axis:&V)->V		{ v3mad(v0, axis, -v3dot(v0,axis))}
+pub fn v3para_perp<V:HasXYZ>(v0:&V,axis:&V)->(V,V){ let para=v3scale(axis, v3dot(v0,axis));let perp=v3sub(v0,&para); (para, perp) }
+pub fn v3mat_mul<V:HasXYZ>(m:&M43<V>, p:&V)->V { v3add4(&v3scale(&m.0,p.x()), &v3scale(&m.1,p.y()), &v3scale(&m.2,p.z()),&m.3 ) }
 // inv only if orthonormal
-pub fn v3mat_invmul(m:&M43,src:&V3)->V3 { let ofs=v3sub(src,&m.3); (v3dot(src,&m.0),v3dot(src,&m.1),v3dot(src,&m.2)) }
-pub fn v3mat_lookat(pos:&V3, at:&V3,up:&V3)->M43	{ let az=v3sub_norm(at,pos); let ax=v3norm(&v3cross(&az,up)); let ay=v3cross(&ax,&az); (ax,ay,az,pos.clone()) }
+pub fn v3mat_invmul<V:HasXYZ>(m:&M43<V>,src:&V)->V { let ofs=v3sub(src,&m.3); V::from_xyz(v3dot(src,&m.0),v3dot(src,&m.1),v3dot(src,&m.2)) }
+pub fn v3mat_lookat<V:HasXYZ>(pos:&V, at:&V,up:&V)->M43<V>	where V::Elem : Float{ let az=v3sub_norm(at,pos); let ax=v3norm(&v3cross(&az,up)); let ay=v3cross(&ax,&az); (ax,ay,az,pos.clone()) }
 pub fn v3mat_identity()->M43 						{((1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0),(0.0,0.0,0.0))}
-pub fn v3triangle_norm(v0:&V3,v1:&V3,v2:&V3)->V3			{ let v01=v3sub(v1,v0); let v02=v3sub(v2,v0); v3norm(&v3cross(&v02,&v01))}
+pub fn v3triangle_norm<V:HasXYZ>(v0:&V,v1:&V,v2:&V)->V where V::Elem:Float	{ let v01=v3sub(v1,v0); let v02=v3sub(v2,v0); v3norm(&v3cross(&v02,&v01))}
 // inv only if orthonormal
-pub fn v3dist_squared(v0:&V3,v1:&V3)->f32 {let ofs=v3sub(v0,v1); return v3dot(&ofs,&ofs);}
-pub fn v3length(v0:&V3)->f32{return sqrt(v3dot(v0,v0));}
-pub fn v3addto(dst:&mut V3, src:&V3){ let v=v3add(dst,src); *dst=v;}
-pub fn v3madto(dst:&mut V3, src:&V3, f:f32){ let v=v3mad(dst,src,f); *dst=v;}
-pub fn v3fromv2(xy:&V2,f:f32)->V3{ return (xy.0, xy.1, f)}
+pub fn v3dist_squared<V:HasXYZ>(v0:&V,v1:&V)->V::Elem where V::Elem : Float {let ofs=v3sub(v0,v1); return v3dot(&ofs,&ofs);}
+pub fn v3length<V:HasXYZ>(v0:&V)->V::Elem where V::Elem:Float{return v3dot(v0,v0).sqrt();}
+pub fn v3addto<V:HasXYZ>(dst:&mut V, src:&V){ let v=v3add(dst,src); *dst=v;}
+pub fn v3madto<V:HasXYZ>(dst:&mut V, src:&V, f:V::Elem){ let v=v3mad(dst,src,f); *dst=v;}
+pub fn v3fromv2<V2:HasXY,V3:HasXYZ<Elem=V2::Elem>>(xy:&V2,z:V2::Elem)->V3{ return V3::from_xyz(xy.x(), xy.y(), z)}
 pub fn v3mat_inv(&(ref mx,ref my,ref mz,ref pos):&M43 )->M43{
     let (ax,ay,az)=((mx.0,my.0,mz.0),(mx.1,my.1,mz.1),(mx.2,my.2,mz.2));
     let invpos= (-v3dot(&ax,pos), -v3dot(&ay,pos), -v3dot(&az,pos));
     (ax,ay,az, invpos) }
-pub fn v2sub(a:&V2,b:&V2)->V2{
-    (a.0-b.0, a.1-b.1)
+pub fn v2zero<V:HasXY>()->V{V::from_xy(zero(),zero())}
+pub fn v2sub<V:HasXY>(a:&V,b:&V)->V{ V::from_xy(a.x()-b.x(), a.y()-b.y()) }
+pub fn v2add<V:HasXY>(a:&V,b:&V)->V{
+    V::from_xy(a.x()+b.x(), a.y()+b.y())
 }
-pub fn v2add(a:&V2,b:&V2)->V2{
-    (a.0+b.0, a.1+b.1)
+pub fn v2lerp<V:HasXY>(a:&V,b:&V,f:V::Elem)->V{
+    v2mad(&a, &v2sub(&b,&a), f)
 }
-pub fn v2min(a:&V2,b:&V2)->V2{
-	(min(a.0,b.0),min(a.1,b.1))
+pub fn v2mad<V:HasXY>(a:&V,b:&V,f:V::Elem)->V{
+    V::from_xy(a.x()+b.x()*f, a.y()+b.y()*f)
 }
-pub fn v2max(a:&V2,b:&V2)->V2{
-	(max(a.0,b.0),max(a.1,b.1))
+pub fn v2scale<V:HasXY>(a:&V,f:V::Elem)->V{
+    V::from_xy(a.x()*f, a.y()*f)
 }
-pub fn v2is_inside(v:&V2, (minv,maxv):(&V2,&V2))->bool{
-	inrange(v.0, (minv.0, maxv.0))&&
-	inrange(v.1, (minv.1, maxv.1))
+pub fn v2min<V:HasXY>(a:&V,b:&V)->V { V::from_xy(min(a.x(),b.x()),min(a.y(),b.y())) }
+pub fn v2max<V:HasXY>(a:&V,b:&V)->V{ V::from_xy(max(a.x(),b.x()),max(a.y(),b.y())) }
+pub fn v2avr<T:Float+Default,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy((a.x()+b.x())*half(), (a.y()+b.y())*half()) }
+pub fn v2is_inside<V:HasXY>(v:&V, (minv,maxv):(&V,&V))->bool{
+	inrange(v.x(), (minv.x(), maxv.x()))&&
+	inrange(v.y(), (minv.y(), maxv.y()))
 }
 /// intersection returns the shape
 trait Intersect<T>{

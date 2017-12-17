@@ -36,11 +36,11 @@ pub type Index=uint;
 pub trait	VertexArray<V:VecCmpOps> {
 	fn num_vertices(&self)->Index;
 	fn vertex(&self,i:Index)->V;
-	fn aabb(&self)->MinMax<V> {
+	fn aabb(&self)->Extents<V> {
 		let mut vmin=self.vertex(0); let mut vmax=self.vertex(0);
 		let mut i=self.num_vertices()-1;
 		while i>0 { i-=1; vmin=vmin.vmin(&self.vertex(i)); vmax=vmax.vmax(&self.vertex(i)); }
-		MinMax{min:vmin,max:vmax}
+		Extents{min:vmin,max:vmax}
 	}
 }
 
@@ -66,8 +66,8 @@ pub struct Tetrahedron<V:Copy>{
 	pub vertex:[V;4]
 }
 
-type AABB<T> =MinMax<Vec3<T>>;
-type Rect<T> =MinMax<Vec2<T>>;
+type AABB<T> =Extents<Vec3<T>>;
+//type Rect<T> =MinMax<Vec2<T>>;
 
 #[derive(Clone,Debug)]
 pub struct Sphere<T> {
@@ -83,7 +83,7 @@ pub struct OOBB<T> {
 }
 #[derive(Clone,Debug)]
 pub struct Extents<T:Sized=Vec3<f32>> {  
-	min:T,max:T	
+	pub min:T,pub max:T
 }
 
 // 'Position' trait for  objects with a spatial centre.
@@ -95,10 +95,11 @@ pub trait Pos<V=Vec3<f32>> {
 
 impl Extents<Vec3<f32>>{
 	pub fn new()->Extents<Vec3<f32>> {
+        // negative extents - empty
 		let f=1000000.0f32;//todo: FLT_MAX
 		Extents{min:Vec3(f,f,f),max:Vec3(-f,-f,-f)}
 	}
-	fn from_vertices<V:Pos>(vertices:&[V])->Extents {
+	pub fn from_vertices<V:Pos>(vertices:&[V])->Extents {
 		let mut m=Extents::new();
 		for v in vertices.iter() {
 			m.include(&v.pos());
@@ -106,22 +107,29 @@ impl Extents<Vec3<f32>>{
 		m
 	}
 }
+pub fn Extents<V:VecCmpOps+Clone>(a:&V,b:&V)->Extents<V>{ Extents{min:a.vmin(b),max:a.vmax(b)}}
+pub type Rect=Extents<Vec2>;
+pub type Cuboid=Extents<Vec3>;
+
 impl<V:VecCmpOps> Extents<V> { 
 	pub fn include(&mut self, v:&V) {
 		self.min=self.min.vmin(v);
 		self.max=self.max.vmax(v);
 	}
 }
+impl<V:Sub<Output=V>+Copy> Extents<V> {
+    pub fn size(&self)->V {
+        self.max-self.min//.vsub(&self.min)
+    }
+}
 
-pub trait Centre<V:Copy> {
+pub trait Centre<V:Clone> {
 	fn centre(&self)->V;
 }
 impl<V:VecOps> Centre<V> for Extents<V> 
 	where <V as HasElem>::Elem:Float
 {
-	fn centre(&self)->V { self.min.vavr(&self.max)}
-
-//*(one::<V>()/(one::<V>()+one::<V>())) }
+    fn centre(&self)->V { self.min.vavr(&self.max)}
 }
 
 

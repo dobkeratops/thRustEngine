@@ -132,7 +132,9 @@ extern
 	pub fn glGetFloatv( pname:GLenum, params:*mut GLfloat );
 
     pub fn glViewport(_:GLint,_:GLint,_:GLint,_:GLint);
-	pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
+    pub fn glScissor(	x:GLint, y:GLint, width:GLsizei, height:GLsizei);
+
+pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
 	pub fn glRenderMode( mode:GLenum )->GLint;
 	pub fn glGetError()->GLenum;
 	pub fn glGetString( name:GLenum  )->*const GLubyte;
@@ -196,8 +198,31 @@ extern
 	pub fn glEnd();
 	pub fn glColor3f(r:GLfloat,g:GLfloat,b:GLfloat);
 	pub fn glColor4f(r:GLfloat,g:GLfloat,b:GLfloat,a:GLfloat);
-	pub fn glVertex3f(x:GLfloat,y:GLfloat,z:GLfloat);
-	pub fn glTexCoord2f( s:GLfloat , t:GLfloat );
+
+    pub fn glVertex2f(x:GLfloat,y:GLfloat);
+    pub fn glVertex2d(x:GLdouble,y:GLdouble);
+    pub fn glVertex2i(x:GLint,y:GLint);
+    pub fn glVertex2s(x:GLshort,y:GLshort);
+
+    pub fn glVertex3f(x:GLfloat,y:GLfloat,z:GLfloat);
+    pub fn glVertex3d(x:GLdouble,y:GLdouble,z:GLdouble);
+    pub fn glVertex3i(x:GLint,y:GLint,z:GLint);
+    pub fn glVertex3s(x:GLshort,y:GLshort,z:GLshort);
+
+    pub fn glVertex4f(x:GLfloat,y:GLfloat,z:GLfloat,w:GLfloat);
+    pub fn glVertex4d(x:GLdouble,y:GLdouble,z:GLdouble,w:GLdouble);
+    pub fn glVertex4i(x:GLint,y:GLint,z:GLint,w:GLint);
+    pub fn glVertex4s(x:GLshort,y:GLshort,z:GLshort,w:GLshort);
+	pub fn glNormal3f(x:GLfloat,y:GLfloat,z:GLfloat);
+    pub fn glVertex2fv(v:*const GLfloat);
+    pub fn glVertex3fv(v:*const GLfloat);
+    pub fn glVertex4fv(v:*const GLfloat);
+    pub fn glVertex2dv(v:*const GLdouble);
+    pub fn glVertex3dv(v:*const GLdouble);
+    pub fn glVertex4dv(v:*const GLdouble);
+
+
+    pub fn glTexCoord2f( s:GLfloat , t:GLfloat );
 
 	pub fn glutInit(argc:*mut c_int,argc:*const *const c_char);
 	pub fn glutInitDisplayMode(mode:GLenum);
@@ -208,6 +233,7 @@ extern
 	pub fn glutDestroyWindow(x:c_int);
 	pub fn glutSetWindow(win:c_int);
 	pub fn glutGetWindow()->c_int;
+	pub fn glutGet(_:GLuint)->c_int;
 	pub fn glutGetModifiers()->c_int;
 	pub fn glutSetWindowTitle(x:*const c_char);
 	pub fn glutSetIconTitle(x:*const c_char);

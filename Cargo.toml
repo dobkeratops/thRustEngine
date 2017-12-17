@@ -1,0 +1,7 @@
+[package]
+name = "rustv"
+version = "0.1.0"
+authors = ["dobkeratops <dobkeratopsgit@gmail.com>"]
+
+[dependencies]
+image = "0.18.0"

@@ -1,7 +1,13 @@
 use super::*;
+use r3d::*;
 use std::path;
-
-
+// todo - rename APP as owner
+// application owns frame window
+// frame window owns panes
+// etc
+//
+// Window Framework and a few (hopefully generally useful) windows.
+// glRasterPos3f
 //type sto<T>=Rc<RefCell<T>>;g_mo
 pub type sto<T>=Box<T>; //might be shared trait object
 pub type Renderer=();
@@ -13,7 +19,6 @@ pub trait TextOutput {
 
 // glut/whatever interaction, and handles states.
 pub type KeyCode=char;
-pub use self::State as Window; // rename imminent
 
 #[derive(Debug,Clone,Copy)]
 pub enum KeyTransition{
@@ -21,17 +26,45 @@ pub enum KeyTransition{
 }
 pub use self::KeyTransition::*;
 
+#[derive(Debug,Clone,Copy)]
+pub enum WinKey{
+    KeyCode(char),KeyF1,KeyF2,KeyF3,KeyF4,KeyF5,KeyF6,KeyF7,KeyF8,KeyF9,
+    KeyF10,KeyF11,KeyF12, KeyCursorLeft,KeyCursorUp,KeyCursorDown,KeyCursorRight, KeyPageUp,KeyPageDown,KeyHome,KeyEnd,KeyInsert
+}
+
 pub type Modifiers=u32;
 #[derive(Debug,Clone,Copy)]
-pub struct KeyAt(pub KeyCode,pub Modifiers, pub KeyTransition,pub ViewPos);
-pub type PixelPos=(i32,i32);
+pub struct KeyAt(pub WinKey,pub Modifiers, pub KeyTransition,pub ScreenPos);
+impl KeyAt{ pub fn pos(&self)->ScreenPos{self.3}}
+pub type PixelPosi=(i32,i32);
+pub type PixelPosf=(f32,f32);
 pub type PixelVec=(i32,i32);
-pub type PixelSize=(i32,i32);
-pub type PixelRect=(PixelPos,PixelPos);
-pub type ViewPos=(f32,f32);
-pub fn screen_size()->PixelPos{ unsafe{g_screensize} }
+pub type PixelSizei=(i32,i32);
+pub type PixelSizef=(f32,f32);
+pub type PixelRectf=(PixelPosf,PixelPosf);
+pub type PixelRecti=(PixelPosi,PixelPosi);
+pub type ScreenPos=Vec2;
+#[derive(Debug,Clone,Copy)]
+pub struct ScrPos(pub f32,pub f32);
 
-pub type ViewController<A> = State<A>;
+impl HasXY for ScrPos{
+    type Elem=f32;
+    fn x(&self)->Self::Elem{self.0}
+    fn y(&self)->Self::Elem{self.1}
+    fn from_xy(x:Self::Elem, y:Self::Elem)->Self{ScrPos(x,y)}
+}
+fn foo(){
+    let a=ScrPos(1.0,2.0);
+    let b=v2add(&a,&a);
+    //let b=v2add(&a);
+}
+
+
+pub type ScreenRect=Extents<ScreenPos>;
+pub fn screen_sizei()->PixelPosi{ unsafe{g_screen_pixel_sizei} }
+pub fn screen_sizef()->PixelPosf{ unsafe{g_screen_pixel_sizef} }
+
+pub type ViewController<A> = Window<A>;
 // example,
 //#[derive(Clone,Debug)]
 pub enum Command {
@@ -50,16 +83,35 @@ pub enum Event {
     Activate(),
     Deactivate(),
     Key(KeyAt),
-    Move(ViewPos),
-    Clicked(MouseButtons,ViewPos),
-    TryBeginDrag(MouseButtons,ViewPos),
-    Dragging(MouseButtons,ViewPos,ViewPos,DragMode),
-    Dragged(MouseButtons,ViewPos,ViewPos,DragMode),
-    Button(MouseButtons,bool,ViewPos),
+    Move(ScreenPos),
+    Clicked(MouseButtons,ScreenPos),
+    TryBeginDrag(MouseButtons,ScreenPos),
+    Dragging(MouseButtons,ScreenPos,ScreenPos,DragMode),
+    Dragged(MouseButtons,ScreenPos,ScreenPos,DragMode),
+    Button(MouseButtons,bool,ScreenPos),
 	DropFile(&'static str)
 }
+impl Event{
+    fn pos(&self)->Option<ScreenPos>{
+        match self{
+            &Event::None=>None,
+            &Event::Render(f32)=>None,
+            &Event::Update(f32)=>None,
+            &Event::Activate()=>None,
+            &Event::Deactivate()=>None,
+            &Event::Key(kc)=>Some(kc.pos()),
+            &Event::Move(pos)=>Some(pos),
+            &Event::Clicked(_,pos)=>Some(pos),
+            &Event::TryBeginDrag(_,pos)=>Some(pos),
+            &Event::Dragging(_,_,pos,_)=>Some(pos),
+            &Event::Dragged(_,_,pos,_)=>Some(pos),
+            &Event::Button(_,_,pos)=>Some(pos),
+            &Event::DropFile(_)=>None,//TODO - dropfile needs pos!
+        }
+    }
+}
 
-pub type MouseAt=(MouseButtons,ViewPos);
+pub type MouseAt=(MouseButtons,ScreenPos);
 
 static mut g_firstdrag:bool=false;
 #[repr(u32)]
@@ -74,11 +126,11 @@ pub enum DragMode {
     Default,
 }
 enum Drag {
-    Line(ViewPos,ViewPos),
-    Rect(ViewPos,ViewPos),
-    Circle(ViewPos,ViewPos),
-    FreeHand(Vec<ViewPos>),
-    Lasso(Vec<ViewPos>)
+    Line(ScreenPos,ScreenPos),
+    Rect(ScreenPos,ScreenPos),
+    Circle(ScreenPos,ScreenPos),
+    FreeHand(Vec<ScreenPos>),
+    Lasso(Vec<ScreenPos>)
 }
 
 /// returned value controls flow between states
@@ -87,39 +139,50 @@ pub enum Flow<A>{
     Continue(),
     Redraw(),           /// if not animating, input responses can request redraw
     Info(String),       /// feedback text, otherwise 'continue'
-    Push(sto<State<A>>),
+    Push(sto<Window<A>>),
     PassThru(),           /// Send command to next, if an overlay.
     Pop(),
     SendToOwner(),
     SendToAll(),
-    Replace(sto<State<A>>),
-    Overlay(sto<State<A>>),    /// e.g. popup menu
-    SetBackground(sto<State<A>>),  /// equivalent to Replace(x)+Overlay(Self)
-    SetRoot(sto<State<A>>),
+    Replace(sto<Window<A>>),
+    Overlay(sto<Window<A>>),    /// e.g. popup menu
+    SetBackground(sto<Window<A>>),  /// equivalent to Replace(x)+Overlay(Self)
+    SetRoot(sto<Window<A>>),
     SwapWith(i32),      /// swap with relative indexed state
     Cycle(),            //
     Back(),            //
     Forward(),            //
     Toggle(),            // rotate top with forward stack
-    NewWindow(sto<State<A>>), // multi-windowing
+    NewWindow(sto<Window<A>>), // multi-windowing
 }
 
-pub type Rect=(ViewPos,ViewPos);
+fn split_x(r:&Rect,f0:f32,f1:f32)->Rect {
+    let size=r.size();
+    Extents(&Vec2(r.min.x+size.x*f0, r.min.y),&Vec2(r.min.x+size.x*f1, r.max.y))
+}
+fn split_y(r:&Rect,f0:f32,f1:f32)->Rect {
+    let size=r.size();
+    Extents(&Vec2(r.min.x, r.min.y+size.y*f0),&Vec2(r.max.x, r.min.y+size.y*f1))
+}
 
 pub enum ForeachResult{
     Continue,
     Quit,
 }
 
-
+pub struct Dragging{
+    pub start:ScreenPos,
+    pub delta:ScreenPos,
+    pub pos:ScreenPos,
+}
 pub type KeyMappings<A> = FnMut(KeyCode,&str, &mut FnMut()->Flow<A>);
-pub trait State<A> {            //'C' the user defined commands it can respond to.
+pub trait Window<A> {            //'C' the user defined commands it can respond to.
 
-    fn ask_size(&self)->Option<ViewPos> { None }
+    fn ask_size(&self)->Option<ScreenPos> { None }
 	fn name(&self)->&str		{"none"}
     fn on_activate(&mut self, app:&mut A)   {}
     fn on_deactivate(&mut self, app:&mut A) {}
-    fn render(&self,a:&A, _:&RC)      {}  // todo render with mousepos
+    fn render(&self,a:&A, _:&WinCursor)      {}  // todo render with mousepos
     fn info(&self)->String      { String::new()}
     fn update(&mut self,app:&mut A,dt:f32)->Flow<A> {Flow::Continue()}   // controller access..
 
@@ -133,172 +196,196 @@ pub trait State<A> {            //'C' the user defined commands it can respond t
 
     // iterate key mappings, along with functionality, to automate
     // rolling statusbar/tooltips/menu assignment
-    fn key_mappings(&mut self,app:&A, kmf:&mut KeyMappings<A>){}
-    fn on_mouse_move(&mut self, app:&mut A,opos:ViewPos, xy:ViewPos)->Flow<A> {
+    fn key_mappings(&mut self,owner:&mut A, kmf:&mut KeyMappings<A>){}
+    fn on_mouse_move(&mut self, owner:&mut A, wc:&WinCursor)->Flow<A> {
         // TODO - unsure if this is better dispatched by framework.
+        let delta=v2sub(&wc.pos, &wc.old_pos);
 
         if let Some(ds)=unsafe{g_ldrag_start} {
+            let d=Dragging{
+                start: to_screenpos(ds),
+                delta: delta,
+                pos:wc.pos
+            };
+
             unsafe {
 
                 if g_firstdrag {
                     println!("first drag begin\n");
-                    self.on_ldrag_begin(app, to_viewpos(ds), xy);
+                    self.on_ldrag_begin(owner, wc);
                     g_firstdrag = false;
                 }
             }
-            self.on_ldragging(app, to_viewpos(ds) ,xy)
+            self.on_ldragging(owner, &d, wc)
         } else
         if let Some(ds)=unsafe{g_rdrag_start}{
+            let d=Dragging{
+                start:to_screenpos(ds),
+                delta: delta,
+                pos: wc.pos
+            };
             unsafe {
                 if g_firstdrag {
-                    self.on_rdrag_begin(app, to_viewpos(ds), xy);
+                    self.on_rdrag_begin(owner, wc);
                     unsafe { g_firstdrag = false; }
                 }
             }
-            self.on_rdragging(app, to_viewpos(ds) ,xy)
+            self.on_rdragging(owner, &d,wc)
         } else{
-            self.on_passive_move(app,opos,xy)
+            self.on_passive_move(owner,wc)
         }
     }
     // hooks for each specific dragable button state,
     // streamline rolling a tool
-    fn on_passive_move(&mut self,app:&mut A, opos:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_passive_move(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
     // first frame of dragging might have special behaviour; by default, just issue normal move
-    fn on_ldrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mdrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_rdrag_begin(&mut self,app:&mut A, start:ViewPos, pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_ldrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mdrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_rdrag_end(&mut self, app:&mut A, start:ViewPos,end:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_ldragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_rdragging(&mut self,app:&mut A,start:ViewPos,pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_wheel_up(&mut self, app:&mut A,pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_wheel_down(&mut self, app:&mut A,pos:ViewPos)->Flow<A>{Flow::PassThru()}
+    fn on_ldrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_rdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_ldrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_rdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_ldragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_rdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_wheel_up(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_wheel_down(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
     // click - mouse pressed with no motion
-    fn on_lclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("lclick{:?}",p);Flow::PassThru()}
-    fn on_rclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("rclick{:?}",p);Flow::PassThru()}
-    fn on_mclick(&mut self,app:&mut A, p:ViewPos)->Flow<A>{println!("mclick{:?}",p);Flow::PassThru()}
+    fn on_lclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("lclick{:?}",w);Flow::PassThru()}
+    fn on_rclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("rclick{:?}",w);Flow::PassThru()}
+    fn on_mclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("mclick{:?}",w);Flow::PassThru()}
 
-    fn on_mouse_dragged(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
-        println!("dragged{:?} {:?} {:?}",start,pos,mode);
+    fn on_mouse_dragged(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
+        println!("dragged{:?} {:?} {:?}",w.drag_start,w.pos,mode);
         match mb {
-            LeftButton=>self.on_ldrag_end(app, start, pos),
-            MiddleButton=>self.on_mdrag_end(app, start, pos),
-            RightButton=>self.on_rdrag_end(app, start, pos),
+            LeftButton=>self.on_ldrag_end(owner, w),
+            MiddleButton=>self.on_mdrag_end(owner, w),
+            RightButton=>self.on_rdrag_end(owner, w),
 
 
             _=>Flow::PassThru()
         }
     }
 
-    fn on_mouse_dragging(&mut self, app:&mut A, mb:MouseButtons, start:ViewPos, pos:ViewPos, mode:DragMode)->Flow<A>{
+    fn on_mouse_dragging(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
 
+        let d=Dragging{
+            start:w.drag_start.unwrap(),
+            delta: v2sub(&to_screenpos(unsafe{g_mouse_pos}),&to_screenpos(unsafe{g_mouse_opos})),
+            pos:w.pos
+        };
         match mb{
             LeftButton =>{
                 if unsafe{g_firstdrag} {
-                    println!("first drag begin\n");
-                    self.on_ldrag_begin(app, start, pos);
+                    println!("firthist drag begin\n");
+                    self.on_ldrag_begin(owner, w);
                     unsafe{g_firstdrag = false;}
                 }
-                self.on_ldragging(app,start,pos)
+                self.on_ldragging(owner,&d,w)
             },
-            RightButton => self.on_ldragging(app,start,pos),
-            MidButton => self.on_mdragging(app,start,pos),
+            RightButton => self.on_ldragging(owner,&d,w),
+            MidButton => self.on_mdragging(owner,&d,w),
             _=>Flow::PassThru()
         }
     }
 
-    fn on_lbutton_down(&mut self,app:&mut A, pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_rbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_lbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{
+    fn on_lbutton_down(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_rbutton_down(&mut self,owner:&mut A,  w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_lbutton_up(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{
         match unsafe{g_ldrag_start} {
             Some(prev)=>{println!("lbutton up (dragged)");}
             None=>{println!("lbutton up (no drag)");}
         }
         Flow::PassThru()
     }
-    fn on_rbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mbutton_down(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mbutton_up(&mut self,app:&mut A,  pos:ViewPos)->Flow<A>{Flow::PassThru()}
-    fn on_mouse_button(&mut self,app:&mut A,  mb:MouseButtons,s:bool,pos:ViewPos)->Flow<A> {
+    fn on_rbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mbutton_down(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn on_mouse_button(&mut self,owner:&mut A,  mb:MouseButtons,s:bool, w:&WinCursor)->Flow<A> {
         match (mb,s){
-            (MouseButtons::Left,true)=>self.on_lbutton_down(app,pos),
-            (MouseButtons::Left,false)=>self.on_lbutton_up(app,pos),
-            (MouseButtons::Right,true)=>self.on_lbutton_down(app,pos),
-            (MouseButtons::Right,false)=>self.on_rbutton_up(app,pos),
-            (MouseButtons::Mid,true)=>self.on_mbutton_down(app,pos),
-            (MouseButtons::Mid,false)=>self.on_mbutton_up(app,pos),
-            (MouseButtons::WheelUp,true)=>self.on_wheel_up(app,pos),
-            (MouseButtons::WheelDown,true)=>self.on_wheel_down(app,pos),
+            (MouseButtons::Left,true)=>self.on_lbutton_down(owner,w),
+            (MouseButtons::Left,false)=>self.on_lbutton_up(owner,w),
+            (MouseButtons::Right,true)=>self.on_lbutton_down(owner,w),
+            (MouseButtons::Right,false)=>self.on_rbutton_up(owner,w),
+            (MouseButtons::Mid,true)=>self.on_mbutton_down(owner,w),
+            (MouseButtons::Mid,false)=>self.on_mbutton_up(owner,w),
+            (MouseButtons::WheelUp,true)=>self.on_wheel_up(owner,w),
+            (MouseButtons::WheelDown,true)=>self.on_wheel_down(owner,w),
 			_=>Flow::PassThru()
         }
     }
-    fn try_drag(&self, app:&A,mbpos:(MouseButtons,ViewPos))->DragMode{
+    fn try_drag(&self, owner:&A, mbpos:MouseButtons, w:&WinCursor)->DragMode{
         trace!();
         DragMode::Rect
     }
-    fn on_click(&mut self, app:&mut A, mbvpos:(MouseButtons,ViewPos))->Flow<A>{
+    fn on_click(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor)->Flow<A>{
         // dispatch to specific button if so desired.
-        let (mb,vpos)=mbvpos;
         match mb{
-            MouseButtons::Left=>self.on_lclick(app,vpos),
-            MouseButtons::Right=>self.on_rclick(app,vpos),
-            MouseButtons::Mid=>self.on_mclick(app,vpos),
+            MouseButtons::Left=>self.on_lclick(owner,w),
+            MouseButtons::Right=>self.on_rclick(owner,w),
+            MouseButtons::Mid=>self.on_mclick(owner,w),
             _=>{warn!();Flow::Continue()}
         }
     }
-    fn on_key_down(&mut self,app:&mut A,  k:KeyCode, modifiers:u32, pos:ViewPos)->Flow<A> { Flow::PassThru() }
-    fn on_key_up(&mut self, app:&mut A,k:KeyCode, pos:ViewPos)->Flow<A> { Flow::PassThru() }
-    fn on_key(&mut self,app:&mut A,k:KeyAt)->Flow<A>{
+    fn on_key_down(&mut self,owner:&mut A,  k:window::WinKey, modifiers:u32, w:&WinCursor)->Flow<A> { Flow::PassThru() }
+    fn on_key_up(&mut self, owner:&mut A,k:window::WinKey, w:&WinCursor)->Flow<A> { Flow::PassThru() }
+    fn on_key(&mut self,owner:&mut A,k:KeyAt,w:&WinCursor)->Flow<A>{
         let KeyAt(keycode,modk,state,pos)=k;
         //default : route to seperate keydown,keyup
         match state{
-            KeyDown=>self.on_key_down(app,keycode,modk,pos),
-            KeyUp=>self.on_key_up(app,keycode,pos)}
+            KeyDown=>self.on_key_down(owner,keycode,modk,w),
+            KeyUp=>self.on_key_up(owner,keycode,w)}
     }
-    fn on_drop(&mut self, f:&str, sp:ViewPos)           {}
-    fn command( &mut self, app:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
+    fn on_drop(&mut self, f:&str, w:&WinCursor)           {}
+    fn command( &mut self, owner:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
 
     // enum of every event,
     // defaults to calling the fn's
-    fn event_dispatch(&mut self, app:&mut A, e:Event)->Flow<A>{
+    fn event_dispatch(&mut self, owner:&mut A, e:Event,r:&ScreenRect)->Flow<A>{
         match e{
-            Event::Update(dt)  =>{self.update(app,dt);Flow::Continue()},
+            Event::Update(dt)  =>{self.update(owner,dt);Flow::Continue()},
             Event::Render(t)   =>{
-                self.render(app,
-					&RC{
-						rect:((0.0,0.0),(1.0,1.0)),
-						mouse_old_pos:get_mouse_ovpos(),
-						mouse_pos:get_mouse_vpos(), 
+                self.render(owner,
+                    &WinCursor
+					{
+						rect:r.clone(),
+						old_pos: get_mouse_ovpos(),
+						pos: get_mouse_vpos(),
+                        drag_start:get_drag_start(),
+						aspect_ratio:get_aspect_ratio(),
 						t:0.0f32});
                 Flow::Continue()
             },
-            Event::Activate()  =>{self.on_activate(app);Flow::Continue()},
-            Event::Deactivate()    =>{self.on_deactivate(app);Flow::Continue()},
-            Event::Key(k)     =>self.on_key(app,k),
-            Event::Move(pos)  =>self.on_mouse_move(app,get_mouse_ovpos(), pos),
+            Event::Activate()  =>{self.on_activate(owner);Flow::Continue()},
+            Event::Deactivate()    =>{self.on_deactivate(owner);Flow::Continue()},
+            Event::Key(k)     =>self.on_key(owner,k,&mkwc(r,&get_mouse_vpos())),
+            Event::Move(pos)  =>self.on_mouse_move(owner,&mkwcm(r,&pos,&get_mouse_ovpos())),
             Event::TryBeginDrag(mb,pos)=>{
                 match get_dragmode(){
-                    DragMode::None=>set_dragmode(self.try_drag(app,(mb,pos))),
+                    DragMode::None=>set_dragmode(self.try_drag(owner,mb,&mkwc(r,&pos))),
                     _=>{}
                 };
                 Flow::Continue()
             }
-            Event::Clicked(mb,pos)=>self.on_click(app,(mb,pos)),
-            Event::Dragging(mb,start,current,dm) =>self.on_mouse_dragging(app,mb,start,current,dm),
-            Event::Dragged(mb,start,current,dm)  =>self.on_mouse_dragged(app,mb,start,current,dm),
-            Event::Button(mb,s,pos)           =>self.on_mouse_button(app,mb,s,pos),
+            Event::Clicked(mb,pos)=>self.on_click(owner,mb, &mkwc(r,&pos)),
+
+            Event::Dragging(mb,start,current,dmode) =>
+                self.on_mouse_dragging(owner,mb,&mkwcd(r,&current,&start),dmode),
+
+            Event::Dragged(mb,start,current,dmode)  =>
+                self.on_mouse_dragged(owner,mb,&mkwcd(r,&current,&start),dmode),
+            Event::Button(mb,s,pos)           =>self.on_mouse_button(owner,mb,s,&mkwc(r,&pos)),
             _               =>Flow::Continue(),
         }
     }
     // main event dispatch: override to iter sub
-    fn event(&mut self,app:&mut A, e:Event, r:Rect)->Flow<A>{
+    // TODO is this pointless forwarding to event_dispatch - should it just be one
+    fn event(&mut self,owner:&mut A, e:Event, r:&ScreenRect)->Flow<A>{
 		use self::Event as Ev;
-        self.event_dispatch(app,e)
+        self.event_dispatch(owner,e,r)
     }
-    //fn foreach_child(&self, r:Option<Rect>, f:&FnMut(&State<A>,Option<Rect>)->ForeachResult);
-    //fn foreach_child_mut(&mut self, r:Option<Rect>, f:&FnMut(&mut State<A>,Option<Rect>)->ForeachResult);
+    //fn foreach_child(&self, r:Option<Rect>, f:&FnMut(&Window<A>,Option<Rect>)->ForeachResult);
+    //fn foreach_child_mut(&mut self, r:Option<Rect>, f:&FnMut(&mut Window<A>,Option<Rect>)->ForeachResult);
 
 }
 // actually we could make it a mutable trait object taking the message
@@ -312,10 +399,10 @@ type Index=i32;
 
 pub trait WindowContainer<A> {
 	fn sub_win_count(&self)->usize;
-    fn sub_win_get(&self,i:usize)->Option<&window::State<A>>;
-    fn sub_win_set(&mut self, i:usize, optbox<window::State<A>>);
-	fn sub_win_push(&mut self, optbox<window::State<A>>);
-    fn sub_win_take(&self,i:usize)->optbox<window::State<A>>;
+    fn sub_win_get(&self,i:usize)->Option<&window::Window<A>>;
+    fn sub_win_set(&mut self, i:usize, optbox<window::Window<A>>);
+	fn sub_win_push(&mut self, optbox<window::Window<A>>);
+    fn sub_win_take(&self,i:usize)->optbox<window::Window<A>>;
 }
 
 //impl<A> HasCells<A> for WindowContainer<A> {
@@ -337,7 +424,7 @@ pub trait GridView<A> : HasCells<A>{
 }
 */
 /*
-impl<T:A> window::State<A> for T:GridView<A> {
+impl<T:A> window::Window<A> for T:GridView<A> {
     // render grid..
     // click down , ..
     //event -
@@ -358,16 +445,19 @@ impl gridview for mygridview  // gets 'window'
 
 static mut g_key:[bool;256]=[false;256];
 static mut g_mouse_button:u32=0;
-static mut g_mouse_pos:PixelPos=(0,0);
-static mut g_mouse_opos:PixelPos=(0,0);
+static mut g_mouse_pos:PixelPosi=(0,0);
+static mut g_mouse_opos:PixelPosi=(0,0);
 static mut g_dragmode:DragMode=DragMode::None;
-static mut g_ldrag_start:Option<PixelPos>=None;
-static mut g_rdrag_start:Option<PixelPos>=None;
-static mut g_mdrag_start:Option<PixelPos>=None;
-static mut g_drag_points:*mut Vec<ViewPos>=0 as *mut Vec<ViewPos>;
+static mut g_ldrag_start:Option<PixelPosi>=None;
+static mut g_rdrag_start:Option<PixelPosi>=None;
+static mut g_mdrag_start:Option<PixelPosi>=None;
+static mut g_drag_points:*mut Vec<ScreenPos>=0 as *mut Vec<ScreenPos>;
 static mut g_joystick:((f32,f32),u32)=((0.0f32,0.0f32),0);
-static mut g_screensize:PixelPos=(1024,1024);
+static mut g_screen_pixel_sizei:PixelPosi=(960,480);
+static mut g_screen_pixel_sizef:PixelPosf=(960.0f32,480.0f32);
 const  MaxEvent:usize=256;
+static mut g_aspect_ratio:f32=1.0f32;
+fn get_aspect_ratio()->f32{unsafe{return g_aspect_ratio}}
 static mut g_ui_event:[Event;MaxEvent]=[Event::None;MaxEvent];
 static mut g_head:i32=0;
 static mut g_tail:i32=0;
@@ -382,15 +472,44 @@ fn get_modifiers()->u32{
 	|if modk & GLUT_ACTIVE_CTRL!=0{CTRL}else{0}
 	|if modk & GLUT_ACTIVE_ALT!=0{ALT}else{0};
 	
-	dump!(modk,ret);
 	ret}
+}
+fn xlat_special_key(skey:GLuint)->WinKey{
+    match skey{
+        GLUT_KEY_LEFT=>WinKey::KeyCursorLeft,
+        GLUT_KEY_RIGHT=>WinKey::KeyCursorRight,
+        GLUT_KEY_UP=>WinKey::KeyCursorUp,
+        GLUT_KEY_DOWN=>WinKey::KeyCursorDown,
+        GLUT_KEY_INSERT=>WinKey::KeyInsert,
+        GLUT_KEY_HOME=>WinKey::KeyHome,
+        GLUT_KEY_END=>WinKey::KeyEnd,
+        GLUT_KEY_PAGE_UP=>WinKey::KeyPageUp,
+        GLUT_KEY_PAGE_DOWN=>WinKey::KeyPageDown,
+        GLUT_KEY_F1=>WinKey::KeyF1,
+        GLUT_KEY_F2=>WinKey::KeyF2,
+        GLUT_KEY_F3=>WinKey::KeyF3,
+        GLUT_KEY_F4=>WinKey::KeyF4,
+        GLUT_KEY_F5=>WinKey::KeyF5,
+        GLUT_KEY_F6=>WinKey::KeyF6,
+        GLUT_KEY_F7=>WinKey::KeyF7,
+        GLUT_KEY_F8=>WinKey::KeyF8,
+        GLUT_KEY_F9=>WinKey::KeyF9,
+        GLUT_KEY_F10=>WinKey::KeyF10,
+        GLUT_KEY_F11=>WinKey::KeyF11,
+        GLUT_KEY_F12=>WinKey::KeyF12,
+
+        _=>WinKey::KeyCode(0 as char),
+    }
 }
 mod callbacks {
     use super::*;
     pub fn reshape_func(x: i32, y: i32) {
         println!("resizing..{:?} {:?}", x, y);
         unsafe {
-            g_screensize = (x, y);
+            let fx=x as f32;let fy=y as f32;
+            g_screen_pixel_sizei = (x, y);
+            g_screen_pixel_sizef = (fx,fy);
+            g_aspect_ratio = fx/fy;
             glViewport(0, 0, x, y);
         }
 
@@ -400,7 +519,7 @@ mod callbacks {
     pub fn keyboard_func_sub(key: u8, isdown: bool, x: i32, y: i32) {
         unsafe {
             g_key[key as usize] = isdown;
-            let kp = KeyAt(key as KeyCode,get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
+            let kp = KeyAt(WinKey::KeyCode(key as KeyCode),get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_screenpos((x, y)));
             push_event(Event::Key(kp));
         }
     }
@@ -412,9 +531,10 @@ mod callbacks {
     pub fn special_func_sub(key: GLuint, isdown: bool, x: i32, y: i32) {
         assert!((key as u32 & 0xff) == key as u32);
         unsafe {
-            let kp = KeyAt(key as u8 as KeyCode,get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_viewpos((x, y)));
+            println!("special key {:?}",key);
+            let kp = KeyAt(xlat_special_key(key),get_modifiers(), if isdown{KeyDown}else{KeyUp}, to_screenpos((x, y)));
             push_event(Event::Key(kp));
-            g_key[key as usize] = isdown;
+            //g_key[key as usize] = isdown; /// specialkeys do not
         }
     }
 
@@ -433,7 +553,7 @@ mod callbacks {
     }
     pub fn motion_func(x:i32,y:i32) {
         set_mouse_pos(x, y);
-        let cvp = to_viewpos((x, y));
+        let cvp = to_screenpos((x, y));
         unsafe {
             use self::MouseButtons as MB;
             let dm=g_dragmode;
@@ -447,20 +567,20 @@ mod callbacks {
                 cvp));
 
             if let Some(op) = g_ldrag_start {
-                push_event(Event::Dragging(MB::Left, to_viewpos(op), cvp,dm))
+                push_event(Event::Dragging(MB::Left, to_screenpos(op), cvp,dm))
             }
             if let Some(op) = g_rdrag_start {
-                push_event(Event::Dragging(MB::Right, to_viewpos(op), cvp,dm))
+                push_event(Event::Dragging(MB::Right, to_screenpos(op), cvp,dm))
             }
             if let Some(op) = g_mdrag_start {
-                push_event(Event::Dragging(MB::Mid, to_viewpos(op), cvp,dm))
+                push_event(Event::Dragging(MB::Mid, to_screenpos(op), cvp,dm))
             }
         }
     }
 
     pub fn passive_motion_func(x:i32,y:i32){
         set_mouse_pos(x,y);
-        push_event(Event::Move(to_viewpos((x,y))));
+        push_event(Event::Move(to_screenpos((x,y))));
     }
     pub fn render_null(){}
     pub fn idle_func(){
@@ -473,11 +593,10 @@ mod callbacks {
         println!("JS:{:?} {:?},{:?},{:?}",button,dx,dy,dz);
     }
     pub unsafe fn mouse_func(button:u32, state:u32, x:i32, y:i32){
-        let pos=(x,y);
-        let vpos = to_viewpos(pos);
+        let posi=(x,y);
+        let vpos = to_screenpos(posi);
         let oldbs=unsafe{g_mouse_button};
         //println!("mouse event {:?} {:?} fd={:?}",state, (x,y),unsafe{g_firstdrag});
-        //dump!(state,x,y);
         if state==GLUT_DOWN{
             g_mouse_button|=button;
             unsafe{
@@ -497,7 +616,7 @@ mod callbacks {
                 _=>MouseButtons::None
             },
             match state as u32{GLUT_DOWN=>true,_=>false},
-            to_viewpos((x,y))
+            to_screenpos((x,y))
         ));
 
         // Now decode a bit more to establish click vs drag.
@@ -505,9 +624,9 @@ mod callbacks {
             // we have seperate l/m/r drags because drags may be combined
             // each button may be pressed or released at different times.
             match button {
-                GLUT_LEFT_BUTTON =>g_ldrag_start=Some(pos),
-                GLUT_RIGHT_BUTTON =>g_rdrag_start=Some(pos),
-                GLUT_MID_BUTTON =>g_mdrag_start=Some(pos)
+                GLUT_LEFT_BUTTON =>g_ldrag_start=Some(posi),
+                GLUT_RIGHT_BUTTON =>g_rdrag_start=Some(posi),
+                GLUT_MID_BUTTON =>g_mdrag_start=Some(posi)
             }
         } else {
             // Process mouse release: it may be a click or drag
@@ -516,10 +635,10 @@ mod callbacks {
                 GLUT_RIGHT_BUTTON=>(&mut g_rdrag_start,MouseButtons::Right),
                 GLUT_MID_BUTTON=>(&mut g_mdrag_start,MouseButtons::Mid),
             };
-            if drag_mdist(oldpos.unwrap(),pos)==0{
+            if drag_mdist(oldpos.unwrap(),posi)==0{
                 push_event(Event::Clicked(mb,vpos))
             } else{
-                push_event(Event::Dragged(mb,to_viewpos(oldpos.unwrap()),vpos,g_dragmode))
+                push_event(Event::Dragged(mb,to_screenpos(oldpos.unwrap()),vpos,g_dragmode))
             }
             // clear the old position.
             *oldpos=Option::None;
@@ -531,22 +650,30 @@ mod callbacks {
 
 
 }
-fn drag_mdist(a:PixelPos,b:PixelPos)->i32{
+fn drag_mdist(a:PixelPosi,b:PixelPosi)->i32{
     let dx=b.0-a.0;
     let dy=b.1-a.1;
     dx.abs()+dy.abs()
 }
+fn drag_dist(a:PixelPosf,b:PixelPosf)->f32{
+    let dx=b.0-a.0;
+    let dy=b.1-a.1;
+    sqrt(dx*dx+dy*dy)
+}
 fn divf32(a:i32,b:i32)->f32{a as f32 / b as f32}
-fn to_viewpos(s:PixelPos)->ViewPos{
+fn to_screenpos(s:PixelPosi)->ScreenPos{
     unsafe{
-    (   divf32(s.0,g_screensize.0)*2.0f32-1.0f32,
-        -(divf32(s.1,g_screensize.1)*2.0f32-1.0f32)
+    Vec2(   divf32(s.0,g_screen_pixel_sizei.0)*2.0f32-1.0f32,
+        -(divf32(s.1,g_screen_pixel_sizei.1)*2.0f32-1.0f32)
     )}
 }
 fn set_mouse_pos(x:i32,y:i32){unsafe{g_mouse_opos=g_mouse_pos; g_mouse_pos=(x,y)};}
-fn get_mouse_vpos()->ViewPos{unsafe{to_viewpos(g_mouse_pos)}}
-fn get_mouse_ovpos()->ViewPos{unsafe{to_viewpos(g_mouse_opos)}}
-fn get_mouse_ppos()->PixelPos{unsafe{g_mouse_pos}}
+fn get_mouse_vpos()->ScreenPos{unsafe{to_screenpos(g_mouse_pos)}}
+fn get_mouse_ovpos()->ScreenPos{unsafe{to_screenpos(g_mouse_opos)}}
+fn get_mouse_ppos()->PixelPosi{unsafe{g_mouse_pos}}
+fn get_drag_start()->Option<ScreenPos>{unsafe{
+    if let Some(ipos)=g_ldrag_start { Some(to_screenpos(ipos))} else {None}
+}}
 fn push_event(e:Event){
     unsafe {
         let next = (g_head + 1) & ((MaxEvent - 1) as i32);
@@ -584,6 +711,8 @@ type WindowId=c_int;
 
 fn render_begin(){
     unsafe {
+        gl_scissor_s(&Extents(&Vec2(-1.0f32,-1.0f32),&Vec2(1.0f32,1.0f32)));
+        //glScissor(0,0,g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
         glClearColor(0.5f32, 0.5f32, 0.5f32, 1.0f32);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -600,7 +729,10 @@ fn render_end(){
     }
 }
 type IsOverlay=bool;
-type Windows<A>=(Vec<(Box<State<A>>,IsOverlay)>,WindowId);
+type Windows<A>=(Vec<(Box<Window<A>>,IsOverlay)>,WindowId);
+
+#[cfg(ASMJS)]
+fn glutGetWindow()->i32{0}
 
 
 fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
@@ -638,21 +770,42 @@ fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
 }
 fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3{Vec3(x,y,z)}
 
-pub struct RC {
-    pub rect:Rect,
-	pub mouse_old_pos:ViewPos,
-	pub mouse_pos:ViewPos,
-	pub t:f32
+/// window and cursor state, passed down because the framework calculates sizes.
+#[derive(Clone,Debug)]
+pub struct WinCursor {
+    pub rect:ScreenRect,
+	pub aspect_ratio:f32,
+    pub drag_start:Option<ScreenPos>,
+	pub old_pos:ScreenPos,
+	pub pos:ScreenPos,
+    pub t:f32,  //TODO - time ticks
 }
+fn mkwc(r:&ScreenRect,p:&ScreenPos)->WinCursor{
+    WinCursor{
+        rect:r.clone(), pos:p.clone(), old_pos:p.clone(), drag_start:None, t:0.0f32, aspect_ratio:get_aspect_ratio()
+    }
+}
+// arg swap because it's like a default ('none')
+fn mkwcd(r:&ScreenRect,p:&ScreenPos,dragstart:&ScreenPos)->WinCursor{
+    WinCursor{
+        rect:r.clone(), pos:p.clone(), old_pos:p.clone(), drag_start:Some(dragstart.clone()),t:0.0f32, aspect_ratio:get_aspect_ratio()
+    }
+}
+fn mkwcm(r:&ScreenRect,p:&ScreenPos,opos:&ScreenPos)->WinCursor{
+    WinCursor{
+        rect:r.clone(), pos:p.clone(), old_pos:opos.clone(), drag_start:None,t:0.0f32, aspect_ratio:get_aspect_ratio()
+    }
+}
+static g_drag_color:u32=0xffffffff;
 fn set_dragmode(d:DragMode){
     unsafe{ g_dragmode=d;}
 }
 fn get_dragmode()->DragMode{
     unsafe{g_dragmode}
 }
-unsafe fn get_drag_points()->&'static mut Vec<ViewPos>{
+unsafe fn get_drag_points()->&'static mut Vec<ScreenPos>{
     if g_drag_points==0 as *mut _{
-        let mut f=Box::new( Vec::<ViewPos>::new());
+        let mut f=Box::new( Vec::<ScreenPos>::new());
         g_drag_points = &mut *f as _;
         std::mem::forget(f);
     }
@@ -668,11 +821,11 @@ unsafe fn render_drag_overlay(){
 
     // clear all rendering states
     draw::identity();
-    let sv=from_tuple_z(to_viewpos(g_ldrag_start.unwrap()),0.0);
+    let sv=to_screenpos(g_ldrag_start.unwrap()).to_vec3_z(0.0);
     let ev=from_tuple_z(cvp.into(),0.0);
     match g_dragmode{
         DragMode::Line=>{
-            draw::line(sv, ev);
+            draw::line(&sv, &ev);
         },
         DragMode::Lasso=>{
             draw::lines_xy(get_drag_points(), 0.0f32, false);
@@ -683,20 +836,20 @@ unsafe fn render_drag_overlay(){
         }
 
         DragMode::Default=> {
-            draw::line(sv, ev);
-            draw::rect_corners_xy(sv, ev, 0.1);
+            draw::line(&sv, &ev);
+            draw::rect_corners_xy(&sv, &ev, 0.1, g_drag_color);
         }
         DragMode::Rect=>{
-            draw::rect_outline(sv, ev);
+            draw::rect_outline(&sv, &ev);
         },
         DragMode::Circle=>{
-            draw::circle_xy(sv, (ev-sv).vmagnitude() );
+            draw::circle_xy(&sv, (ev-sv).vmagnitude() );
         },
         _=>{},
     }
 }
-fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
-    let whole_rect = ((0.0,0.0),(1.0,1.0));
+fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
+    let whole_rect = Extents(&Vec2(-1.0,-1.0),&Vec2(1.0,1.0));
     unsafe{
         //render.
         let top=wins.0 .len();
@@ -704,14 +857,21 @@ fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
             render_begin();
             let i = top - 1;
             {
-				let rc=RC{rect:((0.0,0.0),(1.0,1.0)),mouse_pos:get_mouse_vpos(),mouse_old_pos:get_mouse_ovpos(),t:0.0f32};
+				let wc=WinCursor{
+                    rect:Extents(&Vec2(-1.0,-1.0),&Vec2(1.0,1.0)),
+                    old_pos:get_mouse_ovpos(),
+                    pos:get_mouse_vpos(),
+                    drag_start:None,
+					aspect_ratio:get_aspect_ratio(),
+                    t:0.0f32
+                };
                 let win = &wins.0[i];
                 // if it's an overlay , render previous first.
                 if i > 0 && win.1 {
                     // todo- generalize, any number of overlays
-                    wins.0[i - 1].0.render(a,&rc);
+                    wins.0[i - 1].0.render(a,&wc);
                 }
-                win.0.render(a,&rc);
+                win.0.render(a,&wc);
                 // check the keymappings,
             }
             {
@@ -736,7 +896,7 @@ fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
             if top>0 {
                 process_flow(
                     {let win = &mut wins.0[top - 1];
-                        win.0 .event(a,e,whole_rect)}
+                        win.0 .event(a,e,&whole_rect)}
                     ,wins);
             }
         }
@@ -757,14 +917,67 @@ fn render_and_update<APP>(wins:&mut Windows<APP>,a:&mut APP){
         }
     }
 }
+#[cfg(ASMJS)]
+unsafe fn glutCheckLoop(){
+}
 
+#[cfg(ASMJS)]
+unsafe fn extra_callbacks(){
+}
+#[cfg(not(ASMJS))]
+unsafe fn extra_callbacks(){
+        glutJoystickFunc(callbacks::joystick_func as *const u8,16);
+}
+
+#[cfg(DESKTOP)]
+fn run_main_loop(){
+}
+#[cfg(ASMJS)]
+fn run_main_loop(){
+}
+
+
+#[cfg(ASMJS)]
+extern { pub fn emscripten_set_main_loop(_:*const u8,framerate:i32,one:i32);}
+
+static mut g_windows:Option<Windows<()>>=None;
+static mut g_wins:*mut Windows<()> =0 as *mut _;
+static mut g_app_ptr:usize=0;
+fn wins()->&'static mut Windows<()>{unsafe {
+	return mem::transmute::<*mut Windows<()>,&'static mut Windows<()>>(g_wins);
+}}
+
+
+#[cfg(ASMJS)]
+unsafe fn em_main_loop_body<APP>(){
+	println!("emscripten main loop invokation..");
+	render_and_update(
+		&mut*g_wins,&mut ()
+);
+}
+#[cfg(ASMJS)]
+unsafe fn mock_main_loop(){
+	//let winptr=(g_wins_ptr as *mut Windows<T>) as &mut Windows<T>;
+
+	render_and_update(
+		&mut*g_wins,&mut ()
+);	
+ //	render_and_update(wins(),&mut ());
+}
 
 // you have to push an initial state, which is a window.
-pub fn run_loop<APP>(mut w:sto<State<APP>>, app:&mut APP) {
-    let mut wins:Windows<APP>=(vec![],0);
-    push(&mut wins, w);
-
+pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
+    println!("run loop..");
+	
+	let mut _wins = Box::new((vec![],0));
+	unsafe{
+		g_wins=(&mut *_wins) as *mut Windows<()>;
+		for w in swins{push(wins(), w)};
+		std::mem::forget(_wins);
+	}
     unsafe {
+		// todo , better place to set initial dimensions
+		g_aspect_ratio=g_screen_pixel_sizef.0/g_screen_pixel_sizef.1;
         println!("window handler main");
         let mut argc:c_int=0;
         let argv=Vec::<*const c_char>::new();
@@ -772,9 +985,16 @@ pub fn run_loop<APP>(mut w:sto<State<APP>>, app:&mut APP) {
 
         glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
         let win=glutCreateWindow(c_str("world main loop"));
+		println!("{:?},{:?}",glutGet(GLUT_WINDOW_WIDTH),
+			glutGet(GLUT_WINDOW_HEIGHT));
+		//return;
+		glutReshapeWindow(g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
+		glViewport(0,0,g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
         //		glewInit(); //TODO- where the hell is glewInit. -lGLEW isn't found
-        glDrawBuffer(GL_BACK);
-        glutReshapeWindow(g_screensize.0,g_screensize.1);
+		#[cfg(DESKTOP)]
+		{
+			glDrawBuffer(GL_BACK);
+		}
 
         // glut callback malarchy
         glutDisplayFunc(callbacks::render_null as *const u8);
@@ -785,24 +1005,45 @@ pub fn run_loop<APP>(mut w:sto<State<APP>>, app:&mut APP) {
         glutMotionFunc(callbacks::motion_func as *const u8);
         glutPassiveMotionFunc(callbacks::passive_motion_func as *const u8);
         glutIdleFunc(callbacks::idle_func as *const u8);
-        glutJoystickFunc(callbacks::joystick_func as *const u8,16);
+
+		extra_callbacks();
         glutSpecialFunc(callbacks::special_func as *const u8);
         glutSpecialUpFunc(callbacks::special_up_func as *const u8);
         glEnable(GL_DEPTH_TEST);
 
-        glDrawBuffer(GL_BACK);
+		glClearColor(0.5f32,0.5f32,0.5f32,1.0f32);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+		#[cfg(ASMJS)]
+		{
+			// test loading texture..
+			g_test_texture[0]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/1/17/Begur_Sa_Tuna_02_JMM.JPG\");"))as GLuint;
+			g_test_texture[1]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/6/6e/Oblast_mezi_Libeňským_mostem_a_Negrelliho_viaduktem_%2817%29.jpg\");")) as GLuint;
+			println!("tex1 tex 2 {}{}",g_test_texture[0],g_test_texture[1]);
+
+			emscripten_set_main_loop(mock_main_loop as *const u8,0,1);
+			return;
+		}
+
         //glutMainLoop();
+		println!("enter main loop");
+		#[cfg(DESKTOP)]
         loop {
             glutCheckLoop();//draw
 
-            render_and_update(&mut wins,app);
+            unsafe {render_and_update(wins(),app);}
         }
+		#[cfg(ASMJS)]
+		unsafe {
+			render_and_update(wins(), app);
+
+			println!("init emscripten main loop");
+			emscripten_set_main_loop(mock_main_loop as *const u8,60,1);
+		}
     }
 }
 
-pub fn push<A>(wins:&mut Windows<A>, w:sto<State<A>>){
+pub fn push<A>(wins:&mut Windows<A>, w:sto<Window<A>>){
     unsafe{
         wins.0 .push((w,false));
         wins.1 = glutGetWindow();
@@ -811,3 +1052,138 @@ pub fn push<A>(wins:&mut Windows<A>, w:sto<State<A>>){
 pub fn key(k:char)->bool{
     unsafe{g_key[k as usize]}
 }
+
+/// Editor: handles tool switching and forwards events to the tool.
+impl<O,E> Window<O> for MainWindow<E> {
+    fn event(&mut self,owner:&mut O, e:Event, r:&Rect)->Flow<O>{
+        use self::Event as Ev;
+        //self.event_dispatch(owner,e)
+
+        // todo - respond to flow ..
+        // replacement of the frame etc should be possible.
+        let sw=&mut*self.subwindow;
+        sw.event(&mut self.content,e,r);
+        Flow::Continue()
+    }
+    fn render(&self,a:&O, wc:&WinCursor){
+        gl_scissor_s(&wc.rect);
+        self.subwindow.render(&self.content,wc);
+    }
+}
+pub fn gl_scissor_s(sr:&ScreenRect) {
+    //let w = sr.1 .0 - sr.0 .0;
+    //let h = sr.1 .1 - sr.0 .1;
+    let size=sr.size();
+    unsafe {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(
+        ((sr.min .x + 1.0f32) * g_screen_pixel_sizef.0 * 0.5f32) as GLint,
+        ((sr.min .y + 1.0f32) * g_screen_pixel_sizef.1 * 0.5f32) as GLint,
+        (size.x * g_screen_pixel_sizef.0 * 0.5f32) as GLsizei,
+        (size.y * g_screen_pixel_sizef.1 * 0.5f32) as GLsizei);
+    }
+}
+pub struct MainWindow<T> {
+    pub content:T,
+    pub subwindow: Box<Window<T>>,
+}
+pub fn MainWindow<T,OWNER>(content:T, rootframe: Box<Window<T>>)->Box<Window<OWNER>>
+where OWNER:'static, T:'static
+{
+    Box::new(MainWindow{content:content, subwindow:rootframe})
+}
+
+#[derive(Clone,Copy,Debug)]
+enum SplitMode{RelDynamic,RelHoriz,RelVert,AbsLeft,AbsRight,AbsUp,AbsDown}
+impl Default for SplitMode{ fn default()->SplitMode{SplitMode::RelDynamic}}
+
+struct Split<OWNER>{
+    proportion:f32,
+    mode:SplitMode,
+    subwin:[Box<Window<OWNER>>;2]
+}
+const  split_epsilon:f32=0.005f32;// todo - pixel split
+impl<OWNER> Split<OWNER>{
+    fn calc_rects(&self,parentRect:&Rect)->[Rect;2]{
+        let f0=0.0;
+        let f1=self.proportion-split_epsilon;
+        let f2=self.proportion+split_epsilon;
+        let f3=1.0;
+
+        let split_horiz=||{
+            [split_x(parentRect, f0, f1),
+                split_x(parentRect, f2, f3)]
+        };
+        let split_vert=||{
+            [split_y(parentRect, f0, f1),
+                split_y(parentRect, f2, f3)]
+        };
+        let size=parentRect.size();
+        match self.mode {
+            SplitMode::RelVert=>split_vert(),
+            SplitMode::RelHoriz=>split_horiz(),
+            _=>if size.x*get_aspect_ratio()>=size.y {split_horiz()} else {split_vert()}
+        }
+    }
+    fn calc_rect(&self, parentRect:&Rect, i:usize)->Rect{
+        // todo , less stupidly
+        let rects=self.calc_rects(parentRect);
+        rects[i].clone()
+    }
+}
+
+pub fn SplitHoriz<OWNER:'static>(a:Box<Window<OWNER>>,b:Box<Window<OWNER>>)->Box<Window<OWNER>>{
+    Box::new(Split::<OWNER>{
+        mode:SplitMode::RelHoriz,
+        proportion:0.5f32,
+        subwin:[a,b],
+    })
+}
+// default split type is dynamic - checks if wider or taller..
+pub fn Split<OWNER:'static>(prop:f32,a:Box<Window<OWNER>>,b:Box<Window<OWNER>>)->Box<Window<OWNER>>{
+    Box::new(Split::<OWNER>{
+        mode:SplitMode::RelDynamic,
+        proportion:prop,
+        subwin:[a,b],
+    })
+}
+macro_rules! windbg{
+    ($($e:expr),*)=>{}
+}
+
+impl<OWNER> Window<OWNER> for Split<OWNER>{
+
+    fn event(&mut self, owner:&mut OWNER, e:Event, r:&ScreenRect)->Flow<OWNER>{
+        //todo- dispatch event per side..
+        // todo - this is actually BSP split?!
+        let rects=self.calc_rects(&r);
+        match e.pos(){
+            // non-spatial event - dispatch to all
+            None=>{self.subwin[1].event(owner,e,r); self.subwin[0].event(owner,e,r)},
+            // spatial event: dispatch to the sub-window enclosing it.
+            Some(pos)=>{
+                windbg!("spatial event {:?}, pos={:?}", e, pos);
+                let mut ret:Flow<OWNER>=Flow::Continue();
+                for (i,subr) in rects.iter().enumerate(){
+                    if v2is_inside(&pos, (&subr.min,&subr.max)){
+                        //println!("dispatch {:?} to win {:?}",e,i);
+                        ret=self.subwin[i].event(owner,e, subr);
+                    }
+                }
+                ret
+            }
+        }
+
+//        self.first.event(owner,e,r)
+    }
+    fn render(&self, a:&OWNER, wc:&WinCursor){
+        let rects = self.calc_rects(&wc.rect);
+        let mut subwin0=wc.clone(); let mut subwin1=wc.clone();
+        subwin0.rect=rects[0].clone(); subwin1.rect=rects[1].clone();
+        gl_scissor_s(&subwin0.rect);
+        self.subwin[0].render(a, &subwin0);
+        gl_scissor_s(&subwin1.rect);
+        self.subwin[1].render(a, &subwin1);
+    }
+}
+

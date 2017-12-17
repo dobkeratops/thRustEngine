@@ -1,7 +1,7 @@
 use super::*;
 //use ::r3d::draw;
 use window as w;
-use window::State as ws;
+use window::Window as ws;
 type V3= (f32,f32,f32);
 
 pub struct FlyMode{
@@ -9,7 +9,7 @@ pub struct FlyMode{
     hdg:f32,
 }
 
-pub fn new<A>()->sto<window::State<A>>{
+pub fn new<A:'static>()->sto<window::Window<A>>{
     sto::new(FlyMode{
         pos:(0.0f32,0.0f32,0.0f32),
         hdg:0.0f32
@@ -22,11 +22,11 @@ trait Render{
     fn arrow(&self,a:&V3,b:&V3,r:f32,c:u32);
 }
 
-impl<A> window::State<A> for FlyMode {
-    fn on_key(&mut self, a:&mut A, kp:w::KeyAt)->window::Flow<A>{
+impl<A:'static> window::Window<A> for FlyMode {
+    fn on_key(&mut self, a:&mut A, kp:w::KeyAt,wc:&window::WinCursor)->window::Flow<A>{
         println!("{:?}",kp);
-        match (kp.0,kp.1) {
-            ('e',KeyDown)=>Flow::Push(editor::new()),
+        match (kp.0,kp.2) {
+            (window::WinKey::KeyCode('e'),KeyDown)=>Flow::Push(editor::make_editor_window::<A,editor::Scene>()),
             _=>Flow::Continue()
         }
     }
@@ -52,15 +52,16 @@ impl<A> window::State<A> for FlyMode {
         window::Flow::Continue()
     }
 
-    fn render(&self, a:&A, rc:&window::RC) {
+    fn render(&self, a:&A, wc:&window::WinCursor) {
 
         let eye: Vec3 = self.pos.into();
         let (ax, ay) = (sin(self.hdg), cos(self.hdg));
         let at = Vec3(eye.x + ax, eye.y + ay, eye.z);
-        let cam = Camera::look_along(&Frustum(1.0f32, 1.0f32, (0.1f32, 1000.0f32)),
-                                     &Vec3(eye.x, eye.y, eye.z),
-                                     &Vec3(ax, ay, 0.0f32),
-                                     &Vec3(0.0f32, 0.0f32, 1.0f32));
+        let cam = Camera::look_along(
+            &Frustum(1.0f32, 1.0f32, (0.1f32, 1000.0f32)),
+            &Vec3(eye.x, eye.y, eye.z),
+            &Vec3(ax, ay, 0.0f32),
+            &Vec3(0.0f32, 0.0f32, 1.0f32));
         unsafe {
             glutSetCursor(GLUT_CURSOR_CROSSHAIR as i32);
             // g_ypos-=0.1f32;
@@ -81,7 +82,7 @@ impl<A> window::State<A> for FlyMode {
         }
     }
 }
-
+// numVertex
 
 fn render_scene(r:&Render){
 }
