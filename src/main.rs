@@ -36,6 +36,7 @@ pub use emscripten::*;
 
 //extern crate image;
 
+
 #[cfg(target_os = "android")]
 extern { fn android_logw(s:*const c_char);}
 
@@ -1031,7 +1032,7 @@ static g_num_torus:int = 256;
 
 type StringMap<T,K=String> = HashMap<K,T>;
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 unsafe fn glUniformMatrix4fvARB(loc:i32, count:i32,  flags:u8, ptr:*const f32){
 	glUniform4fv(
 		loc,
@@ -1313,7 +1314,7 @@ extern "C"{
     fn SDL_UpdateWindowSurface(_:SDL_WindowPtr);
 }
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 fn test_file_download(){
 	println!("test file download..");
 	unsafe{
@@ -1392,13 +1393,8 @@ fn test_browser_ui(){
 	alert(prompt("input please").as_str());
 	alert(if confirm("did that work?"){"yes"}else{"no"});
 }
-
-pub fn main(){
-	#[cfg(not(any(ASMJS,DESKTOP)))]
-	compile_error!("must pass --cfg ASMJS or --cfg DESKTOP");
-
-
-    let a=window::ScrPos(0.1,0.2);let b=window::ScrPos(0.4,0.6);
+pub fn test_seq(){
+   let a=window::ScrPos(0.1,0.2);let b=window::ScrPos(0.4,0.6);
     let c=v2avr(&a,&b);
     println!("checking derived maths for tuple malarchy a avr b= {:?} b-a={:?}",c,v2sub(&b,&a));
     println!("{:?}", seq![x; x*2 ;for 0..10]);
@@ -1406,21 +1402,16 @@ pub fn main(){
 	println!("{:?}", seq![1,2,3]);
 	println!("{:?}", seq![1,2,3]);
 	println!("{:?}", seq![1=>10,2=>3,3=>5]);
-#[cfg(ASMJS)]
-unsafe {
-	//test_browser_ui();
-		//emscripten_run_script(cstr!("test_js_link('hello');"));
-	//window::emscripten_set_main_loop(render_no_swap as *mut u8,60,1);
-	//window::run_loop(vec![world::new()],&mut ());
-//return;
-	}
-//	#[cfg(DESKTOP)]
-//	window::run_loop(vec![Box::new(ShaderTest{time:30})],&mut ());
-	#[cfg(ASMJS)]
-//	test_file_download();
-	#[cfg(DESKTOP)]
+}
+
+pub fn main(){
+ 	#[cfg(shadertest)]
+	window::run_loop(vec![Box::new(ShaderTest{time:30})],&mut ());
+
+	#[cfg(not(target_os = "emscripten"))]
 	window::run_loop(vec![world::new()],&mut ());
-	#[cfg(ASMJS)]
+
+	#[cfg(target_os = "emscripten")]
     window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
     //window::run_loop(test::new(),&mut ());
 //    bsp::bsp::main();

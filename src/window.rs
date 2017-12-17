@@ -731,7 +731,7 @@ fn render_end(){
 type IsOverlay=bool;
 type Windows<A>=(Vec<(Box<Window<A>>,IsOverlay)>,WindowId);
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 fn glutGetWindow()->i32{0}
 
 
@@ -917,27 +917,27 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
         }
     }
 }
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 unsafe fn glutCheckLoop(){
 }
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 unsafe fn extra_callbacks(){
 }
-#[cfg(not(ASMJS))]
+#[cfg(not(target_os = "emscripten"))]
 unsafe fn extra_callbacks(){
         glutJoystickFunc(callbacks::joystick_func as *const u8,16);
 }
 
-#[cfg(DESKTOP)]
+#[cfg(not(target_os = "emscripten"))]
 fn run_main_loop(){
 }
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 fn run_main_loop(){
 }
 
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 extern { pub fn emscripten_set_main_loop(_:*const u8,framerate:i32,one:i32);}
 
 static mut g_windows:Option<Windows<()>>=None;
@@ -948,14 +948,14 @@ fn wins()->&'static mut Windows<()>{unsafe {
 }}
 
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 unsafe fn em_main_loop_body<APP>(){
 	println!("emscripten main loop invokation..");
 	render_and_update(
 		&mut*g_wins,&mut ()
 );
 }
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 unsafe fn mock_main_loop(){
 	//let winptr=(g_wins_ptr as *mut Windows<T>) as &mut Windows<T>;
 
@@ -991,7 +991,7 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 		glutReshapeWindow(g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
 		glViewport(0,0,g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
         //		glewInit(); //TODO- where the hell is glewInit. -lGLEW isn't found
-		#[cfg(DESKTOP)]
+		#[cfg(not(target_os = "emscripten"))]
 		{
 			glDrawBuffer(GL_BACK);
 		}
@@ -1014,9 +1014,9 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 		glClearColor(0.5f32,0.5f32,0.5f32,1.0f32);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-		#[cfg(ASMJS)]
+		#[cfg(target_os = "emscripten")]
 		{
-			// test loading texture..
+			println!("testing emscripten texure url grab");
 			g_test_texture[0]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/1/17/Begur_Sa_Tuna_02_JMM.JPG\");"))as GLuint;
 			g_test_texture[1]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/6/6e/Oblast_mezi_Libeňským_mostem_a_Negrelliho_viaduktem_%2817%29.jpg\");")) as GLuint;
 			println!("tex1 tex 2 {}{}",g_test_texture[0],g_test_texture[1]);
@@ -1027,13 +1027,14 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 
         //glutMainLoop();
 		println!("enter main loop");
-		#[cfg(DESKTOP)]
+		#[cfg(not(target_os = "emscripten"))]
+
         loop {
             glutCheckLoop();//draw
 
             unsafe {render_and_update(wins(),app);}
         }
-		#[cfg(ASMJS)]
+		#[cfg(target_os = "emscripten")]
 		unsafe {
 			render_and_update(wins(), app);
 

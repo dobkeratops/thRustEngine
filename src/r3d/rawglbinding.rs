@@ -148,6 +148,7 @@ pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
 
 	pub fn glRasterPos2f( x:GLfloat, y:GLfloat );
 	pub fn glRasterPos2i( x:GLint, y:GLint );
+    pub fn glRasterPos3f(_:f32,_:f32,_:f32);
 
 
 	pub fn glOrtho(x0:GLdouble,y0:GLdouble,z0:GLdouble,x1:GLdouble,y1:GLdouble,z1:GLdouble);
@@ -248,6 +249,9 @@ pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
 	pub fn glutPostRedisplay();
 
 	pub fn glBufferData(target:GLenum, size:GLsizei, data:PGLvoid, usage:GLenum);
+    pub fn glutBitmapCharacter(_:*const c_void, _:c_char)->();
+	pub static mut glutStrokeMonoRoman:&'static u8;
+	pub static mut glutBitmap8By13:&'static u8;
 
 	pub fn glutPostWindowRedisplay(  window:c_int );
     pub fn glutSwapBuffers();

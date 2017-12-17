@@ -457,28 +457,21 @@ pub fn	image(size:(u32,u32),image:&Vec<u32>, pos:(f32,f32)) {
 	}
 }
 
-#[cfg(DESKTOP)]
-extern "C" {
-    fn glutBitmapCharacter(_:*const c_void, _:c_char)->();
-    fn glRasterPos3f(_:f32,_:f32,_:f32);
-	static mut glutStrokeMonoRoman:&'static u8;
-	static mut glutBitmap8By13:&'static u8;
-}
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 fn glutBitmapCharacter(_:*const c_void, _:c_char)->() {
 }
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 fn glRasterPos3f(_:f32,_:f32,_:f32){
 }
 
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 pub fn char_at(&(x,y,z):&V3,color:u32, k:char) {
 }
-#[cfg(ASMJS)]
+#[cfg(target_os = "emscripten")]
 pub fn string_at(&(x,y,z):&V3,color:u32, text:&str){
 }
-#[cfg(DESKTOP)]
+#[cfg(not(target_os = "emscripten"))]
 pub fn char_at(&(x,y,z):&V3,color:u32, k:char) {
     unsafe {
         self::gl_color(color);
@@ -488,7 +481,7 @@ pub fn char_at(&(x,y,z):&V3,color:u32, k:char) {
                                 as *const &u8 as *const *const u8 as *const c_void, k as c_char);
     }
 }
-#[cfg(DESKTOP)]
+#[cfg(not(target_os = "emscripten"))]
 pub fn string_at(&(x,y,z):&V3,color:u32, text:&str){
     unsafe {
         self::gl_color(color);
