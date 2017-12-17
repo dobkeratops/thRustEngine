@@ -714,47 +714,66 @@ void main() \n\
 ";
 
 static g_PS_Tex3_AlphaMul:&'static str=&"\
-uniform sampler2D s_tex0;\n\
-uniform sampler2D s_tex1;\n\
-uniform sampler2D s_tex2;\n\
-uniform vec4 uSpecularDir;\n\
-uniform float uSpecularPower;\n\
-uniform vec4 uSpecularColor;\n\
-uniform vec4 uAmbient;\n\
-uniform vec4 uDiffuseDX;\n\
-uniform vec4 uDiffuseDY;\n\
-uniform vec4 uDiffuseDZ;\n\
+uniform sampler2D s_tex0;	\n\
+uniform sampler2D s_tex1;	\n\
+uniform sampler2D s_tex2;	\n\
+uniform vec4 uSpecularDir;	\n\
+uniform float uSpecularPower;	\n\
+uniform vec4 uSpecularColor;	\n\
+uniform vec4 uAmbient;			\n\
+uniform vec4 uDiffuseDX;		\n\
+uniform vec4 uDiffuseDY;		\n\
+uniform vec4 uDiffuseDZ;		\n\
 void main() { \n\
-	float inva=(v_color.w),a=(1.0-v_color.w);\n\
-	vec4 t0=texture2D(s_Tex0, v_tex0);\n\
-	vec4 t1=texture2D(s_Tex1, v_tex0);\n\
-	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;\n\
-	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;\n\
-	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));\n\
-	highlight=(highlight*highlight);highlight=highlight*highlight;\n\
-	vec4 surfaceColor=mix(t0,t1, v_color.w*t1.a);\n\
-	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));\n\
-	vec4 spec=highlight*uSpecularColor*surfaceSpec;\n\
+	float inva=(v_color.w),a=(1.0-v_color.w);		\n\
+	vec4 t0=texture2D(s_Tex0, v_tex0);				\n\
+	vec4 t1=texture2D(s_Tex1, v_tex0);				\n\
+	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;			\n\
+	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;			\n\
+	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));	\n\
+	highlight=(highlight*highlight);highlight=highlight*highlight; \n\
+	vec4 surfaceColor=mix(t0,t1, v_color.w*t1.a);				 \n\
+	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));                            \n\
+	vec4 spec=highlight*uSpecularColor*surfaceSpec;	\n\
 	vec4 diff=uAmbient+vso_norm.x*uDiffuseDX+vso_norm.y*uDiffuseDY+vso_norm.z*uDiffuseDZ;\n\
 	gl_FragColor =surfaceColor*diff*Vec4(v_color.xyz,0.0)*2.0+spec;\n\
 }\
 ";
+static g_PS_DeclUniforms:&'static str=&"\
+uniform sampler2D s_tex0;			\n\
+uniform sampler2D s_tex1;			\n\
+uniform sampler2D s_tex2;			\n\
+uniform vec4 uSpecularDir;			\n\
+uniform float uSpecularPower;		\n\
+uniform vec4 uSpecularColor;		\n\
+uniform vec4 uAmbient;				\n\
+uniform vec4 uDiffuseDX;			\n\
+uniform vec4 uDiffuseDY;			\n\
+uniform vec4 uDiffuseDZ;			\n\
+";
+// passthrough various minimal versions
+static g_PS_TexCoord0:&'static str=&"\n\
+void main() {\n\
+	vec4 t0=texture2D(s_tex0, v_tex0);\n\
+	gl_FragColor =v_tex0;\n\
+}\n\
+";
+static g_PS_Normal:&'static str=&"\n\
+void main() {\n\
+	gl_FragColor =vec4(v_norm*0.5+vec3(0.5,0.5,0.5),1.0);\n\
+}\n\
+";
+static g_PS_Color:&'static str=&"\n\
+void main() {\n\
+	gl_FragColor =v_color; \n\
+}\n\
+";
 
-static g_PS_Tex0:&'static str=&"\
-uniform sampler2D s_tex0;\n\
-uniform sampler2D s_tex1;\n\
-uniform sampler2D s_tex2;\n\
-uniform vec4 uSpecularDir;\n\
-uniform float uSpecularPower;\n\
-uniform vec4 uSpecularColor;\n\
-uniform vec4 uAmbient;\n\
-uniform vec4 uDiffuseDX;\n\
-uniform vec4 uDiffuseDY;\n\
-uniform vec4 uDiffuseDZ;\n\
-void main() { \n\
+static g_PS_Tex0:&'static str=&"\n\
+void main() {\n\
 	vec4 t0=texture2D(s_tex0, v_tex0);\n\
 	gl_FragColor =t0;\n\
-}\
+}\n\
 ";
 
 
@@ -857,13 +876,23 @@ fn map_shader_params(prog:GLuint)->(VertexAttr,UniformTable)
 	}	
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android",target_os="emscripten"))]
 fn get_shader_prefix(is_ps:int)->&'static str {
 	if is_ps==0 {vertex_shader_prefix_gles} else {pixel_shader_prefix_gles}
 }
 
+/*
 #[cfg(not(target_os = "android"))]
 fn get_shader_prefix(is_ps:int)->&'static str {
+	if is_ps==0 {vertex_shader_prefix_gles} else {pixel_shader_prefix_gles}
+}
+*/
+
+enum ShaderType{
+	PixelShader,VertexShader
+}
+#[cfg(any(target_os = "macos",target_os="linux"))]
+fn get_shader_prefix(is_ps:i32)->&'static str {
 	shader_prefix_desktop
 }
 
@@ -875,12 +904,22 @@ fn	create_shaders()
 //						&~[get_shader_prefix(1),ps_vs_interface0,g_PS_Flat], //PS_Alpha
 	unsafe {
 		android_logw(c_str("create shaders"));
+		println!("CREATE MAIN SHADER\n");
 		let (vsh,psh,prg)=create_shader_program( 
-						&[get_shader_prefix(1),ps_vs_interface0,g_PS_Tex0/*g_PS_Alpha*/],
-						&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_PassThruTweak]);
+			&[	get_shader_prefix(1),
+				g_PS_DeclUniforms,
+				ps_vs_interface0,
+				g_PS_Tex0/*g_PS_Alpha*/
+			],
+			&[	get_shader_prefix(0),
+				ps_vertex_format0,
+				ps_vs_interface0, 
+				g_VS_PassThruTweak
+			]);
 		g_vertex_shader=vsh;
 		g_pixel_shader=psh;	
 		g_shader_program_main=prg;
+		println!("CREATE MAIN SHADERdone\n");
 		let (vs, su)=map_shader_params(g_shader_program_main);
 		println!("vs={:?}",vs);
 		println!("su={:?}",su);
@@ -889,9 +928,10 @@ fn	create_shaders()
 		g_shader_uniforms_main.mat_proj=0;
 		g_shader_uniforms_main.mat_model_view=4;
 		g_shader_uniforms_main.mat_model_view_proj=8;
+		println!("CREATE DEBUG SHADER\n");
 
 		let (vsh1,psh1,prg1)=create_shader_program( 
-			&[get_shader_prefix(1),ps_vs_interface0,g_PS_Tex0/*g_PS_Alpha*/],
+			&[get_shader_prefix(1),ps_vs_interface0,g_PS_Alpha],
 			&[get_shader_prefix(0), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
 		g_shader_program_debug=prg1;
 		
@@ -901,6 +941,7 @@ fn	create_shaders()
 			g_vertex_shader_attrib_debug=vs;
 			g_shader_uniforms_debug=su;
 		}
+		println!("CREATE DEBUG SHADERdone\n");
 
 	}
 }
@@ -924,7 +965,7 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex
 		pos:[(rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy],
 		color:[1.0,1.0,1.0,1.0],
 		norm:[sy*cx, sy*sx, cy],
-		tex0:[fi*8.0, fj*2.0],
+		tex0:[fi*16.0, fj*2.0],
 	}	
 }
 
@@ -1113,7 +1154,7 @@ unsafe fn glUniformMatrix4fvARB(loc:i32, count:i32,  flags:u8, ptr:*const f32){
 }
 
 
-pub fn	render_no_swap() 
+pub fn	render_no_swap(debug:u32) 
 {
 	//android_logw("render noswap");
 	
@@ -1164,8 +1205,16 @@ pub fn	render_no_swap()
 			let matMV = matT;	// toodo - combine rotation...
 			//io::println(format!("{:?}", g_shader_program));
 //			println!("[{:?}]{:?} {:?}",i, matP,rot_trans);
-			glUseProgram(g_shader_program_main);
-			let shu=&g_shader_uniforms_main;
+			let (prg,shu)={
+				if debug!=0 && false{
+					(g_shader_program_debug,
+					&g_shader_uniforms_debug)
+				} else{
+					(g_shader_program_main,
+					&g_shader_uniforms_main)
+				}
+			};
+			glUseProgram(prg);
 //			println!("matrix={:?} into {:?}",rot_trans,shu.mat_model_view);
 /*
 			glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
@@ -1327,7 +1376,7 @@ impl<A:'static> window::Window<A> for ShaderTest {
         }
     }
     fn render(&self,a:&A, _:&window::WinCursor){
-        render_no_swap();
+        render_no_swap(if self.time &15>8{1}else{0});
     }
 }
 
