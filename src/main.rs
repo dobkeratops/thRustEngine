@@ -199,8 +199,7 @@ unsafe fn get_attrib_location(shader_prog:GLuint, name:&str)->GLint {
 	r
 }
 unsafe fn get_uniform_location(shader_prog:GLuint, name:&str)->GLint {
-	let cs=CString::new(name);
-	let r=glGetUniformLocation(shader_prog, cs.unwrap().as_ptr());
+	let r=glGetUniformLocation(shader_prog, c_str(name));
 	println!("get uniform_location location {:?}={:?}", name, r);
 	r
 }
