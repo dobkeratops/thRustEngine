@@ -991,7 +991,7 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
         let argv=Vec::<*const c_char>::new();
         glutInit((&mut argc) as *mut c_int,0 as *const *const c_char );
         glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
-        let win=glutCreateWindow(cstr!("world main loop"));
+        let win=glutCreateWindow(c_str("world main loop\0"));
 		println!("{:?},{:?}",glutGet(GLUT_WINDOW_WIDTH),
 			glutGet(GLUT_WINDOW_HEIGHT));
 		//return;

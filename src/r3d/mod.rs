@@ -68,8 +68,18 @@ pub enum ShaderType{
 pub unsafe fn c_str(s:&str)->*const c_char {
 	// unfortunately thats not how it works. these need to be manually null terminated!
 	//assert!(s.len()>0);
+	let len=s.len() as isize;
+	
 	let r=s.as_ptr() as *const c_char;
-	//assert!(*r.offset(s.len() as isize-1)==('\0' as c_char));
+	let last_char=*r.offset(len-1);
+	if last_char!=0{
+		let mut i=0 as isize;
+		while i<len{ 
+			println!("s[{}]={:?}",i,*r.offset(i));
+			i+=1;
+		}
+		panic!("non null terminated string passed to C '{}' length={} last_char='{}'",s,len, last_char);
+	}
 	r
 }
 

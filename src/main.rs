@@ -135,6 +135,9 @@ enum RenderMode{
 	Tex0BlendTex1,
 	Normal,
 	TexCoord0,
+	Light,
+	SphericalHarmonicLight,
+	FogTex0,
 	Count
 //	pub const Count:usize=6;
 }
@@ -227,7 +230,11 @@ fn get_texture(filename:&str)->GLuint{
 	let mut data=Vec::<u8>::new();
 	if let Ok(mut f)=File::open(filename){
 		println!("opened {}",filename);
-		f.read_to_end(&mut data);}
+		if let Err(_)=f.read_to_end(&mut data){
+			println!("error in reading");
+			return 0;
+		}
+	}
 	else {
 		println!("could not open {}",filename);
 		return 0;
@@ -246,7 +253,6 @@ fn get_texture(filename:&str)->GLuint{
 			if !(usize1==usize && vsize1==vsize){
 				println!("scaling to {}x{}",usize1,vsize1);
 				dimg=dimg.resize(usize1,vsize1,FilterType::Gaussian);
-				usize=usize1; vsize=vsize1;
 			}
 			if let DynamicImage::ImageRgb8(img)=dimg{
 				let (mut usize,mut vsize)=img.dimensions();
@@ -431,24 +437,24 @@ unsafe fn	create_shader_program(
 			vertexShaderSource:&str)->(PixelShader,VertexShader,ShaderProgram)
 {
 
-	android_logw(c_str("create_shader_program"));
+	android_logw(c_str("create_shader_program\0"));
 
 	let pixelShaderOut = create_and_compile_shader(GL_FRAGMENT_SHADER, pixelShaderSource);
 	let vertexShaderOut = create_and_compile_shader(GL_VERTEX_SHADER, vertexShaderSource);	
 	let	prog = glCreateProgram();
-	android_logw(c_str("bind attrib locations"));
+	android_logw(c_str("bind attrib locations\0"));
 	
 	// assign attribute names before linking
 	for &x in [
-		(VertexAttrIndex::VAI_pos,"a_pos"),
-		(VertexAttrIndex::VAI_color,"a_color"),
-		(VertexAttrIndex::VAI_norm,"a_norm"),
-		(VertexAttrIndex::VAI_tex0,"a_tex0"),
-		(VertexAttrIndex::VAI_tex1,"a_tex1"),
-		(VertexAttrIndex::VAI_joints,"a_joints"),
-		(VertexAttrIndex::VAI_weights,"a_weights"),
-		(VertexAttrIndex::VAI_tangent,"a_tangent"),
-		(VertexAttrIndex::VAI_binormal,"a_binormal"),
+		(VertexAttrIndex::VAI_pos, "a_pos\0"),
+		(VertexAttrIndex::VAI_color, "a_color\0"),
+		(VertexAttrIndex::VAI_norm, "a_norm\0"),
+		(VertexAttrIndex::VAI_tex0, "a_tex0\0"),
+		(VertexAttrIndex::VAI_tex1, "a_tex1\0"),
+		(VertexAttrIndex::VAI_joints, "a_joints\0"),
+		(VertexAttrIndex::VAI_weights, "a_weights\0"),
+		(VertexAttrIndex::VAI_tangent, "a_tangent\0"),
+		(VertexAttrIndex::VAI_binormal, "a_binormal\0"),
 
 	].iter() {glBindAttribLocation(prog, x.0 as GLuint, c_str(x.1));}
 
@@ -460,8 +466,10 @@ unsafe fn	create_shader_program(
 	let mut err:GLint=0;
 	glGetProgramiv(prog,GL_LINK_STATUS,(&err) as *const GLint);
 	
-	let x=glGetAttribLocation(prog,c_str("a_color"));
+	let x=glGetAttribLocation(prog,c_str("a_color\0"));
+	let y=glGetAttribLocation(prog,c_str("a_norm\0"));
 	println!("write,read attrib location in prog {:?} a_color={:?}", prog, x);
+	println!("write,read attrib location in prog {:?} a_norm={:?}", prog, y);
 
 	
 	if err as GLenum==GL_INVALID_VALUE || err as GLenum==GL_INVALID_OPERATION {
@@ -573,7 +581,7 @@ static g_VS_RotTransPers:&'static str="
 void main() {
 	vec4 posw = vec4(a_pos.xyz,1.0);
 	vec4 eye_pos = uMatModelView * posw;
-	vec3 eye_norm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec3 eye_norm = normalize((uMatModelView * vec4(a_norm.xyz,0.0)).xyz);
 	vec4 screen_pos=uMatProj * eye_pos;
 	gl_Position = screen_pos;
 	v_pos = vec4(eye_pos.xyz,1.0);
@@ -698,16 +706,6 @@ uniform vec4 uDiffuseDZ;
 uniform vec4 uLightPos;
 uniform vec4 uLightColor;
 uniform vec4 uLightFalloff;
-vec4 applyFog(vec3 pos, vec4 color){
-	return mix(color,uFogColor,  clamp(-uFogFalloff.x-pos.z*uFogFalloff.y,0.0,1.0));\n\
-}
-vec4 pointlight(vec3 pos, vec3 norm,vec3 lpos, vec4 color, vec4 falloff) {
-	vec3 dv=lpos-pos;
-	float d2=sqrt(dot(dv,dv));
-	float f=clamp( 1.0-(d2/falloff.x),0.0,1.0);
-	vec3 lv=normalize(dv);
-	return clamp(dot(lv,norm),0.0,1.0) * f*color;
-}
 void main() { 
 	float inva=(v_color.w),a=(1.0-v_color.w);
 	vec4 t0=texture2D(uTex0, v_tex0);
@@ -721,11 +719,7 @@ void main() {
 	vec4 spec=highlight*uSpecularColor*surfaceSpec;
 	vec4 diff=uAmbient+v_norm.x*uDiffuseDX+v_norm.y*uDiffuseDY+v_norm.z*uDiffuseDZ;
 	float lx=0.5,ly=0.5;
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,ly,-1.0),		vec4(1.0,0.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,-ly,-1.0), 	vec4(0.0,1.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,-ly,-1.0),	vec4(0.0,0.0,1.0,0.0),vec4(1.0,0.0,0.0,0.0));
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,ly,-1.0), 	vec4(0.5,0.0,0.5,0.0),vec4(1.0,0.0,0.0,0.0));
-	gl_FragColor =applyFog(v_pos.xyz,surfaceColor*diff*vec4(v_color.xyz,0.0)*2.0+spec);
+	gl_FragColor =applyFog(v_pos.xyz,surfaceColor*evalAllLight()*vec4(v_color.xyz,0.0)*2.0+spec);
 //	gl_FragColor =vec4(v_norm.xyz,0.0)*0.5+vec4(0.5,0.5,0.5,1.0)+vec4(v_tex0,0.0,0.0);
 }";
 
@@ -756,10 +750,28 @@ void main() {
 }";
 
 static g_PS_Flat:&'static str="
-void main {
+void main() {
 	gl_FragColor= mediump vec4(0.0, 1.0, 0.0, 1.0);
 }
 ";
+
+static g_PS_FogTex0:&'static str="
+void main() {
+	gl_FragColor= evalFog(getTex0());
+}
+";
+
+static g_PS_Light:&'static str="
+void main() {
+	gl_FragColor= evalAllLight();
+}
+";
+static g_PS_SphericalHarmonicLight:&'static str="
+void main() {
+	gl_FragColor= evalAllLight();
+}
+";
+
 
 static g_PS_MinimumDebugAndroidCompiler:&'static str= &"
 precision mediump float; 
@@ -805,7 +817,10 @@ uniform vec4 uSpecularColor;
 uniform vec4 uAmbient;				
 uniform vec4 uDiffuseDX;			
 uniform vec4 uDiffuseDY;			
-uniform vec4 uDiffuseDZ;			
+uniform vec4 uDiffuseDZ;
+uniform vec4 uFogFalloff;
+uniform vec4 uFogColor;
+
 ";
 
 // passthrough various minimal versions
@@ -834,20 +849,58 @@ void main() {
 
 static g_PS_Tex0:&'static str=&"
 void main() {
+
 	gl_FragColor=texture2D(s_tex0, v_tex0);
 }
 ";
 
 static  g_PS_common:&'static str="
-	vec4 getTex1(){
-		vec3 factors=v_norm*v_norm;
-		vec3 fnorm=normalize(factors*factors);	
-		return 
-			texture2D(s_tex1, v_tex1uvw.xy)*fnorm.x+
-			texture2D(s_tex1, v_tex1uvw.xz)*fnorm.y+
-			texture2D(s_tex1, v_tex1uvw.yz)*fnorm.z;
-	}
-	vec4 getTex0(){ return texture2D(s_tex0,v_tex0);}
+vec4 applyFogAt(vec3 pos,vec4 unfogged_color){
+	return mix(unfogged_color,uFogColor,  clamp(-uFogFalloff.x-pos.z*uFogFalloff.y,0.0,1.0));
+}
+vec4 evalFog(vec4 surface_color){
+	return applyFogAt(v_pos.xyz, surface_color);
+}
+
+vec4 pointlight(vec3 pos, vec3 norm,vec3 lpos, vec4 color, vec4 falloff) {
+	vec3 dv=lpos-pos;
+	float d2=sqrt(dot(dv,dv));
+	float f=clamp( 1.0-(d2/falloff.x),0.0,1.0);
+	vec3 lv=normalize(dv);
+	return clamp(dot(lv,norm),0.0,1.0) * f*color;
+}
+// hardcoded point lights;
+// todo: feed aproximation of N lights
+// through SH centre and 'most-significant-nearby-pointlight'
+
+vec4 evalPointLights(){
+	float lx=0.5,ly=0.5;
+	vec4 acc=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,ly,-1.0),		vec4(1.0,0.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	acc+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,-ly,-1.0), 	vec4(0.0,1.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	acc+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,-ly,-1.0),	vec4(0.0,0.0,1.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	acc+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,ly,-1.0), 	vec4(0.5,0.0,0.5,0.0),vec4(1.0,0.0,0.0,0.0));
+	return acc;
+}
+vec4 evalSphericalHarmonic(){
+	return uAmbient+v_norm.x*uDiffuseDX+v_norm.y*uDiffuseDY+v_norm.z*uDiffuseDZ;
+}
+vec4 evalAllLight(){
+	return evalSphericalHarmonic()+evalPointLights();
+}
+
+vec4 getTex1(){
+	vec3 factors=v_norm*v_norm;
+	vec3 fnorm=normalize(factors*factors);	
+	return 
+		texture2D(s_tex1, v_tex1uvw.xy)*fnorm.x+
+		texture2D(s_tex1, v_tex1uvw.xz)*fnorm.y+
+		texture2D(s_tex1, v_tex1uvw.yz)*fnorm.z;
+}
+
+vec4 getTex0(){
+	return texture2D(s_tex0,v_tex0);
+}
+
 ";
 static g_PS_Tex1Triplanar:&'static str=&"
 void main() {
@@ -855,8 +908,10 @@ void main() {
 }
 ";
 static g_PS_Tex0MulTex1:&'static str=&"
+// todo: we need to know the normalization factor,
+// not all textures are mid-grey.
 void main() {
-	gl_FragColor =getTex1() * getTex0();
+	gl_FragColor =getTex1() * getTex0()*vec4(2.0,2.0,2.0,1.0);
 }
 ";
 static g_PS_Tex0BlendTex1:&'static str=&"
@@ -937,30 +992,30 @@ fn map_shader_params(prog:GLuint)->(VertexAttr,UniformTable)
 		}
 		(
 			VertexAttr{
-				pos: get_attrib_location(prog, &"a_pos"),
-				color: get_attrib_location(prog, &"a_color"),
-				norm: get_attrib_location(prog, &"a_norm"),
-				tex0: get_attrib_location(prog, &"a_tex0"),
-				tex1: get_attrib_location(prog, &"a_tex1"),
-				joints: get_attrib_location(prog, &"a_joints"),
-				weights: get_attrib_location(prog, &"a_weights"),
-				tangent: get_attrib_location(prog, &"a_binormal"),
-				binormal: get_attrib_location(prog, &"a_tangent")
+				pos: get_attrib_location(prog, &"a_pos\0"),
+				color: get_attrib_location(prog, &"a_color\0"),
+				norm: get_attrib_location(prog, &"a_norm\0"),
+				tex0: get_attrib_location(prog, &"a_tex0\0"),
+				tex1: get_attrib_location(prog, &"a_tex1\0"),
+				joints: get_attrib_location(prog, &"a_joints\0"),
+				weights: get_attrib_location(prog, &"a_weights\0"),
+				tangent: get_attrib_location(prog, &"a_binormal\0"),
+				binormal: get_attrib_location(prog, &"a_tangent\0")
 
 			},
 			UniformTable{
-				mat_proj:get_uniform_location(prog,&"uMatProj"),
-				mat_model_view:get_uniform_location(prog,&"uMatModelView"),
-				specular_color:get_uniform_location(prog,&"uSpecularColor"),
-				specular_dir:get_uniform_location(prog,&"uSpecularDir"),
-				ambient:get_uniform_location(prog,&"uAmbient"),
-				diffuse_dx:get_uniform_location(prog,&"uDiffuseDX"),
-				diffuse_dy:get_uniform_location(prog,&"uDiffuseDY"),
-				diffuse_dz:get_uniform_location(prog,&"uDiffuseDZ"),
-				fog_color:get_uniform_location(prog,&"uFogColor"),
-				fog_falloff:get_uniform_location(prog,&"uFogFalloff"),
-				light0_pos_r:get_uniform_location(prog,&"uLight0PosR"),
-				light0_color:get_uniform_location(prog,&"uLight0Color"),
+				mat_proj:get_uniform_location(prog,&"uMatProj\0"),
+				mat_model_view:get_uniform_location(prog,&"uMatModelView\0"),
+				specular_color:get_uniform_location(prog,&"uSpecularColor\0"),
+				specular_dir:get_uniform_location(prog,&"uSpecularDir\0"),
+				ambient:get_uniform_location(prog,&"uAmbient\0"),
+				diffuse_dx:get_uniform_location(prog,&"uDiffuseDX\0"),
+				diffuse_dy:get_uniform_location(prog,&"uDiffuseDY\0"),
+				diffuse_dz:get_uniform_location(prog,&"uDiffuseDZ\0"),
+				fog_color:get_uniform_location(prog,&"uFogColor\0"),
+				fog_falloff:get_uniform_location(prog,&"uFogFalloff\0"),
+				light0_pos_r:get_uniform_location(prog,&"uLight0PosR\0"),
+				light0_color:get_uniform_location(prog,&"uLight0Color\0"),
 				..g_uniform_table_empty
 			}
 		)
@@ -1043,6 +1098,7 @@ fn	create_shaders()
 		&[	get_shader_prefix(ShaderType::Pixel),
 			g_PS_DeclUniforms,
 			ps_vs_interface0,
+			g_PS_common,
 			g_PS_Tex0/*g_PS_Alpha*/
 		],
 		&[	get_shader_prefix(ShaderType::Vertex),
@@ -1052,16 +1108,9 @@ fn	create_shaders()
 			g_VS_PassThruTweak
 		]);
 
-	create_shader_sub(
+	create_shader_sub2(
 		RenderMode::Tex0, 
-		&[	get_shader_prefix(ShaderType::Pixel),
-			ps_vs_interface0,
-			g_PS_Alpha],
-		&[get_shader_prefix(ShaderType::Vertex),
-			g_vs_uniforms,
-			ps_vertex_format0,
-			ps_vs_interface0,
-			g_VS_RotTransPers]);
+		g_PS_Tex1Triplanar);
 
 	create_shader_sub2(
 		RenderMode::Tex1, 
@@ -1073,38 +1122,26 @@ fn	create_shaders()
 	create_shader_sub2(
 		RenderMode::Tex0BlendTex1, 
 		g_PS_Tex0MulTex1);
-
-	create_shader_sub(
-		RenderMode::TexCoord0, 
-		&[	get_shader_prefix(ShaderType::Pixel),
-			ps_vs_interface0,
-			g_PS_TexCoord0],
-		&[get_shader_prefix(ShaderType::Vertex),
-			g_vs_uniforms,
-			ps_vertex_format0,
-			ps_vs_interface0,
-			g_VS_RotTransPers]);
-
-	create_shader_sub(
+	create_shader_sub2(
+		RenderMode::Light, 
+		g_PS_Light);
+	create_shader_sub2(
+		RenderMode::SphericalHarmonicLight, 
+		g_PS_SphericalHarmonicLight);
+	create_shader_sub2(
+		RenderMode::SphericalHarmonicLight, 
+		g_PS_FogTex0);
+	create_shader_sub2(
 		RenderMode::Color, 
-		&[	get_shader_prefix(ShaderType::Pixel),
-			ps_vs_interface0,
-			g_PS_Color],
-		&[get_shader_prefix(ShaderType::Vertex),
-			g_vs_uniforms,
-			ps_vertex_format0,
-			ps_vs_interface0,
-			g_VS_RotTransPers]);
-	create_shader_sub(
+		g_PS_Color);
+	create_shader_sub2(
 		RenderMode::Normal, 
-		&[	get_shader_prefix(ShaderType::Pixel),
-			ps_vs_interface0,
-			g_PS_Normal],
-		&[get_shader_prefix(ShaderType::Vertex),
-			g_vs_uniforms,
-			ps_vertex_format0,
-			ps_vs_interface0,
-			g_VS_RotTransPers]);
+		g_PS_Normal);
+	create_shader_sub2(
+		RenderMode::TexCoord0, 
+		g_PS_TexCoord0);
+
+
 
 }
 
@@ -1122,11 +1159,12 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex
 	let tau=pi*2.0f32;
 	let (sx,cx)=sin_cos(fi*tau);
 	let (sy,cy)=sin_cos(fj*tau);
+	let norm=Vec3(sy*cx, sy*sx, cy).vnormalize().vscale(0.1);
 
 	MyVertex{
 		pos:[(rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy],
 		color:[1.0,1.0,1.0,fj],
-		norm:[sy*cx, sy*sx, cy],
+		norm:[norm.x,norm.y,norm.z],
 		tex0:[fi*16.0, fj*2.0],
 	}	
 }
@@ -1255,7 +1293,13 @@ static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
 type RenderMode_t=usize;
 type TextureIndex=usize;
 impl Mesh {
-	unsafe fn	render_mesh_shader(&self,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
+	unsafe fn render_mesh_shader(&self, matP:&Mat44,rot_trans:&Mat44,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
+
+		let shu=&g_shader_uniforms[modei];
+		glUseProgram(g_shader_program[modei]);
+		glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
+		glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
+
 		
 		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY,GL_COLOR_ARRAY,GL_TEXTURE_COORD_ARRAY];
 
@@ -1275,9 +1319,9 @@ impl Mesh {
 		safe_set_uniform(shu.specular_dir, &Vec4(0.032,0.707f32,0.707f32,0.0f32));
 		safe_set_uniform(shu.specular_color, &Vec4(1.0f32,0.75f32,0.5f32,0.0f32));
 		safe_set_uniform(shu.ambient, &Vec4(0.25f32,0.25f32,0.25f32,1.0f32));
-		safe_set_uniform(shu.diffuse_dx, &Vec4(0.0f32,0.0f32,0.25f32,1.0f32));
-		safe_set_uniform(shu.diffuse_dy, &Vec4(0.5f32,0.5f32,0.5f32,1.0f32));
-		safe_set_uniform(shu.diffuse_dz, &Vec4(0.25f32,0.0f32,0.0f32,1.0f32));
+		safe_set_uniform(shu.diffuse_dx, &Vec4(0.1f32,0.0f32,0.25f32,0.0f32));
+		safe_set_uniform(shu.diffuse_dy, &Vec4(0.3f32,0.25f32,0.5f32,0.0f32));
+		safe_set_uniform(shu.diffuse_dz, &Vec4(0.25f32,0.0f32,0.1f32,0.0f32));
 		safe_set_uniform(shu.fog_color, &g_fog_color);
 		safe_set_uniform(shu.fog_falloff, &Vec4(0.5f32,0.25f32,0.0f32,0.0f32));
 
@@ -1290,8 +1334,11 @@ impl Mesh {
 		// to do: Rustic struct element offset macro
 		let baseVertex=0 as *const MyVertex;
 		glVertexAttribPointer(VertexAttrIndex::VAI_pos.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).pos));
+
 		glVertexAttribPointer(VertexAttrIndex::VAI_color.into(),	4,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).color)); 
+
 		glVertexAttribPointer(VertexAttrIndex::VAI_tex0.into(),	2,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).tex0));
+
 		glVertexAttribPointer(VertexAttrIndex::VAI_norm.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).norm));
 //		].iter().map(|&x|glVertexAttribPointer(x.0.into(), x.1, x.2, x.3, x.4, x.5));
 
@@ -1422,11 +1469,7 @@ pub fn	render_no_swap(debug:u32)
 				let rmode=ii % RenderModeCount;
 				let ig=ii/RenderModeCount;
 				let ig2=ig/RenderModeCount;
-				let shu=&g_shader_uniforms[rmode];
-				glUseProgram(g_shader_program[rmode]);
-				glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
-				glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
-				g_grid_mesh.render_mesh_shader(rmode, 1+(ig%4), 1+(ig2%4));
+				g_grid_mesh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
 			}
 
 
@@ -1490,7 +1533,7 @@ pub fn lazy_create_resources() {
 	unsafe {
 		if g_lazy_init==false {
 			println!("lazy init shadertest resources\n");
-			android_logw(c_str("lazy init shadertest resources \n"));
+			android_logw(c_str("lazy init shadertest resources\0"));
 			create_shaders();
 			create_textures();
 			g_lazy_init=true;
@@ -1653,7 +1696,7 @@ fn sdl_mainloop() {
     unsafe {
         trace!();
         SDL_Init(SDL_INIT_EVERYTHING);
-        let win = SDL_CreateWindow(c_str("hello sdl"), 0, 0, 640, 480, SDL_WINDOW_OPENGL);
+        let win = SDL_CreateWindow(c_str("hello sdl\0"), 0, 0, 640, 480, SDL_WINDOW_OPENGL);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         let surf = SDL_GetWindowSurface(win);
 
