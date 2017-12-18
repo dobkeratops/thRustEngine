@@ -83,6 +83,18 @@ pub unsafe fn c_str(s:&str)->*const c_char {
 	r
 }
 
+pub fn vec_from_fn<T:Sized+Clone,F:Fn(usize)->T>(num:usize , f:&F)->Vec<T>{
+	// todo - this must be official ? generator, whatever
+	let mut r=Vec::<T>::new();
+	r.reserve(num);
+	println!("init vector {:?}elems",num);
+	for x in 0..num{
+		r.push(f(x)) 
+	}
+	r
+}
+
+
 macro_rules! cstr{
 	($txt:expr)=>{
 		c_str(concat!($txt,"\0"))
