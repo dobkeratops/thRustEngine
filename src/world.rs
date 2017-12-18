@@ -35,7 +35,7 @@ impl<A:'static> window::Window<A> for FlyMode {
 
         let movespeed = 0.1f32;
         let rotspeed = 0.025f32;
-        //let js = g_joystick;
+        //let js = gtexi0_joystick;
         let (mut dx, mut dz) = (0.0f32, 0.0f32);//(js.0 .0, js.0 .1);
 
         let axiskeys = |a,b|{if w::key(a) { -1.0f32 } else if w::key(b) { 1.0f32 } else { 0.0f32 }};

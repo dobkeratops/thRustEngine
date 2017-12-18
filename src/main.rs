@@ -124,21 +124,24 @@ pub struct	Mesh
 }
 
 // todo - enum looked like it needed horrid casts
-pub mod RenderMode{
-	pub const Default:usize=0;
-	pub const Debug:usize=1;
-/*	Flat,
-	Color,
-	Normal,
-	Light,
-	TexCoord
-*/
-	pub const Count:usize=2;
-}
 
+#[derive(Clone,Debug,Copy)]
+enum RenderMode{
+	Default=0,
+	Color,
+	Tex0,
+	Tex1,
+	Tex0MulTex1,
+	Tex0BlendTex1,
+	Normal,
+	TexCoord0,
+	Count
+//	pub const Count:usize=6;
+}
+const RenderModeCount:usize=RenderMode::Count as usize;
 static mut g_textures:[GLuint;5]=[0;5];
-static mut g_shader_program:[GLuint;RenderMode::Count]=[-1i32 as uint;RenderMode::Count];
-static mut g_shader_uniforms:[UniformTable;RenderMode::Count]=[
+static mut g_shader_program:[GLuint;RenderModeCount]=[-1i32 as uint;RenderModeCount];
+static mut g_shader_uniforms:[UniformTable;RenderModeCount]=[
 UniformTable{
 	mat_proj:-1,
 	mat_model_view:-1,
@@ -160,10 +163,10 @@ UniformTable{
 	fog_falloff:-1,
 	light0_pos_r:-1,
 	light0_color:-1,
-};RenderMode::Count
+};RenderModeCount
 ];
-static mut g_pixel_shader:GLuint=-1i32 as uint;
-static mut g_vertex_shader:GLuint=-1i32 as uint;
+static mut g_pixel_shader:[GLuint;RenderModeCount]=[-1i32 as uint;RenderModeCount];
+static mut g_vertex_shader:[GLuint;RenderModeCount]=[-1i32 as uint;RenderModeCount];
 
 #[derive(Copy,Clone,Debug)]
 #[repr(u32)]
@@ -217,16 +220,17 @@ fn get_texture(filename:&str)->GLuint{
 
 #[cfg(not(target_os="emscripten"))]
 fn get_texture(filename:&str)->GLuint{
+	use image::*;
 	use std::io::prelude::*;
 	use std::fs::File;
 
 	let mut data=Vec::<u8>::new();
-	let mut ff=File::open(filename);
-	let md=fs::metadata(filename).unwrap();
-	println!("{} len={}",filename, md.len());
-	match File::open(filename){
-		Err(_)=>{println!("could not open {}",filename);return 0;}
-		Ok(mut f)=>{println!("opened {} {}",filename,f.metadata().unwrap().len());f.read_to_end(&mut data);}
+	if let Ok(mut f)=File::open(filename){
+		println!("opened {}",filename);
+		f.read_to_end(&mut data);}
+	else {
+		println!("could not open {}",filename);
+		return 0;
 	}
 	
 	println!("loaded {} bytes from {}",data.len(),filename);
@@ -234,36 +238,54 @@ fn get_texture(filename:&str)->GLuint{
 
 	match imr{
 		Err(x)=>{println!("failed to init {}",filename); return 0;},
-		Ok(image::DynamicImage::ImageRgb8(img))=>{
-			
-			let (usize,vsize)=img.dimensions();
-			println!("loaded rgb image {}x{}",usize,vsize);
-//			let bfr=img.into_raw();
-			let mut texid:GLuint=0;
-			let fmt=GL_RGB;
-			let mut my=Vec::<u8>::new();
-			for j in (0..vsize){
-				for i in (0..usize){
-					let p=img.get_pixel(i as u32,j as u32);
-					my.push(p.data[0]);
-					my.push(p.data[1]);
-					my.push(p.data[2]);
-					if (0==i&15) &&( 0==j&15){print!("{}",if p.data[1]>128{if p.data[1]>192{"O"}else{"o"}}else{if p.data[1]>64{"."}else{" "}});}
+		Ok(mut dimg)=>{
+			let (mut usize,mut vsize)=dimg.dimensions();
+			let mut usize1=1; let mut vsize1=1;
+			while usize1<usize{usize1*=2;}
+			while vsize1<vsize{vsize1*=2;}
+			if !(usize1==usize && vsize1==vsize){
+				println!("scaling to {}x{}",usize1,vsize1);
+				dimg=dimg.resize(usize1,vsize1,FilterType::Gaussian);
+				usize=usize1; vsize=vsize1;
+			}
+			if let DynamicImage::ImageRgb8(img)=dimg{
+				let (mut usize,mut vsize)=img.dimensions();
+				let mut usize1=1; let mut vsize1=1;
+				while usize1<usize{usize1*=2;}
+				while vsize1<vsize{vsize1*=2;}
+				println!("loaded rgb image {}x{}",usize,vsize);
+	//			let bfr=img.into_raw();
+				let mut texid:GLuint=0;
+				let fmt=GL_RGB;
+				let mut my=Vec::<u8>::new();
+				let ustep =usize/16;
+				let vstep=vsize/16;
+				for j in 0..vsize/vstep{
+					for i in 0..usize/ustep{
+						let p=img.get_pixel(i*ustep as u32,j*vstep as u32);
+						my.push(p.data[0]);
+						my.push(p.data[1]);
+						my.push(p.data[2]);
+						print!("{}",if p.data[1]>128{if p.data[1]>192{"O"}else{"o"}}else{if p.data[1]>64{"."}else{" "}});
+					}
+					print!("\n");
 				}
-				if 0==j&15{print!("\n");}
+				unsafe {
+					glGenTextures(1,&mut texid);
+					glBindTexture(GL_TEXTURE_2D,texid);
+					glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE as GLint);
+					glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as GLint);
+					glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as GLint);
+					glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as GLint);
+					glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as GLint);
+					let bfr=img.into_vec();
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, fmt, GL_UNSIGNED_BYTE, (&bfr[0]));
+					return texid;
+				}
+			} else{
+				println!("not rgb image, not supported");
+				return 0;
 			}
-			unsafe {
-			glGenTextures(1,&mut texid);
-			glBindTexture(GL_TEXTURE_2D,texid);
-		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE as GLint);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as GLint);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as GLint);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as GLint);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as GLint);
-
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, fmt, GL_UNSIGNED_BYTE, &my[0]);
-			}
-			return texid;
 		},
 		Ok(image::DynamicImage::ImageRgba8(img))=>{
 //			return create_tex(img,GL_RGBA)
@@ -273,18 +295,16 @@ fn get_texture(filename:&str)->GLuint{
 	}
 }
 
-unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&[&str]) ->GLuint
+unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&str) ->GLuint
 {
 	android_logw_str("create_and_compile_shader");
 	let	shader = glCreateShader(shader_type );
 	android_logw_string(&format!("shader={:?}",shader));
 
-	let sources_as_c_str=vec_from_fn(source.len(), &|x|c_str(source[x]) );
-	let length = vec_from_fn(source.len() , &|x|source[x].len() as c_int );
-	for i in 0..source.len() { println!("source adr={:?} source len={:?} ",sources_as_c_str[i],length[i])};
+	let sources_as_c_str:[*const c_char;1]=[c_str(source)];
 	
 	android_logw_str("set shader source..");
-	glShaderSource(shader, source.len() as GLsizei, &sources_as_c_str[0], 0 as *const c_int/*(&length[0])*/);
+	glShaderSource(shader, 1 as GLsizei, &sources_as_c_str as *const *const c_char, 0 as *const c_int/*(&length[0])*/);
 	android_logw_str("compile..");
 	glCompileShader(shader);
 	let	status:c_int=0;
@@ -306,8 +326,8 @@ unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&[&str]) ->GLuint
 //		println!("compile shader {:?} failed: \n{:?}\n", shader, 
 //			CString::new((&compile_log[0]) as *const c_char).as_str());
 
-		for s in source.iter() { android_logw(c_str(*s)) }
 		println!("TODO here 168");
+		println!("{}",source);
 		println!("error {:?}", CStr::from_ptr(&compile_log[0]));
 //		android_logw(
 //			match c_str::CString::new(&compile_log[0],false).as_str() {
@@ -319,7 +339,7 @@ unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&[&str]) ->GLuint
 		for i in 0..log_len {
 //			android_logw_string(&format!("{:?}",compile_log[i]));
 		}
-		loop{}
+		panic!();
 
 	}	
 	else {
@@ -331,7 +351,7 @@ unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&[&str]) ->GLuint
 }
 
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Copy)]
 struct	VertexAttr {
 	pos:GLint,color:GLint,norm:GLint,tex0:GLint,tex1:GLint,joints:GLint,weights:GLint,tangent:GLint,binormal:GLint,
 }
@@ -339,13 +359,8 @@ static g_vertex_attr_empty:VertexAttr=VertexAttr{
 	pos:-1,color:-1,norm:-1,tex0:-1,tex1:-1,joints:-1,weights:-1,tangent:-1,binormal:-1
 };
 
-static mut g_vertex_shader_attrib:VertexAttr=VertexAttr{
-	pos:-1,color:-1,norm:-1,tex0:-1,tex1:-1,joints:-1,weights:-1,tangent:-1,binormal:-1
-};
-
-static mut g_vertex_shader_attrib_debug:VertexAttr=VertexAttr{
-	pos:-1,color:-1,norm:-1,tex0:-1,tex1:-1,joints:-1,weights:-1,tangent:-1,binormal:-1
-};
+static mut g_vertex_shader_attrib:[VertexAttr;RenderModeCount]=[VertexAttr{
+	pos:-1,color:-1,norm:-1,tex0:-1,tex1:-1,joints:-1,weights:-1,tangent:-1,binormal:-1};RenderModeCount];
 
 //g_vertex_attr_empty;
 
@@ -412,14 +427,15 @@ unsafe fn create_texture(filename:String)->GLuint {
 extern {pub fn bind_attrib_locations(prog:c_uint);}
 
 unsafe fn	create_shader_program(
-			pixelShaderSource:&[&str],
-			vertexShaderSource:&[&str])->(PixelShader,VertexShader,ShaderProgram)
+			pixelShaderSource:&str,
+			vertexShaderSource:&str)->(PixelShader,VertexShader,ShaderProgram)
 {
 
 	android_logw(c_str("create_shader_program"));
 
 	let pixelShaderOut = create_and_compile_shader(GL_FRAGMENT_SHADER, pixelShaderSource);
-	let vertexShaderOut = create_and_compile_shader(GL_VERTEX_SHADER, vertexShaderSource);	let	prog = glCreateProgram();
+	let vertexShaderOut = create_and_compile_shader(GL_VERTEX_SHADER, vertexShaderSource);	
+	let	prog = glCreateProgram();
 	android_logw(c_str("bind attrib locations"));
 	
 	// assign attribute names before linking
@@ -484,128 +500,120 @@ precision mediump float;	\n\
 ";
 
 
-static ps_vs_interface0:&'static str=&
-"varying	highp vec4 v_pos;\n\
-varying	highp vec4 v_color;\n\
-varying	highp vec3 v_norm;\n\
-varying	highp vec2 v_tex0;\n\
-varying	highp vec3 v_tex1;\n\
-varying	highp vec4 v_tangent;\n\
-varying	highp vec4 v_binormal;\n";
-
-static ps_vertex_format0:&'static str=&
-"attribute vec3 a_pos;\n\
-attribute vec2 a_tex0;\n\
-attribute vec4 a_color;\n\
-attribute vec3 a_norm;\n";
-
-static vs_uniforms:&'static str=
-&"\
-uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
+static ps_vs_interface0:&'static str=&"
+varying highp vec4 v_pos;
+varying	highp vec4 v_color;
+varying	highp vec3 v_norm;
+varying	highp vec2 v_tex0;
+varying	highp vec3 v_tex1uvw;
+varying	highp vec4 v_tangent;
+varying	highp vec4 v_binormal;
 ";
 
-static g_VS_Default:&'static str=
-&"\
-uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 epos = uMatModelView * pos4;\n\
-	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 spos=uMatProj * epos;\n\
-	gl_Position = spos;\n\
-	v_pos = posw;\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = enorm;\n\
-}";
+static ps_vertex_format0:&'static str=&
+"attribute vec3 a_pos;
+attribute vec2 a_tex0;
+attribute vec4 a_color;
+attribute vec3 a_norm;
+";
+
+
+static g_VS_Default:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 epos = uMatModelView * pos4;
+	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 spos=uMatProj * epos;
+	gl_Position = spos;
+	v_pos = posw;
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = enorm;
+}
+";
 
 /// replacement debug vertex shader - dont apply transformations, just view vertices..
-static g_VS_PassThru:&'static str=
-&"
-uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 epos = uMatModelView * posw;\n\
-	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 spos=uMatProj * epos;\n\
-	gl_Position = vec4(posw.xyz,1.0);\n\
-	v_pos = epos;\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = enorm;\n\
-}";
-static g_VS_PassThruTweak:&'static str=
-&"\
-uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 epos = uMatModelView * posw;\n\
-	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 spos=uMatProj * epos;\n\
-	gl_Position = spos;\n\
-	v_pos = posw;\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = enorm;\n\
-}";
+static g_VS_PassThru:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 epos = uMatModelView * posw;
+	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 spos=uMatProj * epos;
+	gl_Position = vec4(posw.xyz,1.0);
+	v_pos = epos;
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = enorm;
+}
+";
+static g_vs_uniforms:&'static str="
+uniform mat4 uMatProj;
+uniform mat4 uMatModelView;
+";
+
+static g_VS_PassThruTweak:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 epos = uMatModelView * posw;
+	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 spos=uMatProj * epos;
+	gl_Position = spos;
+	v_pos = posw;
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = enorm;
+}
+";
 
 /// replacement debug vertex shader - dont apply perspective, just view transformed models
-static g_VS_RotTransPers:&'static str=
-&"\
-uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 eye_pos = uMatModelView * posw;\n\
-	vec3 eye_norm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 screen_pos=uMatProj * eye_pos;\n\
-	gl_Position = screen_pos;\n\
-	v_pos = vec4(eye_pos.xyz,1.0);\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = eye_norm;\n\
-}";
+static g_VS_RotTransPers:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 eye_pos = uMatModelView * posw;
+	vec3 eye_norm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 screen_pos=uMatProj * eye_pos;
+	gl_Position = screen_pos;
+	v_pos = vec4(eye_pos.xyz,1.0);
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = eye_norm;
+}
+";
 
 /// replacement debug vertex shader - dont apply perspective, just view transformed models
-static g_VS_Translate2d:&'static str=
-&"uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 epos = uMatModelView * posw;\n\
-	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 spos=uMatProj * epos;\n\
-	gl_Position = vec4(posw.xyz,1.0)+uMatModelView[3].xyzw;\n\
-	v_pos = posw;\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = enorm;\n\
-}";
+static g_VS_Translate2d:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 epos = uMatModelView * posw;
+	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 spos=uMatProj * epos;
+	gl_Position = vec4(posw.xyz,1.0)+uMatModelView[3].xyzw;
+	v_pos = posw;
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = enorm;
+}
+";
 
-static g_VS_Persp:&'static str=
-&"uniform mat4 uMatProj;\n\
-uniform mat4 uMatModelView;\n\
-void main() {\n\
-	vec4 posw = vec4(a_pos.xyz,1.0);\n\
-	vec4 epos = uMatModelView * posw;\n\
-	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;\n\
-	vec4 spos=uMatProj * epos;\n\
-	gl_Position = spos;\n\
-	v_pos = posw;\n\
-	v_color = a_color;\n\
-	v_tex0 = a_tex0;\n\
-	v_tex1 = a_pos.xyz;\n\
-	v_norm = enorm;\n\
-}";
+static g_VS_Persp:&'static str="
+void main() {
+	vec4 posw = vec4(a_pos.xyz,1.0);
+	vec4 epos = uMatModelView * posw;
+	vec3 enorm = (uMatModelView * vec4(a_norm.xyz,0.0)).xyz;
+	vec4 spos=uMatProj * epos;
+	gl_Position = spos;
+	v_pos = posw;
+	v_color = a_color;
+	v_tex0 = a_tex0;
+	v_tex1uvw = a_pos.xyz;
+	v_norm = enorm;
+}
+";
 
 
 /*
@@ -625,7 +633,7 @@ varying	highp vec4 v_pos;\n\
 varying	highp vec4 v_color;\n\
 varying	highp vec3 v_norm;\n\
 varying	highp vec2 v_tex0;\n\
-varying	highp vec3 v_tex1;\n\
+varying	highp vec3 v_tex1uvw;\n\
 varying	highp vec4 v_tangent;\n\
 varying	highp vec4 v_binormal;\n\
 uniform sampler2D uTex0;\n\
@@ -674,155 +682,187 @@ void main() { \n\
 	gl_FragColor =vec4(v_norm.xyz,0.0)*0.5+vec4(0.5,0.5,0.5,1.0);\n\
 }";
 
-
-static g_PS_Alpha:&'static str= &
-"uniform sampler2D uTex0;\n\
-uniform sampler2D uTex1;\n\
-uniform vec4 uSpecularDir;\n\
-uniform float uSpecularPower;\n\
-uniform vec4 uSpecularColor;\n\
-uniform vec4 uFogColor;\n\
-uniform vec4 uFogFalloff;\n\
-uniform vec4 uAmbient;\n\
-uniform vec4 uDiffuseDX;\n\
-uniform vec4 uDiffuseDY;\n\
-uniform vec4 uDiffuseDZ;\n\
-    \n\
-uniform vec4 uLightPos;\n\
-uniform vec4 uLightColor;\n\
-uniform vec4 uLightFalloff;\n\
-vec4 applyFog(vec3 pos, vec4 color){\n\
+static g_PS_Alpha:&'static str= "
+uniform sampler2D uTex0;
+uniform sampler2D uTex1;
+uniform vec4 uSpecularDir;
+uniform float uSpecularPower;
+uniform vec4 uSpecularColor;
+uniform vec4 uFogColor;
+uniform vec4 uFogFalloff;
+uniform vec4 uAmbient;
+uniform vec4 uDiffuseDX;
+uniform vec4 uDiffuseDY;
+uniform vec4 uDiffuseDZ;
+    
+uniform vec4 uLightPos;
+uniform vec4 uLightColor;
+uniform vec4 uLightFalloff;
+vec4 applyFog(vec3 pos, vec4 color){
 	return mix(color,uFogColor,  clamp(-uFogFalloff.x-pos.z*uFogFalloff.y,0.0,1.0));\n\
-}\n\
-vec4 pointlight(vec3 pos, vec3 norm,vec3 lpos, vec4 color, vec4 falloff) {\n\
-	vec3 dv=lpos-pos;\n\
-	float d2=sqrt(dot(dv,dv));\n\
-	float f=clamp( 1.0-(d2/falloff.x),0.0,1.0);\n\
-	vec3 lv=normalize(dv);\n\
-	return clamp(dot(lv,norm),0.0,1.0) * f*color;\n\
-}\n\
-void main() { \n\
-	float inva=(v_color.w),a=(1.0-v_color.w);\n\
-	vec4 t0=texture2D(uTex0, v_tex0);\n\
-	vec4 t1=texture2D(uTex1, v_tex0);\n\
-	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;\n\
-	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;\n\
-	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));\n\
-		highlight=(highlight*highlight);highlight=highlight*highlight;\n\
-	vec4 surfaceColor=mix(t0,t1,v_color.w);\n\
-	vec4 surfaceSpec=clamp(4.0*(surfaceColor-vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));\n\
-	vec4 spec=highlight*uSpecularColor*surfaceSpec;\n\
-	vec4 diff=uAmbient+v_norm.x*uDiffuseDX+v_norm.y*uDiffuseDY+v_norm.z*uDiffuseDZ;\n\
-	float lx=0.5,ly=0.5;\n\
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,ly,-1.0),		vec4(1.0,0.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));\n\
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,-ly,-1.0), 	vec4(0.0,1.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));\n\
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,-ly,-1.0),	vec4(0.0,0.0,1.0,0.0),vec4(1.0,0.0,0.0,0.0));\n\
-	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,ly,-1.0), 	vec4(0.5,0.0,0.5,0.0),vec4(1.0,0.0,0.0,0.0));\n\
-	gl_FragColor =applyFog(v_pos.xyz,surfaceColor*diff*vec4(v_color.xyz,0.0)*2.0+spec);\n\
-//	gl_FragColor =vec4(v_norm.xyz,0.0)*0.5+vec4(0.5,0.5,0.5,1.0)+vec4(v_tex0,0.0,0.0);\n\
+}
+vec4 pointlight(vec3 pos, vec3 norm,vec3 lpos, vec4 color, vec4 falloff) {
+	vec3 dv=lpos-pos;
+	float d2=sqrt(dot(dv,dv));
+	float f=clamp( 1.0-(d2/falloff.x),0.0,1.0);
+	vec3 lv=normalize(dv);
+	return clamp(dot(lv,norm),0.0,1.0) * f*color;
+}
+void main() { 
+	float inva=(v_color.w),a=(1.0-v_color.w);
+	vec4 t0=texture2D(uTex0, v_tex0);
+	vec4 t1=texture2D(uTex1, v_tex0);
+	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;
+	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;
+	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));
+		highlight=(highlight*highlight);highlight=highlight*highlight;
+	vec4 surfaceColor=mix(t0,t1,v_color.w);
+	vec4 surfaceSpec=clamp(4.0*(surfaceColor-vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));
+	vec4 spec=highlight*uSpecularColor*surfaceSpec;
+	vec4 diff=uAmbient+v_norm.x*uDiffuseDX+v_norm.y*uDiffuseDY+v_norm.z*uDiffuseDZ;
+	float lx=0.5,ly=0.5;
+	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,ly,-1.0),		vec4(1.0,0.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(lx,-ly,-1.0), 	vec4(0.0,1.0,0.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,-ly,-1.0),	vec4(0.0,0.0,1.0,0.0),vec4(1.0,0.0,0.0,0.0));
+	diff+=pointlight(v_pos.xyz,v_norm.xyz, vec3(-lx,ly,-1.0), 	vec4(0.5,0.0,0.5,0.0),vec4(1.0,0.0,0.0,0.0));
+	gl_FragColor =applyFog(v_pos.xyz,surfaceColor*diff*vec4(v_color.xyz,0.0)*2.0+spec);
+//	gl_FragColor =vec4(v_norm.xyz,0.0)*0.5+vec4(0.5,0.5,0.5,1.0)+vec4(v_tex0,0.0,0.0);
 }";
 
 // debug shader
-static g_PS_Add:&'static str= &
-"uniform sampler2D s_Tex0;\n\
-uniform sampler2D s_Tex1;\n\
-uniform vec4 uSpecularDir;\n\
-uniform float uSpecularPower;\n\
-uniform vec4 uSpecularColor;\n\
-uniform vec4 uAmbient;\n\
-uniform vec4 uDiffuseDX;\n\
-uniform vec4 uDiffuseDY;\n\
-uniform vec4 uDiffuseDZ;\n\
-void main() { \n\
-	float inva=(v_color.w),a=(1.0-v_color.w);\n\
-	vec4 t0=texture2D(s_Tex0, v_tex0);\n\
-	vec4 t1=texture2D(s_Tex1, v_tex0);\n\
-	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;\n\
-	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;\n\
-	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));\n\
-	highlight=(highlight*highlight);highlight=highlight*highlight;\n\
-	vec4 surfaceColor=t0+(t1-vec4(0.5f,0.5f,0.5f,0.0f))*v_color.w;\n\
-	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));\n\
-	vec4 spec=highlight*uSpecularColor*surfaceSpec;\n\
-	vec4 diff=uAmbient+vso_norm.x*uDiffuseDX+vso_norm.y*uDiffuseDY+vso_norm.z*uDiffuseDZ;\n\
-	gl_FragColor =surfaceColor*diff*vec4(v_color.xyz,0.0)*2.0+spec;\n\
+static g_PS_Add:&'static str= "
+uniform sampler2D s_tex0;
+uniform sampler2D s_tex1;
+uniform vec4 uSpecularDir;
+uniform float uSpecularPower;
+uniform vec4 uSpecularColor;
+uniform vec4 uAmbient;
+uniform vec4 uDiffuseDX;
+uniform vec4 uDiffuseDY;
+uniform vec4 uDiffuseDZ;
+void main() { 
+	float inva=(v_color.w),a=(1.0-v_color.w);
+	vec4 t0=texture2D(s_tex0, v_tex0);
+	vec4 t1=texture2D(s_tex1, v_tex0);
+	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;
+	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;
+	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));
+	highlight=(highlight*highlight);highlight=highlight*highlight;
+	vec4 surfaceColor=t0+(t1-vec4(0.5f,0.5f,0.5f,0.0f))*v_color.w;
+	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));
+	vec4 spec=highlight*uSpecularColor*surfaceSpec;
+	vec4 diff=uAmbient+vso_norm.x*uDiffuseDX+vso_norm.y*uDiffuseDY+vso_norm.z*uDiffuseDZ;
+	gl_FragColor =surfaceColor*diff*vec4(v_color.xyz,0.0)*2.0+spec;
 }";
 
-static g_PS_Flat:&'static str=&"\
-void main {\n\
-	gl_FragColor= mediump vec4(0.0, 1.0, 0.0, 1.0);\n\
-}\n\
+static g_PS_Flat:&'static str="
+void main {
+	gl_FragColor= mediump vec4(0.0, 1.0, 0.0, 1.0);
+}
 ";
 
-static g_PS_MinimumDebugAndroidCompiler:&'static str= &"\
-precision mediump float; \n\
-void main() \n\
-{ \n\
- gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); \n\
-} \n\
+static g_PS_MinimumDebugAndroidCompiler:&'static str= &"
+precision mediump float; 
+void main() 
+{ 
+ gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); 
+} 
 ";
 
-static g_PS_Tex3_AlphaMul:&'static str=&"\
-uniform sampler2D s_tex0;	\n\
-uniform sampler2D s_tex1;	\n\
-uniform sampler2D s_tex2;	\n\
-uniform vec4 uSpecularDir;	\n\
-uniform float uSpecularPower;	\n\
-uniform vec4 uSpecularColor;	\n\
-uniform vec4 uAmbient;			\n\
-uniform vec4 uDiffuseDX;		\n\
-uniform vec4 uDiffuseDY;		\n\
-uniform vec4 uDiffuseDZ;		\n\
-void main() { \n\
-	float inva=(v_color.w),a=(1.0-v_color.w);		\n\
-	vec4 t0=texture2D(s_Tex0, v_tex0);				\n\
-	vec4 t1=texture2D(s_Tex1, v_tex0);				\n\
-	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;			\n\
-	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;			\n\
-	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));	\n\
-	highlight=(highlight*highlight);highlight=highlight*highlight; \n\
-	vec4 surfaceColor=mix(t0,t1, v_color.w*t1.a);				 \n\
-	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));                            \n\
-	vec4 spec=highlight*uSpecularColor*surfaceSpec;	\n\
-	vec4 diff=uAmbient+vso_norm.x*uDiffuseDX+vso_norm.y*uDiffuseDY+vso_norm.z*uDiffuseDZ;\n\
-	gl_FragColor =surfaceColor*diff*Vec4(v_color.xyz,0.0)*2.0+spec;\n\
-}\
+static g_PS_Tex3_AlphaMul:&'static str=&"
+uniform sampler2D s_tex0;	
+uniform sampler2D s_tex1;	
+uniform sampler2D s_tex2;	
+uniform vec4 uSpecularDir;	
+uniform float uSpecularPower;	
+uniform vec4 uSpecularColor;	
+uniform vec4 uAmbient;			
+uniform vec4 uDiffuseDX;		
+uniform vec4 uDiffuseDY;		
+uniform vec4 uDiffuseDZ;		
+void main() { 
+	float inva=(v_color.w),a=(1.0-v_color.w);		
+	vec4 t0=texture2D(s_tex0, v_tex0);				
+	vec4 t1=texture2D(s_tex1, v_tex0);				
+	float a0=t0.x*0.4+t0.y*0.6+t0.z*0.25;			
+	float a1=t1.x*0.4+t1.y*0.6+t1.z*0.25;			
+	float highlight=max(0.0,dot(v_norm,uSpecularDir.xyz));	
+	highlight=(highlight*highlight);highlight=highlight*highlight; 
+	vec4 surfaceColor=mix(t0,t1, v_color.w*t1.a);				 
+	vec4 surfaceSpec=clamp(4.0*(surfaceColor-Vec4(0.5,0.5,0.5,0.0)), vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));                            
+	vec4 spec=highlight*uSpecularColor*surfaceSpec;	
+	vec4 diff=uAmbient+vso_norm.x*uDiffuseDX+vso_norm.y*uDiffuseDY+vso_norm.z*uDiffuseDZ;
+	gl_FragColor =surfaceColor*diff*Vec4(v_color.xyz,0.0)*2.0+spec;
+}
 ";
-static g_PS_DeclUniforms:&'static str=&"\
-uniform sampler2D s_tex0;			\n\
-uniform sampler2D s_tex1;			\n\
-uniform sampler2D s_tex2;			\n\
-uniform vec4 uSpecularDir;			\n\
-uniform float uSpecularPower;		\n\
-uniform vec4 uSpecularColor;		\n\
-uniform vec4 uAmbient;				\n\
-uniform vec4 uDiffuseDX;			\n\
-uniform vec4 uDiffuseDY;			\n\
-uniform vec4 uDiffuseDZ;			\n\
+static g_PS_DeclUniforms:&'static str="
+uniform sampler2D s_tex0;			
+uniform sampler2D s_tex1;			
+uniform sampler2D s_tex2;			
+uniform vec4 uSpecularDir;			
+uniform float uSpecularPower;		
+uniform vec4 uSpecularColor;		
+uniform vec4 uAmbient;				
+uniform vec4 uDiffuseDX;			
+uniform vec4 uDiffuseDY;			
+uniform vec4 uDiffuseDZ;			
 ";
+
 // passthrough various minimal versions
-static g_PS_TexCoord0:&'static str=&"\n\
-void main() {\n\
-	vec4 t0=texture2D(s_tex0, v_tex0);\n\
-	gl_FragColor =v_tex0;\n\
-}\n\
-";
-static g_PS_Normal:&'static str=&"\n\
-void main() {\n\
-	gl_FragColor =vec4(v_norm*0.5+vec3(0.5,0.5,0.5),1.0);\n\
-}\n\
-";
-static g_PS_Color:&'static str=&"\n\
-void main() {\n\
-	gl_FragColor =v_color; \n\
-}\n\
+static g_PS_TexCoord0:&'static str="
+void main() {
+	gl_FragColor =vec4(mod(v_tex0.x,1.0),mod(v_tex0.y,1.0),0.0,1.0);
+}
 ";
 
-static g_PS_Tex0:&'static str=&"\n\
-void main() {\n\
-	vec4 t0=texture2D(s_tex0, v_tex0);\n\
-	gl_FragColor =t0;\n\
-}\n\
+static g_PS_TexCoord1:&'static str="
+void main() {
+	gl_FragColor =vec4(mod(v_tex1uvw.x,1.0),mod(v_tex1uvw.y,1.0),mod(v_tex1uvw.z,1.0),1.0);
+}
+";
+
+static g_PS_Normal:&'static str="
+void main() {
+	gl_FragColor =vec4(v_norm*0.5+vec3(0.5,0.5,0.5),1.0);
+}
+";
+static g_PS_Color:&'static str="
+void main() {
+	gl_FragColor =v_color; 
+}
+";
+
+static g_PS_Tex0:&'static str=&"
+void main() {
+	gl_FragColor=texture2D(s_tex0, v_tex0);
+}
+";
+
+static  g_PS_common:&'static str="
+	vec4 getTex1(){
+		vec3 factors=v_norm*v_norm;
+		vec3 fnorm=normalize(factors*factors);	
+		return 
+			texture2D(s_tex1, v_tex1uvw.xy)*fnorm.x+
+			texture2D(s_tex1, v_tex1uvw.xz)*fnorm.y+
+			texture2D(s_tex1, v_tex1uvw.yz)*fnorm.z;
+	}
+	vec4 getTex0(){ return texture2D(s_tex0,v_tex0);}
+";
+static g_PS_Tex1Triplanar:&'static str=&"
+void main() {
+	gl_FragColor =getTex1();
+}
+";
+static g_PS_Tex0MulTex1:&'static str=&"
+void main() {
+	gl_FragColor =getTex1() * getTex0();
+}
+";
+static g_PS_Tex0BlendTex1:&'static str=&"
+void main() {
+	gl_FragColor =mix(getTex0(),getTex1,v_color.w);
+}
 ";
 
 
@@ -871,6 +911,8 @@ static g_uniform_table_empty:UniformTable= UniformTable{
 	light0_pos_r:-1,
 	light0_color:-1,
 };
+
+
 
 //map_shader_params(VertexAttr* vsa,UniformTable* su,int prog)
 fn map_shader_params(prog:GLuint)->(VertexAttr,UniformTable)
@@ -945,54 +987,125 @@ fn get_shader_prefix(is_ps:int)->&'static str {
 fn get_shader_prefix(st:ShaderType)->&'static str {
 	shader_prefix_desktop
 }
+fn concat_shader(src:&[&str])->String{
+	let mut ret=String::new();
+	// todo- insert \n after each statement?
+	for (i,x) in src.iter().enumerate() {
+		ret.push_str(format!("//from part {}\n",i).as_str());// todo - pass name thru macro
+		ret.push_str(x);
+		ret.push_str("\n");
+	}
+	ret.push_str("\0");	// null terminatin
+	ret
+}
+fn create_shader_sub(mode:RenderMode, ps:&[&str], vs:&[&str]){
+	println!("CREATE SHADER MODE {:?} \n",mode);
+	let psconcat=concat_shader(ps);
+	let vsconcat=concat_shader(vs);
+	let (vsh,psh,prg)=unsafe{
+		create_shader_program(&psconcat,&vsconcat)
+	};
+	let (vsa,su)=map_shader_params(prg);
+	println!("vs={:?}",vs);
+	println!("su={:?}",su);
+	let modei=mode as usize;
+	unsafe{
+		g_shader_program[modei]=prg;
+		g_vertex_shader[modei]=vsh;
+		g_pixel_shader[modei]=psh;	
+		g_shader_uniforms[modei]=su;
+		g_vertex_shader_attrib[modei]=vsa;
+	}
+	println!("CREATE SHADER MODE DONE{:?} \n",mode);
+}
+fn create_shader_sub2(mode:RenderMode, ps_main:&str){
+	create_shader_sub(
+		mode, 
+		&[	get_shader_prefix(ShaderType::Pixel),
+			g_PS_DeclUniforms,
+			ps_vs_interface0,
+			g_PS_common,
+			ps_main],
+		&[get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0,
+			g_VS_RotTransPers]);
+}
 
 fn	create_shaders()
 {
-//android malarky	
-//						&~[g_PS_ConcatForAndroid], // this works!
-//						&~[g_PS_MinimumDebugAndroidCompiler],
-//						&~[get_shader_prefix(1),ps_vs_interface0,g_PS_Flat], //PS_Alpha
-	unsafe {
-		android_logw(c_str("create shaders"));
-		println!("CREATE MAIN SHADER\n");
-//		let create_sub=|i,sh,vs
-		let (vsh,psh,prg)=create_shader_program( 
-			&[	get_shader_prefix(ShaderType::Pixel),
-				g_PS_DeclUniforms,
-				ps_vs_interface0,
-				g_PS_Tex0/*g_PS_Alpha*/
-			],
-			&[	get_shader_prefix(ShaderType::Vertex),
-				ps_vertex_format0,
-				ps_vs_interface0, 
-				g_VS_PassThruTweak
+	println!("create shaders");
+//todo: vs, ps, interface, permute all with same interface
+//or allow shader(vertexmode,texmode,lightmode)
 
-			]);
-		g_vertex_shader=vsh;
-		g_pixel_shader=psh;	
-		g_shader_program[RenderMode::Default]=prg;
-		println!("CREATE MAIN SHADERdone\n");
-		let (vs, su)=map_shader_params(g_shader_program[RenderMode::Default]);
-		println!("vs={:?}",vs);
-		println!("su={:?}",su);
-		g_vertex_shader_attrib=vs;
-		g_shader_uniforms[RenderMode::Default]=su;
-		println!("CREATE DEBUG SHADER\n");
+	create_shader_sub(RenderMode::Default,
+		&[	get_shader_prefix(ShaderType::Pixel),
+			g_PS_DeclUniforms,
+			ps_vs_interface0,
+			g_PS_Tex0/*g_PS_Alpha*/
+		],
+		&[	get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0, 
+			g_VS_PassThruTweak
+		]);
 
-		let (vsh1,psh1,prg1)=create_shader_program( 
-			&[get_shader_prefix(ShaderType::Pixel),ps_vs_interface0,g_PS_Alpha],
-			&[get_shader_prefix(ShaderType::Vertex), ps_vertex_format0, ps_vs_interface0,  g_VS_RotTransPers]);
-		g_shader_program[RenderMode::Debug]=prg1;
-		
+	create_shader_sub(
+		RenderMode::Tex0, 
+		&[	get_shader_prefix(ShaderType::Pixel),
+			ps_vs_interface0,
+			g_PS_Alpha],
+		&[get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0,
+			g_VS_RotTransPers]);
 
-		{
-			let (vs, su)=map_shader_params(g_shader_program[RenderMode::Debug]);
-			g_vertex_shader_attrib_debug=vs;
-			g_shader_uniforms[RenderMode::Debug]=su;
-		}
-		println!("CREATE DEBUG SHADERdone\n");
+	create_shader_sub2(
+		RenderMode::Tex1, 
+		g_PS_Tex1Triplanar);
 
-	}
+	create_shader_sub2(
+		RenderMode::Tex0MulTex1, 
+		g_PS_Tex0MulTex1);
+	create_shader_sub2(
+		RenderMode::Tex0BlendTex1, 
+		g_PS_Tex0MulTex1);
+
+	create_shader_sub(
+		RenderMode::TexCoord0, 
+		&[	get_shader_prefix(ShaderType::Pixel),
+			ps_vs_interface0,
+			g_PS_TexCoord0],
+		&[get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0,
+			g_VS_RotTransPers]);
+
+	create_shader_sub(
+		RenderMode::Color, 
+		&[	get_shader_prefix(ShaderType::Pixel),
+			ps_vs_interface0,
+			g_PS_Color],
+		&[get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0,
+			g_VS_RotTransPers]);
+	create_shader_sub(
+		RenderMode::Normal, 
+		&[	get_shader_prefix(ShaderType::Pixel),
+			ps_vs_interface0,
+			g_PS_Normal],
+		&[get_shader_prefix(ShaderType::Vertex),
+			g_vs_uniforms,
+			ps_vertex_format0,
+			ps_vs_interface0,
+			g_VS_RotTransPers]);
+
 }
 
 
@@ -1012,7 +1125,7 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex
 
 	MyVertex{
 		pos:[(rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy],
-		color:[1.0,1.0,1.0,1.0],
+		color:[1.0,1.0,1.0,fj],
 		norm:[sy*cx, sy*sx, cy],
 		tex0:[fi*16.0, fj*2.0],
 	}	
@@ -1139,18 +1252,18 @@ fn safe_set_uniform(loc:GLint, pvalue:&Vec4) {
 
 //Vec4 g_FogColor=Vec4::<f32>::new(0.25,0.5,0.5,1.0);
 static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
-
+type RenderMode_t=usize;
+type TextureIndex=usize;
 impl Mesh {
-	unsafe fn	render_mesh_shader(&self)  {
-
+	unsafe fn	render_mesh_shader(&self,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
 		
 		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY,GL_COLOR_ARRAY,GL_TEXTURE_COORD_ARRAY];
 
 		glBindBuffer(GL_ARRAY_BUFFER, self.vbo);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ibo);
 
-		let vsa=&g_vertex_shader_attrib;
-		let shu=&g_shader_uniforms_main;
+		let vsa=&g_vertex_shader_attrib[modei];
+		let shu=&g_shader_uniforms[modei];
 
 		glEnableVertexAttribArray(VertexAttrIndex::VAI_pos.into());
 		glEnableVertexAttribArray(VertexAttrIndex::VAI_color.into());
@@ -1169,9 +1282,9 @@ impl Mesh {
 		safe_set_uniform(shu.fog_falloff, &Vec4(0.5f32,0.25f32,0.0f32,0.0f32));
 
 		glActiveTexture(GL_TEXTURE0+0);
-		glBindTexture(GL_TEXTURE_2D, g_textures[1]);
+		glBindTexture(GL_TEXTURE_2D, g_textures[tex0i]);
 		glActiveTexture(GL_TEXTURE0+1);
-		glBindTexture(GL_TEXTURE_2D, g_textures[1]);
+		glBindTexture(GL_TEXTURE_2D, g_textures[tex1i]);
 
 //		glVertexAttribPointer(VAI_pos as GLuint,	3,GL_FLOAT, GL_FALSE, stride, &((*baseVertex).pos[0]) as *f32 as *c_void);
 		// to do: Rustic struct element offset macro
@@ -1201,7 +1314,56 @@ unsafe fn glUniformMatrix4fvARB(loc:i32, count:i32,  flags:u8, ptr:*const f32){
 		count*4,
 		ptr);
 }
+pub unsafe  fn test_draw_2d(){
+	draw::begin();
 
+	let z=0.5f32;
+	glVertex3f(0.0f32,0.0f32,z);
+	glColor3f(1.0f32,0.0f32,1.0f32);
+	glVertex3f(0.0f32,1.0f32,z);
+	glColor3f(1.0f32,1.0f32,0.0f32);
+	glVertex3f(1.0f32,1.0f32,z);
+	glColor3f(0.0f32,1.0f32,1.0f32);
+	glVertex3f(1.0f32,0.0f32,z);
+	glColor3f(0.0f32,1.0f32,1.0f32);
+	glVertex3f(0.0f32,0.0f32,z);
+	glColor3f(0.0f32,1.0f32,1.0f32);
+	glEnd();
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D,g_textures[1]);
+	draw::rect_tex(&Vec2(-0.4,-0.4),&Vec2(0.2,0.2),z);
+	draw::end();
+	glBegin(GL_TRIANGLE_STRIP);
+
+	glTexCoord2f(0.0,0.0);
+	glColor3f(1.0f32,1.0f32,1.0f32);
+	glVertex3f(0.0f32,0.0f32,z);
+
+	glTexCoord2f(100.0,0.0);
+	glColor3f(1.0f32,1.0f32,1.0f32);
+	glVertex3f(1.0f32,0.0f32,z);
+
+	glTexCoord2f(0.0,100.0);
+	glColor3f(1.0f32,1.0f32,0.0f32);
+	glVertex3f(0.0f32,1.0f32,z);
+
+	glTexCoord2f(100.0,100.0);
+	glColor3f(1.0f32,1.0f32,1.0f32);
+	glVertex3f(1.0f32,1.0f32,z);
+
+	glEnd();
+
+	for x in 0..10 {
+		for y in 0..10 {
+			let fx=x as f32*0.1f32;
+			let fy=y as f32*0.1f32;
+
+			draw::sprite_at(&Vec3(fx,fy,z),0.5f32, draw::pack(&Vec4(fx,fy,0.5f32,1.0f32)));
+		}
+	}
+	draw::end();
+
+}
 
 pub fn	render_no_swap(debug:u32) 
 {
@@ -1253,89 +1415,25 @@ pub fn	render_no_swap(debug:u32)
 	
 			let matMV = matT;	// toodo - combine rotation...
 			//io::println(format!("{:?}", g_shader_program));
-//			println!("[{:?}]{:?} {:?}",i, matP,rot_trans);
-			let (prg,shu)={
-				if debug!=0 && false{
-					(g_shader_program[RenderMode::Debug],
-					&g_shader_uniforms[RenderMode::Debug])
-				} else{
-					(g_shader_program[RenderMode::Default],
-					&g_shader_uniforms[RenderMode::Default])
-				}
-			};
-			glUseProgram(prg);
-//			println!("matrix={:?} into {:?}",rot_trans,shu.mat_model_view);
-/*
-			glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
-			glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
-			g_grid_mesh.render_mesh_shader();
-
-			let mat_ident=matrix::identity();
-			glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &mat_ident.ax.x);
-			glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
-			g_grid_mesh.render_mesh_shader();
-*/
 
 			{
-				let render_mode=(i as usize) % RenderMode::Count;
-			// todo - render modes x vertex formats.
-				let shu=&g_shader_uniforms[render_mode];
-				glUseProgram(g_shader_program[render_mode]);
+				// draw every combo of 2 textures and the modes
+				let ii=i as usize;
+				let rmode=ii % RenderModeCount;
+				let ig=ii/RenderModeCount;
+				let ig2=ig/RenderModeCount;
+				let shu=&g_shader_uniforms[rmode];
+				glUseProgram(g_shader_program[rmode]);
 				glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
 				glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
-				g_grid_mesh.render_mesh_shader();
+				g_grid_mesh.render_mesh_shader(rmode, 1+(ig%4), 1+(ig2%4));
 			}
 
 
 			a0+=da0;a1+=da1;a2+=da2;a3+=da3;a4+=da4;a5+=da5;
 		}
-		draw::begin();
-
-		let z=0.5f32;
-		glVertex3f(0.0f32,0.0f32,z);
-		glColor3f(1.0f32,0.0f32,1.0f32);
-		glVertex3f(0.0f32,1.0f32,z);
-		glColor3f(1.0f32,1.0f32,0.0f32);
-		glVertex3f(1.0f32,1.0f32,z);
-		glColor3f(0.0f32,1.0f32,1.0f32);
-		glVertex3f(1.0f32,0.0f32,z);
-		glColor3f(0.0f32,1.0f32,1.0f32);
-		glVertex3f(0.0f32,0.0f32,z);
-		glColor3f(0.0f32,1.0f32,1.0f32);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-		glBindTexture(GL_TEXTURE_2D,g_textures[1]);
-		draw::rect_tex(&Vec2(-0.4,-0.4),&Vec2(0.2,0.2),z);
-		draw::end();
-		glBegin(GL_TRIANGLE_STRIP);
-
-		glTexCoord2f(0.0,0.0);
-		glColor3f(1.0f32,1.0f32,1.0f32);
-		glVertex3f(0.0f32,0.0f32,z);
-
-		glTexCoord2f(100.0,0.0);
-		glColor3f(1.0f32,1.0f32,1.0f32);
-		glVertex3f(1.0f32,0.0f32,z);
-
-		glTexCoord2f(0.0,100.0);
-		glColor3f(1.0f32,1.0f32,0.0f32);
-		glVertex3f(0.0f32,1.0f32,z);
-
-		glTexCoord2f(100.0,100.0);
-		glColor3f(1.0f32,1.0f32,1.0f32);
-		glVertex3f(1.0f32,1.0f32,z);
-
-		glEnd();
-
-		for x in 0..10 {
-			for y in 0..10 {
-				let fx=x as f32*0.1f32;
-				let fy=y as f32*0.1f32;
-				 
-				draw::sprite_at(&Vec3(fx,fy,z),0.5f32, draw::pack(&Vec4(fx,fy,0.5f32,1.0f32)));
-			}
-		}
-
+		//test_draw_2d();
+		glUseProgram(0);
 		g_frame+=1;
 	}
 }
@@ -1358,6 +1456,7 @@ fn idle()
 
 fn	create_textures() {
 //	static_assert(sizeof(GLuint)==sizeof(int));
+	// hardcoded test pattern
 	unsafe {
 		glGenTextures(1,&mut g_textures[0]);
 		glBindTexture(GL_TEXTURE_2D,g_textures[0]);
@@ -1378,9 +1477,9 @@ fn	create_textures() {
 		glBindTexture(GL_TEXTURE_2D,0);
 	
 		g_textures[1] = get_texture("data/mossy_rock.jpg");
-		g_textures[2] = get_texture("data/cliffs.tga");
-		g_textures[3] = get_texture("data/grass.tga");
-		g_textures[4] = get_texture("data/pebbles_texture.tga");
+		g_textures[2] = get_texture("data/stone.jpg");
+		g_textures[3] = get_texture("data/metal.jpg");
+		g_textures[4] = get_texture("data/grass7.png");
 	}
 }
 
