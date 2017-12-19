@@ -1604,6 +1604,7 @@ pub trait VecOps: Clone+
 
 	fn wrap_as<V:IsWrappedV<Self>>(&self)->V { IsWrappedV::wrap(self) }
 	fn vscale(&self,f: Self::ElemF)->Self	{unimplemented!()}
+	fn vassign_scale(&mut self,f: Self::ElemF)->&mut Self	{*self=self.vscale(f);self}
 	fn vmul(&self,b:&Self)->Self			{unimplemented!()}
 	fn vsum_elems(&self)-> Self::ElemF		{unimplemented!()}
 	fn vcross(&self,b:&Self)->Self			{unimplemented!()}
@@ -1625,7 +1626,8 @@ pub trait VecOps: Clone+
 	fn vlength(&self)->Self::ElemF		{ self.vsqr().sqrt()} //vlength!=vec.len ..
     fn vmagnitude(&self)->Self::ElemF   {self.vlength()}    //synonym
 	fn vreciprocal_magnitude(&self)->Self::ElemF	{ one::<Self::ElemF>()/(self.vsqr().sqrt())}
-	fn vtoLength(&self,length:Self::ElemF)->Self { self.vscale(length/self.vsqr().sqrt()) }
+	fn vto_length(&self,length:Self::ElemF)->Self { self.vscale(length/(self.vsqr().sqrt())) }
+	fn vassign_to_length(&mut self,new_length:Self::ElemF)->&Self { let nv={self.vscale(new_length/(self.vsqr().sqrt()))};*self=nv;self }
 	fn vnormalize(&self)->Self		{ self.vscale(one::<Self::ElemF>()/(self.vsqr().sqrt())) }
 	fn vperp(&self,axis:&Self)->Self	{ let vpara =self.vpara(axis); self.vsub(&vpara)}
 	fn vcross_norm(&self, b:&Self)->Self { self.vcross(b).vnormalize() }
@@ -1633,7 +1635,9 @@ pub trait VecOps: Clone+
 	fn vtriangle_norm(&self,b:&Self,c:&Self)->Self{
 		b.vsub(self).vcross_norm(&c.vsub(self))		
 	}
+	// same function, different names.
 	fn vassign_norm(&mut self)->&mut Self{ *self=self.vnormalize();self}
+	fn vassign_normalize(&mut self)->&mut Self{self.vassign_norm()}
 
 	fn vpara_perp(&self,vaxis:&Self)->(Self,Self) {
 		let vpara=self.vpara(vaxis);

@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashMap;
 
 // todo: generalize primitive type
 // e.g. edgemesh, trimesh, quadmesh, polymesh.
@@ -135,6 +136,7 @@ impl TriMesh<Vec3,()> {
 	pub fn vertex_normals(&self)->Vec<Vec3>{
 		let mut ret=vec![Vec3::zero(); self.vertices.len()];
 		let tnorm=self.triangle_normals();
+		// todo area weighting, smoothing..
 		for (i,t) in self.indices.iter().enumerate(){
 			ret[t[0] as usize].vassign_add(&tnorm[i]);
 			ret[t[1] as usize].vassign_add(&tnorm[i]);
@@ -144,5 +146,83 @@ impl TriMesh<Vec3,()> {
 		ret
 	}
 
+	fn edges(&self)->Vec<[VtIdx;2]> {
+		// brute force.. hashmap *per vertex*, vertex->vertex connect?
+		// or do it the C way..
+		// TODO - we need to discover the best way using hashmaps etc
+		unsafe {
+			let mut vertex_edges=vec![0 as *mut EdgeLink;self.vertices.len()];
+			let mut edges:vecbox<EdgeLink>=Vec::new();
+			edges.reserve(self.vertices.len()*3);
+			let mut final_edges:Vec<[VtIdx;2]>=Vec::new();
 
+			// todo - generalize this pattern to n-prims			
+			for (tri_index,tri) in self.indices.iter().enumerate() {
+				for i in 0..2{
+					let ii=(i+1)%3;
+					// todo - could linklists be done with Option<&'>?
+					// search ..
+					let edge_start_vt=tri[i];
+					let  edge_end_vt=tri[ii];
+					let mut e=vertex_edges[edge_start_vt as usize];
+					let mut found_edge=None;
+					while e!=0 as *mut EdgeLink{
+						if (&*e).is_edge(edge_start_vt,edge_end_vt){
+							found_edge=Some(e);
+							break;
+						}
+						e=(&mut *e).next_of(edge_start_vt);
+					}
+					if let Some(ef)=found_edge{
+						(&mut *ef).edge_tris.push(tri_index as TriInd);
+					}else{
+						// create the edge.
+						let mut edge=Box::new(EdgeLink{
+							vertex:[edge_start_vt,edge_end_vt],
+							next:[0 as *mut EdgeLink;2],
+							edge_tris:vec![tri_index as TriInd],
+						});
+						{
+							let mut e=&mut *edge as *mut EdgeLink;
+							//link list push for start vertex
+							//link thru the edge start
+							(&mut *e).next[0]=vertex_edges[edge_start_vt as usize];
+							vertex_edges[edge_start_vt as usize]=e;
+
+							//link list push for end vertex
+							//link thru the edge end
+							(&mut *e).next[1]=vertex_edges[edge_end_vt as usize];
+							vertex_edges[edge_end_vt as usize]=e;
+						}
+
+						edges.push(edge);
+						// link it..
+					}		
+				}
+			}
+			// collect the edges
+			for edge in edges {
+				final_edges.push([edge.vertex[0],edge.vertex[1]]);
+			}
+			final_edges
+		}
+	}
 }
+pub type TriInd=VtIdx;
+pub struct EdgeLink{
+	pub vertex:[VtIdx;2],
+	pub next:[*mut EdgeLink;2],
+	pub edge_tris:Vec<TriInd>,
+}
+impl EdgeLink{
+	pub fn is_edge(&self,sv:VtIdx,ev:VtIdx)->bool{
+		(self.vertex[0]==sv && self.vertex[1]==ev)||
+		(self.vertex[1]==sv && self.vertex[0]==ev)
+	}
+	pub unsafe fn next_of(&mut self, v:VtIdx)->*mut Self{
+		if v==self.vertex[0] {self.next[0]} else if v==self.vertex[1]{self.next[1]} else {panic!("edge doesnt have vertex")}
+	}
+}
+
+
+
