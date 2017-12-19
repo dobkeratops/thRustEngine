@@ -40,50 +40,55 @@ impl<T:Sized> IndexWrap for Vec<T>{
 		return self.index_mut(((i as usize) % l) as usize);
 	}	
 }
+
 trait WrappedArray2d<T,I>{
-	fn get(&self,x:I,y:I)->&T;
-	fn set(&mut self,x:I,y:I,v:T);
+	fn get_wrap(&self,x:I,y:I)->&T;
+	fn set_wrap(&mut self,x:I,y:I,v:T);
 }
 impl<T> WrappedArray2d<T,i32> for Vec<Vec<T>>{
-	fn get(&self,i:i32,j:i32)->&T{
+	fn get_wrap(&self,i:i32,j:i32)->&T{
 		self.index_wrap(j).index_wrap(i)
 	}
-	fn set(&mut self,i:i32,j:i32,v:T){
+	fn set_wrap(&mut self,i:i32,j:i32,v:T){
 		*(self.index_wrap_mut(j).index_wrap_mut(i))=v;
 	}
 }
 
 
 /// generate by filling array inplace. repeating on square.
-fn generate(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<Vec<f32>>{
+pub fn generate(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<Vec<f32>>{
 	type T=f32;
 	let mut seed=iseed;
 	// todo - version using expansion/smoothing/noise. 
 	// that would be more cachefriendly, and yields other useful parts.
 	let size=(1<<log_2_size) as i32;
 	let mut ht:Vec<Vec<f32>> = Vec::new();
+	ht.reserve(size as usize);
 
 
 	for j in 0..size{
-		let mut x:Vec<f32>= vec![zero();size as usize];
-		let row:&mut Vec<f32>= &mut ht[j as usize];
-		*row=x;
+		let mut row:Vec<f32>= vec![0.0;size as usize];
+		ht.push(row);
 	}
+	ht[0][0]=0.0f32;
 	let mut amp=init_amp;
 	// classic diamond-square algorithm
 	let mut step=size as i32;
 	let inv4=T::half()*T::half();
-	let sqrt2= (one::<T>()+one::<T>()).sqrt();
-	while step >2 {
+	let ampscale= (dimension/(one::<T>()+one::<T>())).sqrt();
+	let mut visited:Vec<isize> =vec![0;(size*size) as usize];
+	let mut pass=1;
+	while step >=2 {
 		let hstep=step/2;
 		for x in (0..size).step(step as usize){
 			for y in (0..size).step(step as usize){
 				let x1=x+step; let y1=y+step;
-				let mp=(*ht.get(x,y)+*ht.get(x1,y)+*ht.get(x,y1)+*ht.get(x1,y1))*inv4;
+				let mp=(*ht.get_wrap(x,y)+*ht.get_wrap(x1,y)+*ht.get_wrap(x,y1)+*ht.get_wrap(x1,y1))*inv4;
 				let mut disp:f32;
 				let sd=frands(seed);
-				disp=sd.1; seed=sd.0;
-				ht.set(x+hstep,y+hstep,mp+amp*(disp as f32));
+				seed=sd.0;
+				ht.set_wrap(x+hstep,y+hstep,mp+amp*sd.1);
+				visited[(x+hstep+(y+hstep)*size) as usize]=pass;
 			}
 		}
 		//  x   +   x
@@ -91,22 +96,31 @@ fn generate(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<
 		//  +   x   .
 		//  
 		//  x   .   x
-		amp*=sqrt2;
-		for x in (0..size+1).step(step as usize){
-			for y in (0..size+1).step(step as usize){
-				let mut fill_pt=|x1,y1|{
-					let mp=(*ht.get(x+hstep,y)+*ht.get(x-hstep,y)+*ht.get(x,y+hstep)+*ht.get(x,y-hstep))*inv4;
+		amp*=ampscale;
+		for xx in (0..size).step(step as usize){
+			for yy in (0..size).step(step as usize){
+				let mut fill_pt=|x,y|{
+					let mp=(*ht.get_wrap(x+hstep,y)+*ht.get_wrap(x-hstep,y)+*ht.get_wrap(x,y+hstep)+*ht.get_wrap(x,y-hstep))*inv4;
 					let sd=frands(seed);
-					ht.set(x,y,mp+amp*sd.1);
+					ht.set_wrap(x,y,mp+amp*sd.1);
 					seed=sd.0;
+					visited[(x+y*size) as usize]=pass+1;
 				};
-				fill_pt(x+hstep,y);
-				fill_pt(x,y+hstep);
+				fill_pt(xx+hstep,yy);
+				fill_pt(xx,yy+hstep);
 			}
 		}
-		amp*=sqrt2;
+		//break;
+		pass+=2;
+		amp*=ampscale;
 		step=hstep;
 	}
+	let ax=6.248f32/(size as f32);
+	let ay=6.248f32/(size as f32);
+	//for y in 0..size{for x in 0..size{ print!("{}",visited[(x+y*size) as usize]);};print!("\n");}
+	//panic!();
+	// fill with sin x*sin y for test poly gen
+	//for y in (0..size){for x in 0..size{ ht[y as usize][x as usize]=sin(x as f32*ax)*sin(y as f32*ay)*init_amp}}
 	ht
 }
 

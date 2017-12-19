@@ -4,6 +4,7 @@ pub mod matrix;
 pub mod quaternion;
 pub mod geom;
 pub mod mesh;
+pub mod trimesh;
 pub mod sdl;
 pub mod landscape;
 pub mod rawglbinding;
@@ -146,7 +147,7 @@ pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 pub struct	MyVertex 
 {
 	pub pos:[f32;3],
-	pub color:[f32;4],
+	pub color:[f32;4],	// TODO: should be packed format!!!
 	pub norm:[f32;3],
 	pub tex0:[f32;2]
 }
@@ -528,7 +529,12 @@ impl Half for f64{
 }
 
 pub fn rand(seed:i32)->i32{
-	(seed ^ (seed>>13) + (seed*9182) +01938)^(seed>>19)+(seed>>3)
+	use std::num::Wrapping;
+	let s0=Wrapping(seed);
+	let tbl=[Wrapping(0xabcd1234i32),Wrapping(0x55555555i32),Wrapping(0x87f92afei32),Wrapping(0xf0f0f0f0i32)];
+	let s1=s0 ^ (s0>>13)^tbl[(s0&Wrapping(3)).0 as usize]^(s0>>19)+(s0>>3);
+	let s2=s1 + (s1>>9) +tbl[((s1>>16)&Wrapping(3)).0 as usize]^(s1>>5)+(s1<<15);
+	return s2.0;
 }
 /// random seed update and return float in 0-1 range
 pub fn frand(seed:i32)->(i32,f32){

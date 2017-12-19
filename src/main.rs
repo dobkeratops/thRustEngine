@@ -1,5 +1,6 @@
 //#![feature(macro_rules)]
 //#![feature(default_type_params)]
+#![allow(unused_parens)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
 #![allow(unreachable_code)]
@@ -123,12 +124,13 @@ enum VertexAttrIndex
 //	enum {IndexSize = sizeof(IndexType) };
 //typedef	::TestVertex Vertex;
 #[derive(Clone,Debug)]
-pub struct	Mesh 
+pub struct	GlMesh 
 {
 	pub vertex_size:GLsizei,
 	pub vbo:GLuint,
 	pub ibo:GLuint,
-	pub num_vertices:GLuint,num_indices:GLuint
+	pub num_vertices:GLuint,pub num_indices:GLuint,
+	pub	prim_mode:GLenum
 }
 
 // todo - enum looked like it needed horrid casts
@@ -177,15 +179,17 @@ unsafe fn create_index_buffer_from_ptr(size:GLsizei, data:*const c_void)->GLuint
 	create_buffer(size,data,GL_ELEMENT_ARRAY_BUFFER)
 }
 unsafe fn create_vertex_buffer<T>(data:&Vec<T>)->GLuint {
+	assert!(data.len()>0);
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ARRAY_BUFFER)
 }
 unsafe fn create_index_buffer<T>(data:&Vec<T>)->GLuint {
+	assert!(data.len()>0);
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ELEMENT_ARRAY_BUFFER)
 }
 
-impl Mesh {
+impl GlMesh {
 	/// create a grid mesh , TODO - take a vertex generator
-	fn new_torus(num:(uint,uint))->Mesh
+	fn new_torus(num:(uint,uint))->GlMesh
 	{
 		// TODO: 2d fill array. from_fn_2f(numi,numj, &|..|->..)
 		let strip_indices = (num.0+1)*2 +2;
@@ -209,24 +213,33 @@ impl Mesh {
 		let vertices=vec_from_fn(num_vertices as usize,&|i|generate_torus_vertex(i as u32,num));
 
  		unsafe {
-			Mesh{
+			GlMesh{
 				num_vertices:num_vertices as GLuint,
 				num_indices:num_indices as GLuint,
 				vertex_size: mem::size_of_val(&vertices[0]) as GLsizei,
 				vbo: create_vertex_buffer(&vertices),
-				ibo: create_index_buffer(&indices)
+				ibo: create_index_buffer(&indices),
+				prim_mode:GL_TRIANGLE_STRIP
 			}
 		}
-
 	}
 }
 
-static mut g_grid_mesh:Mesh=Mesh{
+static mut g_torus_mesh:GlMesh=GlMesh{
 	num_vertices:0,
 	num_indices:0,
 	vbo:-1i32 as uint,
 	ibo:-1i32 as uint,
-	vertex_size:0
+	vertex_size:0,
+	prim_mode:GL_TRIANGLES
+};
+static mut g_landscape_mesh:GlMesh=GlMesh{
+	num_vertices:0,
+	num_indices:0,
+	vbo:-1i32 as uint,
+	ibo:-1i32 as uint,
+	vertex_size:0,
+	prim_mode:GL_TRIANGLES
 };
 
 type UniformIndex=GLint;
@@ -235,7 +248,7 @@ type UniformIndex=GLint;
 
 
 
-impl Mesh {
+impl GlMesh {
 	fn	render_mesh_from_buffer(&self)
 	{
 		unsafe {
@@ -252,7 +265,8 @@ impl Mesh {
 			glVertexPointer(3, GL_FLOAT, stride,  0 as *const c_void);//(&(*baseVertex).pos[0]) as *f32 as *c_void);
 			glColorPointer(4,GL_FLOAT, stride, 12 as *const c_void);//(&(*baseVertex).color[0]) as *f32 as *c_void);
 			glTexCoordPointer(2, GL_FLOAT, stride, (12+16) as *const c_void);//(&(*baseVertex).tex0[0]) as *f32 as *c_void);
-			glDrawElements(GL_TRIANGLE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+			glDrawElements(self.prim_mode, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+			//glDrawArrays(GL_POINTS,0,self.num_vertices as i32);
 
 			for &x in client_state.iter() {glDisableClientState(x);};
 		}
@@ -275,7 +289,7 @@ fn safe_set_uniform(loc:GLint, pvalue:&Vec4) {
 //Vec4 g_FogColor=Vec4::<f32>::new(0.25,0.5,0.5,1.0);
 static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
 type RenderMode_t=usize;
-impl Mesh {
+impl GlMesh {
 
 		#[cfg(target_os="emscripten")]
 	unsafe fn render_mesh_minimal_shader(&self, matP:&Mat44,rot_trans:&Mat44)		{
@@ -372,8 +386,9 @@ impl Mesh {
 		// else.. should panic.
 		if vsa.pos>=0{
 			gl_verify!{
-			glDrawElements(GL_TRIANGLE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+			glDrawElements(self.prim_mode, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
 			}
+			glDrawArrays(GL_POINTS,0,self.num_vertices as i32);
 
 		} else {
 			println!("can't draw geometry vsa.pos={}", vsa.pos);
@@ -507,8 +522,8 @@ pub fn	render_no_swap(debug:u32)
 				let ig=ii/RenderModeCount;
 				let ig2=ig/RenderModeCount;
 
-
-				g_grid_mesh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
+				let msh=if i&1==0{&g_torus_mesh}else{&g_landscape_mesh};
+				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
 			}
 
 
@@ -536,7 +551,39 @@ fn idle()
 	}
 }
 
-
+pub fn create_landscape()->GlMesh{
+	let ht=landscape::generate(4,0.125,1.1f32,1.0,0x987412ab);
+	let tm=trimesh::TriMesh::<Vec3>::from_heightfield(&ht,0.25f32);
+	GlMesh::from(&tm)
+}
+use trimesh::TriMesh;
+impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
+	fn from(src:&TriMesh<Vec3>)->Self {
+		let mut vts:Vec<MyVertex>=Vec::new();
+		let normals=src.vertex_normals();
+		for (i,v) in src.vertices.iter().enumerate(){
+			vts.push(MyVertex{
+				pos:[v.x,v.y,v.z],
+				color:[1.0,1.0,1.0,1.0],
+				norm:normals[i].into(),
+				tex0:[0.0,0.0],
+			});
+		}
+		let mut concati:Vec<i32> = Vec::new();
+		//todo: tri normals, and what are you doing for UVs,colors ?
+		for t in src.indices.iter(){ concati.push(t[0]);concati.push(t[1]);concati.push(t[2]);}
+		unsafe{
+			GlMesh{
+				num_vertices:src.vertices.len() as u32,
+				num_indices:concati.len() as u32,
+				vertex_size: mem::size_of_val(&vts[0]) as GLsizei,
+				vbo: create_vertex_buffer(&vts),
+				ibo: create_index_buffer(&concati),
+				prim_mode:GL_TRIANGLES
+			}
+		}
+	}
+}
 
 static mut g_lazy_init:bool=false;
 pub fn lazy_create_resources() {
@@ -545,10 +592,12 @@ pub fn lazy_create_resources() {
 		if g_lazy_init==false {
 			println!("lazy init shadertest resources\n");
 			android_logw(c_str("lazy init shadertest resources\0"));
+			g_lazy_init=true;
+			g_torus_mesh = GlMesh::new_torus((16,16)); //new GridMesh(16,16);
+			g_landscape_mesh=create_landscape();
 			create_shaders();
 			create_textures();
-			g_lazy_init=true;
-			g_grid_mesh = Mesh::new_torus((16,16)); //new GridMesh(16,16);
+
 		} else {
 		}
 	}

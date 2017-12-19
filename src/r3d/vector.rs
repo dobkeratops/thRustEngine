@@ -1630,6 +1630,10 @@ pub trait VecOps: Clone+
 	fn vperp(&self,axis:&Self)->Self	{ let vpara =self.vpara(axis); self.vsub(&vpara)}
 	fn vcross_norm(&self, b:&Self)->Self { self.vcross(b).vnormalize() }
 	fn vsub_norm(&self,b:&Self)->Self	{ self.vsub(b).vnormalize() }
+	fn vtriangle_norm(&self,b:&Self,c:&Self)->Self{
+		b.vsub(self).vcross_norm(&c.vsub(self))		
+	}
+	fn vassign_norm(&mut self)->&mut Self{ *self=self.vnormalize();self}
 
 	fn vpara_perp(&self,vaxis:&Self)->(Self,Self) {
 		let vpara=self.vpara(vaxis);

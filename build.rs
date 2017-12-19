@@ -13,7 +13,7 @@ fn main() {
 
 //	println!("cargo:rustc-flags=-Z force-overflow-checks=off");
 
-	println!("cargo:rustc-cfg=shadertest");
+//	println!("cargo:rustc-cfg=shadertest");
 
 }
 
