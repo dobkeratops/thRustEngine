@@ -31,6 +31,8 @@ pub type PGLfloat = *const GLfloat;
 pub type PGLint = *const GLint;
 pub type PGLuint = *const GLuint;
 pub type PGLsizei = *const GLsizei;
+
+
 extern
 {
 	pub fn hello_from_c(a:c_int,b:c_int);
@@ -66,7 +68,7 @@ extern
 	pub fn glEnableVertexAttribArray(index:GLuint);
 	pub fn glActiveTexture(texture:GLenum);
 	pub fn glDrawElements(mode:GLenum, count:GLsizei, _type:GLenum, indices:PGLvoid);
-	pub fn glDrawArrays(mode:GLenum,first:GLsizei, count:GLsizei,);
+	pub fn glDrawArrays(mode:GLenum,first:GLsizei, count:GLsizei);
 	pub fn glUseProgram(prog:GLuint);
 	pub fn glGetActiveAttrib(program:GLuint, index:GLuint, bufsize:PGLsizei, length:PGLsizei, size:GLint, _type:PGLenum, name:PGLchar);
 	pub fn glGetActiveUniform(program:GLuint, index:GLuint, bufsize:GLsizei, length:PGLsizei, size:PGLint, _type:PGLenum, name:PGLchar); 
@@ -112,6 +114,12 @@ extern
 	pub fn glGenBuffers(num:GLsizei, buffers:*mut GLuint);
 	pub fn glDeleteBuffers(num:GLsizei, buffers:PGLuint);
 	pub fn glIsBuffer(buffer:GLuint)->GLboolean;
+
+	pub fn glGenVertexArrays(num:GLsizei, buffers:*mut GLuint);
+	pub fn glBindVertexArray(num:GLuint);
+
+	pub fn glGenVertexArraysOES(num:GLsizei, buffers:*mut GLuint);
+	pub fn glBindVertexArrayOES(num:GLuint);
 
 	pub fn glLoadIdentity();
 	pub fn glMatrixMode(e:GLenum);

@@ -4,6 +4,7 @@ pub mod matrix;
 pub mod quaternion;
 pub mod geom;
 pub mod mesh;
+pub mod sdl;
 pub mod landscape;
 pub mod rawglbinding;
 pub mod gl_constants;
@@ -17,7 +18,7 @@ pub mod macros;
 pub mod scene;
 pub mod classes;
 pub mod bsp;
-
+pub use sdl::*;
 // Common standard library imports.. file, memory, operators..
 pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,convert};
 pub use io::Read;
@@ -94,7 +95,44 @@ pub fn vec_from_fn<T:Sized+Clone,F:Fn(usize)->T>(num:usize , f:&F)->Vec<T>{
 	r
 }
 
+// a few helpers
+macro_rules! gl_verify{
+	([$dbg:stmt] $($e:stmt;)+  )=>{
+		$($e;
+		{	let err=glGetError();
+			if err!=GL_NO_ERROR && false{
+				println!("{}:{} failed{}:{}",file!(),line!(),gl_error_str(err),stringify!($e));
+				$dbg
+			}
+		})*
+	};
+	($($e:stmt;)+)=>{
+		$($e;
+		{	let err=glGetError();
+			if err!=GL_NO_ERROR && false{
+				println!("{}:{} failed{}:{}",file!(),line!(),gl_error_str(err),stringify!($e));
+			}
+		})*
+	}
+}
 
+
+macro_rules! map_err_str{
+	($e:expr=>$($x:ident,)*)=> {match $e{$($x=>stringify!($x),)*}}
+}
+pub fn gl_error_str(err:GLuint)->&'static str{
+//	map_err_str!{err as uint=>
+	match err{
+		GL_NO_ERROR=>"GL_NO_ERROR",
+		GL_INVALID_ENUM=>"GL_INVALID_ENUM",
+		GL_INVALID_VALUE=>"GL_INVALID_VALUE",
+		GL_INVALID_OPERATION=>"GL_INVALID_OPERATION",
+		GL_INVALID_FRAMEBUFFER_OPERATION=>"GL_INVALID_FRAMEBUFFER_OPERATION",
+		GL_OUT_OF_MEMORY=>"GL_OUT_OF_MEMORY",
+		_=>"Unparsed Error",
+	}
+//	}
+}
 macro_rules! cstr{
 	($txt:expr)=>{
 		c_str(concat!($txt,"\0"))

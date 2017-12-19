@@ -110,15 +110,25 @@ pub fn	create_textures() {
 			let (i,j)=div_rem(index,usize);
 			(i+j*256+255*256*256) as u32
 		});
-		for i in 0 as GLint..8 as GLint {
-			glTexImage2D(GL_TEXTURE_2D, i, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0] as *const _ as _);
-		}
+//		for i in 0 as GLint..8 as GLint {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as GLint, usize as GLint,vsize as GLint, 0, GL_RGB, GL_UNSIGNED_BYTE, &buffer[0] as *const _ as _);
+//		}
 		glBindTexture(GL_TEXTURE_2D,0);
 	
-		g_textures[1] = load_texture("data/mossy_rock.jpg");
-		g_textures[2] = load_texture("data/stone.jpg");
-		g_textures[3] = load_texture("data/metal.jpg");
-		g_textures[4] = load_texture("data/grass7.png");
+		#[cfg(emscripten)]
+		{
+			println!("bypass texture load");
+			for i in 1..5 {g_textures[i]=g_textures[0];}				
+		}
+		#[cfg(not(emscripten))]
+		{
+			println!("texture loading");
+			g_textures[1] = load_texture("data/mossy_rock.jpg");
+			g_textures[2] = load_texture("data/stone.jpg");
+			g_textures[3] = load_texture("data/metal.jpg");
+			g_textures[4] = load_texture("data/grass7.png");
+		}
+		println!("texture load done");
 	}
 }
 

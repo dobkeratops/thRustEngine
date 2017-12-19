@@ -12,6 +12,9 @@ fn main() {
 //    println!("cargo:rustc-link-lib=framework=Cocoa");
 
 //	println!("cargo:rustc-flags=-Z force-overflow-checks=off");
+
+	println!("cargo:rustc-cfg=shadertest");
+
 }
 
 

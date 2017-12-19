@@ -22,6 +22,12 @@ run_cargo: $(SOURCES) link_data
 	cargo run
 	echo "ok; (also see targets asmjs shadertest)"
 
+asmjs_shadertest: $(SOURCES)
+	cargo build --target=asmjs-unknown-emscripten
+	cp ../target/asmjs-unknown-emscripten/debug/rustv.js .
+
+
+
 shadertest: $(SOURCES)
 	rustc main.rs $(RUSTFLAGS) --cfg shadertest -o shadertest
 

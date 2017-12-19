@@ -81,29 +81,29 @@ pub unsafe fn get_uniform_location(shader_prog:GLuint, name:&str)->GLint {
 
 pub unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&str) ->GLuint
 {
-	android_logw_str("create_and_compile_shader");
+	android_logw_str("create_and_compile_shader\0");
 	let	shader = glCreateShader(shader_type );
-	android_logw_string(&format!("shader={:?}",shader));
+	android_logw_string(&format!("shader={:?}\0",shader));
 
 	let sources_as_c_str:[*const c_char;1]=[c_str(source)];
 	
-	android_logw_str("set shader source..");
+	android_logw_str("set shader source..\0");
 	glShaderSource(shader, 1 as GLsizei, &sources_as_c_str as *const *const c_char, 0 as *const c_int/*(&length[0])*/);
-	android_logw_str("compile..");
+	android_logw_str("compile..\0");
 	glCompileShader(shader);
 	let	status:c_int=0;
-	android_logw_str("get status..");
+	android_logw_str("get status..\0");
 	glGetShaderiv(shader,GL_COMPILE_STATUS,&status);
-	android_logw_str("got status");
-	android_logw_string(&format!("status = {:?}",status));
+	android_logw_str("got status\0");
+	android_logw_string(&format!("status = {:?}\0",status));
 	if status==GL_FALSE as GLint
 	{
-		android_logw_string(&format!("failed, getting log.."));
+		android_logw_string(&format!("failed, getting log..\0"));
 		let compile_log:[c_char;512]=[0 as c_char;512]; //int len;
 	
 		let log_len:c_int=0;
 		glGetShaderInfoLog(shader, 512,&log_len as *const c_int, &compile_log[0]);
-		android_logw_string(&format!("Compile Shader Failed: logsize={:?}",
+		android_logw_string(&format!("Compile Shader Failed: logsize={:?}\0",
 				log_len));
 
 		println!("compile shader {:?} failed: \n{:?}\n", shader, compile_log[0]);
@@ -123,21 +123,23 @@ pub unsafe fn	create_and_compile_shader(shader_type:GLenum, source:&str) ->GLuin
 		for i in 0..log_len {
 //			android_logw_string(&format!("{:?}",compile_log[i]));
 		}
+		emscripten::alert(&format!("failed to build {}\0",source));
 		panic!();
+
 
 	}	
 	else {
 		println!("create shader{:?} - compile suceeded\n",  shader);
-		android_logw_string(&format!("create shader{:?} - compile suceeded\n",  shader));
+		android_logw_string(&format!("create shader{:?} - compile suceeded\n\0",  shader));
 	}
-	android_logw_str("create shader-done");
+	android_logw_str("create shader-done\0");
 	shader
 }
 
 
 #[derive(Clone,Debug,Copy)]
 pub struct	VertexAttr {
-	pos:GLint,color:GLint,norm:GLint,tex0:GLint,tex1:GLint,joints:GLint,weights:GLint,tangent:GLint,binormal:GLint,
+	pub pos:GLint,pub color:GLint,pub norm:GLint,pub tex0:GLint,pub tex1:GLint,pub joints:GLint,pub weights:GLint,pub tangent:GLint,pub binormal:GLint,
 }
 pub static g_vertex_attr_empty:VertexAttr=VertexAttr{
 	pos:-1,color:-1,norm:-1,tex0:-1,tex1:-1,joints:-1,weights:-1,tangent:-1,binormal:-1
@@ -216,6 +218,7 @@ pub unsafe fn	create_shader_program(
 	let pixelShaderOut = create_and_compile_shader(GL_FRAGMENT_SHADER, pixelShaderSource);
 	let vertexShaderOut = create_and_compile_shader(GL_VERTEX_SHADER, vertexShaderSource);	
 	let	prog = glCreateProgram();
+	assert!(prog>=0);
 	android_logw(c_str("bind attrib locations\0"));
 	
 	// assign attribute names before linking
@@ -237,24 +240,23 @@ pub unsafe fn	create_shader_program(
 
 	println!("linking verteshader{:?}, pixelshader{:?} to program{:?}\n", vertexShaderOut, pixelShaderOut, prog);
 	glLinkProgram(prog);
-	let mut err:GLint=0;
-	glGetProgramiv(prog,GL_LINK_STATUS,(&err) as *const GLint);
+	let mut lstatus:GLint=0;
+	glGetProgramiv(prog,GL_LINK_STATUS,(&lstatus) as *const GLint);
 	
-	let x=glGetAttribLocation(prog,c_str("a_color\0"));
-	let y=glGetAttribLocation(prog,c_str("a_norm\0"));
-	println!("write,read attrib location in prog {:?} a_color={:?}", prog, x);
-	println!("write,read attrib location in prog {:?} a_norm={:?}", prog, y);
 
 	
-	if err as GLenum==GL_INVALID_VALUE || err as GLenum==GL_INVALID_OPERATION {
+	if lstatus==(GL_FALSE as i32)
+	{
 		let mut buffer=[0 as GLchar;1024];
 		let mut len:GLint=0;
 		glGetProgramInfoLog(prog,1024,&len,&buffer[0]);
-		println!("link program failed: {:?}",err);
+		println!("link program failed: {:?}",lstatus);
 		println!("todo\n");
 //		println!("{:?}",CString::new(&buffer[0]));
+		panic!();
 	} else {
-		println!("link program status {:?}", err);
+		assert!(lstatus==(GL_TRUE as i32));
+		println!("link ok");
 	}
 
 	(pixelShaderOut,vertexShaderOut,prog)
@@ -868,7 +870,8 @@ pub fn	create_shaders()
 //todo: vs, ps, interface, permute all with same interface
 //or allow shader(vertexmode,texmode,lightmode)
 
-	create_shader_sub(RenderMode::Default,
+	create_shader_sub(
+		RenderMode::Default,
 		&[	get_shader_prefix(ShaderType::Pixel),
 			g_PS_DeclUniforms,
 			ps_vs_interface0,
@@ -903,7 +906,7 @@ pub fn	create_shaders()
 		RenderMode::SphericalHarmonicLight, 
 		g_PS_SphericalHarmonicLight);
 	create_shader_sub2(
-		RenderMode::SphericalHarmonicLight, 
+		RenderMode::FogTex0, 
 		g_PS_FogTex0);
 	create_shader_sub2(
 		RenderMode::Color, 
@@ -914,7 +917,4 @@ pub fn	create_shaders()
 	create_shader_sub2(
 		RenderMode::TexCoord0, 
 		g_PS_TexCoord0);
-
-
-
 }

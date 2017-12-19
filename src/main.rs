@@ -31,6 +31,7 @@ pub mod editor;
 pub mod texture;
 pub mod test;
 pub mod emscripten;
+pub mod minimal_shader;
 pub mod shaders;
 pub use texture::*;
 pub use shaders::*;
@@ -61,6 +62,7 @@ fn android_logw_string(s:&String){
 	unsafe {android_logw(s.as_ptr() as *const c_char)}
 
 }
+
 
 // why is this crap not working?!
 /*
@@ -178,7 +180,6 @@ unsafe fn create_index_buffer<T>(data:&Vec<T>)->GLuint {
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ELEMENT_ARRAY_BUFFER)
 }
 
-
 impl Mesh {
 	/// create a grid mesh , TODO - take a vertex generator
 	fn new_torus(num:(uint,uint))->Mesh
@@ -273,25 +274,55 @@ static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
 type RenderMode_t=usize;
 impl Mesh {
 	unsafe fn render_mesh_shader(&self, matP:&Mat44,rot_trans:&Mat44,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
-
 		let shu=&g_shader_uniforms[modei];
-		glUseProgram(g_shader_program[modei]);
-		glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);
-		glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);
-
+		let prg=g_shader_program[modei];
+		if prg==0{
+			println!("shader program {}={} failed",modei,prg);
+			return;
+		}
+		gl_verify!{[println!("shader program value[{}/{}]={}",modei,RenderModeCount,prg)] glUseProgram(prg);}
+		gl_verify!{glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);}
+		gl_verify!{glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);}
 		
 		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY,GL_COLOR_ARRAY,GL_TEXTURE_COORD_ARRAY];
 
-		glBindBuffer(GL_ARRAY_BUFFER, self.vbo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ibo);
+		gl_verify!{glBindBuffer(GL_ARRAY_BUFFER, self.vbo);}
+		gl_verify!{glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ibo);}
 
 		let vsa=&g_vertex_shader_attrib[modei];
 		let shu=&g_shader_uniforms[modei];
+		
+		let baseVertex=0 as *const MyVertex; // for computing offsets
+		assert!(vsa.pos==glGetAttribLocation(prg,c_str("a_pos\0")));
+		if vsa.pos>=0 {
+			gl_verify!{
+			[ println!("shader{}: vsa.pos={} vs {:?}={:?}",modei,vsa.pos,VertexAttrIndex::VAI_pos, VertexAttrIndex::VAI_pos as isize)]
 
-		glEnableVertexAttribArray(VertexAttrIndex::VAI_pos.into());
-		glEnableVertexAttribArray(VertexAttrIndex::VAI_color.into());
-		glEnableVertexAttribArray(VertexAttrIndex::VAI_tex0.into());
-		glEnableVertexAttribArray(VertexAttrIndex::VAI_norm.into());
+				glEnableVertexAttribArray(VertexAttrIndex::VAI_pos.into());
+				glVertexAttribPointer(VertexAttrIndex::VAI_pos.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).pos));
+
+			}
+		} else {
+			println!("no pos");
+		}
+		if vsa.color>=0{
+			gl_verify!{
+				glEnableVertexAttribArray(VertexAttrIndex::VAI_color.into());
+				glVertexAttribPointer(VertexAttrIndex::VAI_color.into(),	4,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).color)); 
+			}
+		}
+		if vsa.tex0>=0{
+			gl_verify!{
+				glEnableVertexAttribArray(VertexAttrIndex::VAI_tex0.into());
+				glVertexAttribPointer(VertexAttrIndex::VAI_tex0.into(),	2,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).tex0));
+			}
+		}
+		if vsa.norm>=0{
+			gl_verify!{
+				glEnableVertexAttribArray(VertexAttrIndex::VAI_norm.into());
+				glVertexAttribPointer(VertexAttrIndex::VAI_norm.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).norm));
+			}
+		}
 
 		safe_set_uniform1i(shu.tex0, 0);
 		safe_set_uniform1i(shu.tex1, 1);
@@ -303,25 +334,29 @@ impl Mesh {
 		safe_set_uniform(shu.diffuse_dz, &Vec4(0.25f32,0.0f32,0.1f32,0.0f32));
 		safe_set_uniform(shu.fog_color, &g_fog_color);
 		safe_set_uniform(shu.fog_falloff, &Vec4(0.5f32,0.25f32,0.0f32,0.0f32));
-
-		glActiveTexture(GL_TEXTURE0+0);
-		glBindTexture(GL_TEXTURE_2D, g_textures[tex0i]);
-		glActiveTexture(GL_TEXTURE0+1);
-		glBindTexture(GL_TEXTURE_2D, g_textures[tex1i]);
-
+//		glActiveTexture(GL_TEXTURE0+0);
+//		glBindTexture(GL_TEXTURE_2D, g_textures[tex0i]);
+//		glActiveTexture(GL_TEXTURE0+1);
+//		glBindTexture(GL_TEXTURE_2D, g_textures[tex1i]);
+		draw::set_texture(0,g_textures[tex0i]);
+		draw::set_texture(1,g_textures[tex1i]);
 //		glVertexAttribPointer(VAI_pos as GLuint,	3,GL_FLOAT, GL_FALSE, stride, &((*baseVertex).pos[0]) as *f32 as *c_void);
 		// to do: Rustic struct element offset macro
-		let baseVertex=0 as *const MyVertex;
-		glVertexAttribPointer(VertexAttrIndex::VAI_pos.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).pos));
 
-		glVertexAttribPointer(VertexAttrIndex::VAI_color.into(),	4,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).color)); 
 
-		glVertexAttribPointer(VertexAttrIndex::VAI_tex0.into(),	2,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).tex0));
 
-		glVertexAttribPointer(VertexAttrIndex::VAI_norm.into(),	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).norm));
 //		].iter().map(|&x|glVertexAttribPointer(x.0.into(), x.1, x.2, x.3, x.4, x.5));
 
-		glDrawElements(GL_TRIANGLE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+		// only draw something if we had vertices.
+		// else.. should panic.
+		if vsa.pos>=0{
+			gl_verify!{
+			glDrawElements(GL_TRIANGLE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+			}
+		} else {
+			println!("can't draw geometry vsa.pos={}", vsa.pos);
+		}
+
 	}
 }
 
@@ -398,6 +433,7 @@ pub fn	render_no_swap(debug:u32)
 	lazy_create_resources();	
 	let x:StringMap<usize>;
 	unsafe {
+		if 0==g_frame&31{println!("render frame{}\n",g_frame);}
 //		android_logw(c_str("render_no_swap"));
 //		println!("{:?}",g_grid_mesh);
 		g_angle+=0.0025f32;
@@ -445,9 +481,11 @@ pub fn	render_no_swap(debug:u32)
 			{
 				// draw every combo of 2 textures and the modes
 				let ii=i as usize;
-				let rmode=ii % RenderModeCount;
+				let mut rmode=ii % RenderModeCount;
 				let ig=ii/RenderModeCount;
 				let ig2=ig/RenderModeCount;
+
+
 				g_grid_mesh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
 			}
 
@@ -532,70 +570,6 @@ impl<A> window::Window<A> for ShowBsp {
 
 
 
-const SDL_INIT_TIMER:u32=          0x00000001;
-const SDL_INIT_AUDIO:u32=          0x00000010;
-const SDL_INIT_VIDEO:u32=          0x00000020;  /**< SDL_INIT_VIDEO implies SDL_INIT_EVENTS */
-const SDL_INIT_JOYSTICK:u32=       0x00000200;  /**< SDL_INIT_JOYSTICK implies SDL_INIT_EVENTS */
-const SDL_INIT_HAPTIC:u32=         0x00001000;
-const SDL_INIT_GAMECONTROLLER:u32= 0x00002000;  /**< SDL_INIT_GAMECONTROLLER implies SDL_INIT_JOYSTICK */
-const SDL_INIT_EVENTS:u32=         0x00004000;
-const SDL_INIT_NOPARACHUTE:u32=    0x00100000;  /**< compatibility; this flag is ignored. */
-const SDL_INIT_EVERYTHING:u32=
-SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_EVENTS |
-SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER ;
-/* @} */
-
-/**
- *  This function initializes  the subsystems specified by \c flags
- */
-
-const SDL_WINDOW_OPENGL:u32 = 0x00000002;             /**< window usable with OpenGL context */
-
-#[repr(u32)]
-enum  SDL_GLattr
-{
-SDL_GL_RED_SIZE,
-SDL_GL_GREEN_SIZE,
-SDL_GL_BLUE_SIZE,
-SDL_GL_ALPHA_SIZE,
-SDL_GL_BUFFER_SIZE,
-SDL_GL_DOUBLEBUFFER,
-SDL_GL_DEPTH_SIZE,
-SDL_GL_STENCIL_SIZE,
-SDL_GL_ACCUM_RED_SIZE,
-SDL_GL_ACCUM_GREEN_SIZE,
-SDL_GL_ACCUM_BLUE_SIZE,
-SDL_GL_ACCUM_ALPHA_SIZE,
-SDL_GL_STEREO,
-SDL_GL_MULTISAMPLEBUFFERS,
-SDL_GL_MULTISAMPLESAMPLES,
-SDL_GL_ACCELERATED_VISUAL,
-SDL_GL_RETAINED_BACKING,
-SDL_GL_CONTEXT_MAJOR_VERSION,
-SDL_GL_CONTEXT_MINOR_VERSION,
-SDL_GL_CONTEXT_EGL,
-SDL_GL_CONTEXT_FLAGS,
-SDL_GL_CONTEXT_PROFILE_MASK,
-SDL_GL_SHARE_WITH_CURRENT_CONTEXT,
-SDL_GL_FRAMEBUFFER_SRGB_CAPABLE,
-SDL_GL_CONTEXT_RELEASE_BEHAVIOR
-}
-use SDL_GLattr::*;
-type SDL_WindowPtr=*const u8;
-type SDL_WindowSurfacePtr=*const u8;
-#[repr(C)]
-struct SDL_Event{
-    padding:[u8;56],
-}
-extern "C"{
-    fn SDL_Init(_:u32)->isize;
-    fn SDL_CreateWindow(_:*const u8,_:i32,_:i32,_:i32,_:i32,_:u32)->SDL_WindowPtr;
-    fn SDL_GL_SwapWindow(_:SDL_WindowPtr);
-    fn SDL_PollEvent(_:*mut SDL_Event)->bool;
-    fn SDL_GL_SetAttribute(_:SDL_GLattr,_:isize);
-    fn SDL_GetWindowSurface(_:SDL_WindowPtr)->SDL_WindowSurfacePtr;
-    fn SDL_UpdateWindowSurface(_:SDL_WindowPtr);
-}
 
 #[cfg(target_os = "emscripten")]
 fn test_file_download(){
@@ -657,14 +631,26 @@ pub fn test_seq(){
 
 pub fn main(){
 
+ 	#[cfg(all(shadertest,target_os="emscripten"))]
+	{
+		minimal_shader::mainr();
+	}
+
  	#[cfg(shadertest)]
-	window::run_loop(vec![Box::new(ShaderTest{time:30000})],&mut ());
+	{
+		println!("shadertest");	
+		window::run_loop(vec![Box::new(ShaderTest{time:30000})],&mut ());
+		return;
+	}
 
 	#[cfg(not(target_os = "emscripten"))]
 	window::run_loop(vec![world::new(),Box::new(ShaderTest{time:3000})],&mut ());
 
 	#[cfg(any(target_os = "emscripten",editor))]
-    window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
+	{
+		println!("editor");
+	    window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
+	}
 //  window::run_loop(test::new(),&mut ());
 //  bsp::bsp::main();
 //	shadertest();

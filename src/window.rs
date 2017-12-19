@@ -967,9 +967,9 @@ unsafe fn em_main_loop_body<APP>(){
 unsafe fn mock_main_loop(){
 	//let winptr=(g_wins_ptr as *mut Windows<T>) as &mut Windows<T>;
 
-	render_and_update(
-		&mut*g_wins,&mut ()
-);	
+	render_and_update(&mut*g_wins,&mut ());
+	glFlush();
+	glutSwapBuffers();	
  //	render_and_update(wins(),&mut ());
 }
 
@@ -1021,12 +1021,21 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 		glClearColor(0.5f32,0.5f32,0.5f32,1.0f32);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+		#[cfg(all(target_os = "emscripten",shadertest))]
+		{
+			println!("emscripten shadertest minmial test");
+        glDisable(GL_DEPTH_TEST);
+			::minimal_shader::mainr();
+			return;
+		}		
+
+
 		#[cfg(target_os = "emscripten")]
 		{
-			println!("testing emscripten texure url grab");
-			g_test_texture[0]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/1/17/Begur_Sa_Tuna_02_JMM.JPG\");"))as GLuint;
-			g_test_texture[1]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/6/6e/Oblast_mezi_Libeňským_mostem_a_Negrelliho_viaduktem_%2817%29.jpg\");")) as GLuint;
-			println!("tex1 tex 2 {}{}",g_test_texture[0],g_test_texture[1]);
+			println!("emscripten set main loop");
+			//g_test_texture[0]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/1/17/Begur_Sa_Tuna_02_JMM.JPG\");\0"))as GLuint;
+			//g_test_texture[1]=emscripten_run_script_int(cstr!("load_texture_url(\"https://upload.wikimedia.org/wikipedia/commons/6/6e/Oblast_mezi_Libeňským_mostem_a_Negrelliho_viaduktem_%2817%29.jpg\");\0")) as GLuint;
+			//println!("tex1 tex 2 {}{}",g_test_texture[0],g_test_texture[1]);
 
 			emscripten_set_main_loop(mock_main_loop as *const u8,0,1);
 			return;
