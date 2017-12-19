@@ -100,6 +100,7 @@ extern
 	pub fn glUniformMatrix2fv(location:GLint, count:GLsizei,transpose:GLboolean, v0:PGLfloat);
 	pub fn glUniformMatrix3fv(location:GLint, count:GLsizei,transpose:GLboolean, v0:PGLfloat);
 	pub fn glUniformMatrix4fv(location:GLint, count:GLsizei,transpose:GLboolean, v0:PGLfloat);
+	#[cfg(not(target_os="emscripten"))]
 	pub fn glUniformMatrix4fvARB(location:GLint, count:GLsizei,transpose:GLboolean, v0:PGLfloat);
 
 	pub fn glGetProgramiv(program:GLuint, pname:GLenum, params:PGLint);
@@ -312,3 +313,8 @@ pub fn glGetIntegerv( pname:GLenum, params:* mut GLint );
 }
 pub fn glSetMatrix(e:GLenum, f:&GLfloat){ unsafe{glMatrixMode(e);glLoadMatrixf(f);}}
 pub fn glSetMatrixIdentity(e:GLenum){ unsafe{glMatrixMode(e);glLoadIdentity();}}
+
+#[cfg(target_os="emscripten")]
+pub fn glUniformMatrix4fvARB(location:GLint, count:GLsizei,transpose:GLboolean, v0:PGLfloat){
+	panic!("this seems broken, look into it. had to use glUniformMatrix4fv instead. whats the difference?\n");
+}

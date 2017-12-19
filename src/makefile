@@ -24,7 +24,7 @@ run_cargo: $(SOURCES) link_data
 
 asmjs_shadertest: $(SOURCES)
 	cargo build --target=asmjs-unknown-emscripten
-	cp ../target/asmjs-unknown-emscripten/debug/rustv.js .
+	cp ../target/asmjs-unknown-emscripten/debug/rustv.js ./shadertest.js
 
 
 

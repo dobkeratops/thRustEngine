@@ -1020,7 +1020,7 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 
 		glClearColor(0.5f32,0.5f32,0.5f32,1.0f32);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-
+/*
 		#[cfg(all(target_os = "emscripten",shadertest))]
 		{
 			println!("emscripten shadertest minmial test");
@@ -1028,7 +1028,7 @@ pub fn run_loop(mut swins:Vec<sto<Window<()>>>, app:&mut ()) {
 			::minimal_shader::mainr();
 			return;
 		}		
-
+*/
 
 		#[cfg(target_os = "emscripten")]
 		{

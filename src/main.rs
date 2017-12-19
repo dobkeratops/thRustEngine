@@ -28,6 +28,7 @@ use window::Flow;
 mod world;
 pub use r3d::*;
 pub mod editor;
+pub mod landscape;
 pub mod texture;
 pub mod test;
 pub mod emscripten;
@@ -42,6 +43,8 @@ pub use std::fs::File;
 
 #[cfg(not(target_os="emscripten"))]
 extern crate image;
+extern crate itertools;
+pub use itertools::Itertools;
 
 #[cfg(target_os="macos")]
 #[link_args="-framework OpenGL -framework glut -L/usr/local/lib -F/Library/Frameworks -framework SDL2 -framework Cocoa"]
@@ -273,6 +276,24 @@ fn safe_set_uniform(loc:GLint, pvalue:&Vec4) {
 static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
 type RenderMode_t=usize;
 impl Mesh {
+
+		#[cfg(target_os="emscripten")]
+	unsafe fn render_mesh_minimal_shader(&self, matP:&Mat44,rot_trans:&Mat44)		{
+//draw using the really minimal shader?
+		let baseVertex=0 as *const MyVertex; // for computing offsets
+
+			use minimal_shader::*;
+			let mapos=glGetAttribLocation(g_sp,c_str("position\0"));
+			let mp= glGetUniformLocation(	g_sp,c_str("uMatProj\0"));
+			let mmv= glGetUniformLocation(	g_sp,c_str("uMatModelView\0"));
+			glUseProgram(g_sp);
+			glVertexAttribPointer(mapos as u32,	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).pos));
+			glDrawElements(GL_LINE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
+			glDrawArrays(GL_LINE_STRIP, 0,self.num_vertices as GLsizei);
+		gl_verify!{glUniformMatrix4fv(mp, 1,  GL_FALSE, &matP.ax.x);}
+		gl_verify!{glUniformMatrix4fv(mmv, 1, GL_FALSE, &rot_trans.ax.x);      }
+		}
+
 	unsafe fn render_mesh_shader(&self, matP:&Mat44,rot_trans:&Mat44,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
 		let shu=&g_shader_uniforms[modei];
 		let prg=g_shader_program[modei];
@@ -281,8 +302,8 @@ impl Mesh {
 			return;
 		}
 		gl_verify!{[println!("shader program value[{}/{}]={}",modei,RenderModeCount,prg)] glUseProgram(prg);}
-		gl_verify!{glUniformMatrix4fvARB(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);}
-		gl_verify!{glUniformMatrix4fvARB(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);}
+		gl_verify!{glUniformMatrix4fv(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);}
+		gl_verify!{glUniformMatrix4fv(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);}
 		
 		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY,GL_COLOR_ARRAY,GL_TEXTURE_COORD_ARRAY];
 
@@ -353,6 +374,7 @@ impl Mesh {
 			gl_verify!{
 			glDrawElements(GL_TRIANGLE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
 			}
+
 		} else {
 			println!("can't draw geometry vsa.pos={}", vsa.pos);
 		}
@@ -633,13 +655,13 @@ pub fn main(){
 
  	#[cfg(all(shadertest,target_os="emscripten"))]
 	{
-		minimal_shader::mainr();
+//		minimal_shader::mainr();
 	}
 
  	#[cfg(shadertest)]
 	{
 		println!("shadertest");	
-		window::run_loop(vec![Box::new(ShaderTest{time:30000})],&mut ());
+		window::run_loop(vec![Box::new(ShaderTest{time:3000000})],&mut ());
 		return;
 	}
 

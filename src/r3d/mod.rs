@@ -527,6 +527,19 @@ impl Half for f64{
 	fn half()->f64{0.5f64}
 }
 
+pub fn rand(seed:i32)->i32{
+	(seed ^ (seed>>13) + (seed*9182) +01938)^(seed>>19)+(seed>>3)
+}
+/// random seed update and return float in 0-1 range
+pub fn frand(seed:i32)->(i32,f32){
+	// todo - generic over float types..
+	(rand(seed), ((seed &0xffff)as f32)*(1.0/(0x10000 as f32)))
+}
+pub fn frands(seed:i32)->(i32,f32){
+	let (seed,f)=frand(seed);
+	(seed,f*2.0f32-1.0f32)
+}
+
 /// TODO - might need Num,Float to have ::Output, so &f32:Num<Output=f32>
 /*
 impl<'a> Float for &'a f32{
