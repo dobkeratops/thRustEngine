@@ -3,6 +3,7 @@ pub mod vector;
 pub mod matrix;
 pub mod quaternion;
 pub mod geom;
+pub mod voxels;
 pub mod mesh;
 pub mod trimesh;
 pub mod sdl;

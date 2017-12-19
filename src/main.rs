@@ -186,6 +186,14 @@ unsafe fn create_index_buffer<T>(data:&Vec<T>)->GLuint {
 	assert!(data.len()>0);
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ELEMENT_ARRAY_BUFFER)
 }
+unsafe fn create_index_buffer_edges<T>(data:&Vec<[T;2]>)->GLuint {
+	assert!(data.len()>0);
+	create_buffer(2*data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0][0]), GL_ELEMENT_ARRAY_BUFFER)
+}
+unsafe fn create_index_buffer_tris<T>(data:&Vec<[T;3]>)->GLuint {
+	assert!(data.len()>0);
+	create_buffer(3*data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0][0]), GL_ELEMENT_ARRAY_BUFFER)
+}
 
 impl GlMesh {
 	/// create a grid mesh , TODO - take a vertex generator
@@ -211,6 +219,7 @@ impl GlMesh {
 		
 		let num_vertices=num.0*num.1;
 		let vertices=vec_from_fn(num_vertices as usize,&|i|generate_torus_vertex(i as u32,num));
+		
 
  		unsafe {
 			GlMesh{
@@ -576,7 +585,7 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 			GlMesh{
 				num_vertices:src.vertices.len() as u32,
 				num_indices:concati.len() as u32,
-				vertex_size: mem::size_of_val(&vts[0]) as GLsizei,
+				vertex_size: mem::size_of_val(&vts[0]) as GLsizei, 
 				vbo: create_vertex_buffer(&vts),
 				ibo: create_index_buffer(&concati),
 				prim_mode:GL_TRIANGLES
@@ -701,7 +710,7 @@ pub fn test_seq(){
 }
 
 pub fn main(){
-
+	voxels::test_array3d();
  	#[cfg(all(shadertest,target_os="emscripten"))]
 	{
 //		minimal_shader::mainr();
