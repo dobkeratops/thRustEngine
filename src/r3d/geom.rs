@@ -89,8 +89,9 @@ pub struct Extents<T:Sized=Vec3<f32>> {
 // 'Position' trait for  objects with a spatial centre.
 // position should be an x,y,z or x,y,z,1
 pub trait Pos<V=Vec3<f32>> {
+	type Output;
 	fn pos(&self)->V;
-	fn set_pos(&mut self,v:&V) {panic!();}
+	fn set_pos(&mut self,v:&V) {unimplemented!()}
 }
 
 impl Extents<Vec3<f32>>{

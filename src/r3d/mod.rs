@@ -4,6 +4,7 @@ pub mod matrix;
 pub mod quaternion;
 pub mod geom;
 pub mod voxels;
+pub mod triangulatevoxels;
 pub mod mesh;
 pub mod trimesh;
 pub mod sdl;
@@ -25,6 +26,7 @@ pub use sdl::*;
 pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,convert};
 pub use io::Read;
 pub use fmt::Debug;
+pub use triangulatevoxels::*;
 
 use ::std::f32::consts::PI;
 
@@ -153,6 +155,11 @@ pub struct	MyVertex
 	pub tex0:[f32;2]
 }
 
+impl Pos<Vec3> for MyVertex{	
+	type Output=Vec3;
+	fn pos(&self)->Vec3 {Vec3(self.pos[0],self.pos[1],self.pos[2])}
+	fn set_pos(&mut self,v:&Vec3) {self.pos=[v.x,v.y,v.z];}
+}
 
 pub struct PackedARGB(pub u32);	// 'Color', most commonly packed 8888
 pub struct PackedS8x4(pub u32);	// packed vector in -1 to 1 range
@@ -169,6 +176,53 @@ struct PackedXYZ(pub u32);
 fn to_u32(f:f32)->u32{
 	(f*255.0f32) as u32
 }
+/// because it reads better than the annoying long casts
+pub trait FMul{
+
+	fn fmul(&self,b:f32)->f32;
+	fn fdiv(&self,b:f32)->f32;
+	fn fdivi(&self,b:Self)->f32;
+	fn fadd(&self,a:f32)->f32;
+	fn fsub(&self,a:f32)->f32;
+}
+impl FMul for i32{
+	fn fmul(&self,b:f32)->f32{*self as f32 * b}
+	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
+	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fadd(&self,b:f32)->f32{*self as f32+ b}
+	fn fsub(&self,b:f32)->f32{*self as f32- b}
+}
+impl FMul for u32{
+	fn fmul(&self,b:f32)->f32{*self as f32 * b}
+	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
+	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fadd(&self,b:f32)->f32{*self as f32+ b}
+	fn fsub(&self,b:f32)->f32{*self as f32- b}
+}
+impl FMul for usize{
+	fn fmul(&self,b:f32)->f32{*self as f32 * b}
+	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
+	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fadd(&self,b:f32)->f32{*self as f32+ b}
+	fn fsub(&self,b:f32)->f32{*self as f32- b}
+}
+impl FMul for isize{
+	fn fmul(&self,b:f32)->f32{*self as f32 * b}
+	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
+	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fadd(&self,b:f32)->f32{*self as f32+ b}
+	fn fsub(&self,b:f32)->f32{*self as f32- b}
+}
+impl FMul for f32{
+	fn fmul(&self,b:f32)->f32{*self as f32 * b}
+	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
+	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fadd(&self,b:f32)->f32{*self as f32+ b}
+	fn fsub(&self,b:f32)->f32{*self as f32- b}
+}
+
+
+
 
 type Radians=f32;	// the most natural mathematical angle gets the raw type.
 // anything which can be an angle..
@@ -528,8 +582,8 @@ impl Half for f32{
 impl Half for f64{
 	fn half()->f64{0.5f64}
 }
-
-pub fn rand(seed:i32)->i32{
+/// pure random function (returns new seed)
+pub fn randp(seed:i32)->i32{
 	use std::num::Wrapping;
 	let s0=Wrapping(seed);
 	let tbl=[Wrapping(0xabcd1234i32),Wrapping(0x55555555i32),Wrapping(0x87f92afei32),Wrapping(0xf0f0f0f0i32)];
@@ -537,14 +591,22 @@ pub fn rand(seed:i32)->i32{
 	let s2=s1 + (s1>>9) +tbl[((s1>>16)&Wrapping(3)).0 as usize]^(s1>>5)+(s1<<15);
 	return s2.0;
 }
-/// random seed update and return float in 0-1 range
-pub fn frand(seed:i32)->(i32,f32){
-	// todo - generic over float types..
-	(rand(seed), ((seed &0xffff)as f32)*(1.0/(0x10000 as f32)))
+///mutating random function (updates the seed)
+pub fn randm(seed:&mut i32)->i32{
+	let r=randp(*seed); *seed=r; r
 }
-pub fn frands(seed:i32)->(i32,f32){
-	let (seed,f)=frand(seed);
+/// random seed update and return float in 0-1 range
+pub fn frandp(seed:i32)->(i32,f32){
+	// todo - generic over float types..
+	(randp(seed), ((seed &0xffff)as f32)*(1.0/(0x10000 as f32)))
+}
+pub fn frandsp(seed:i32)->(i32,f32){
+	let (seed,f)=frandp(seed);
 	(seed,f*2.0f32-1.0f32)
+}
+pub fn frandsm(rseed:&mut i32)->f32{
+	let seed=randm(rseed);
+	((seed &0xffff)as f32)*(1.0/(0x8000i32 as f32))-1.0f32
 }
 
 /// TODO - might need Num,Float to have ::Output, so &f32:Num<Output=f32>

@@ -24,6 +24,13 @@ pub fn add_quad(tris:&mut Vec<[VtIdx;3]>, quad:[VtIdx;4]){
 	tris.push([quad[1],quad[2],quad[3]]);
 }
 impl<V> TriMesh<V,()>{
+	pub fn new()->Self{
+		TriMesh{
+			vertices:Vec::new(),
+			indices:Vec::new(),
+			attr:Vec::new(),
+		}
+	}
 	pub fn grid(is:VtIdx,js:VtIdx,f:&Fn(VtIdx,VtIdx)->V)->Self{
 		Self::grid_wrapped(is,js,false,false,f)
 	}
@@ -104,6 +111,22 @@ impl<V:Sized,ATTR> TriMesh<V,ATTR>{
 //	fn foreach_vertex_of_triangle(&self, f:FnMut(
 }
 
+/// push an unshared cyclic orderquad into a mesh. 
+impl<V,ATTR:Clone> TriMesh<V,ATTR>{
+	pub fn push_quad(&mut self,vs:(V,V,V,V),a:ATTR){ 
+		// todo: parallel arrays?
+		let index=self.vertices.len() as i32;
+		self.vertices.push(vs.0);
+		self.vertices.push(vs.1);
+		self.vertices.push(vs.2);
+		self.vertices.push(vs.3);
+		self.indices.push([index+0,index+1,index+3]);
+		self.indices.push([index+1,index+2,index+3]);
+		self.attr.push(a.clone());
+		self.attr.push(a);
+		assert!(self.indices.len()==self.attr.len(),"primitive and attr arrays must be same length")
+	}
+}
 
 impl TriMesh<Vec3,()> {
 	// generates xy-plane heightfield z is up. 
@@ -151,6 +174,88 @@ impl TriMesh<Vec3,()> {
 		unsafe {unsafe_edgebuilder(self.vertices.len() as i32,&self.indices)}
 	}
 }
+
+fn add_axis(pos:[usize;3],axis:usize,disp:isize)->[usize;3]{
+	let mut ret=pos; ret[axis]=ret[axis].wrapping_add(disp as usize);
+	ret
+}
+fn geti3<T:Copy>(s:&Vec<Vec<Vec<T>>>,xyz:[usize;3])->T{
+	s[xyz[2]][xyz[1]][xyz[0]]
+}
+impl<V:Debug+Pos> TriMesh<V,()>{
+	pub fn dump_info(&self){
+		println!("mesh: vertices{} triangles{} extents {:?}",self.vertices.len(),self.indices.len(),self.extents());
+		
+	}
+	pub fn extents(&self)->Extents<Vec3>{
+		let mut ex=Extents::new();
+		for v in self.vertices.iter(){
+			ex.include(&v.pos())
+		}
+		ex
+	}
+}
+impl TriMesh<MyVertex,()>{
+
+	//todo - customize with lambdas
+	pub fn from_voxels(voltex:&Vec<Vec<Vec<f32>>>, size:f32)->Self{
+		let mut mesh = TriMesh::new();
+		// needed to constrain lifetimes
+		{
+			let cell_size=size/(voltex.len() as f32);
+			let make_vertex=|ipos:[usize;3],normal_axis_index,(u,v)|{
+				let mut norm=[0.0;3]; norm[normal_axis_index]=1.0;
+				let s=voltex[ipos[2]][ipos[1]][ipos[0]];// pick shade from tex
+				MyVertex{
+					pos:[ipos[0].fmul(cell_size),ipos[1].fmul(cell_size),ipos[2].fmul(cell_size)],
+					color:[s,s,s,1.0],
+					norm:norm,
+					tex0:[u,v]
+				}
+			};
+
+			let mut seed=0x92824;
+			let mut fn_cmpcell=|ipos:[_;3],axis,uaxis,vaxis|{
+				let mut cmppos=add_axis(ipos,axis,1);
+				// place polys on transition from -ve to posative.
+				let a=geti3(voltex,ipos);let b=geti3(voltex,cmppos);
+
+				// render all transition planes.
+				if (a>0.0 && b<0.0) || (a<0.0 && b>0.0){
+					// quad vertex index positions
+					let qipos00=cmppos;
+					let qipos01=add_axis(qipos00, uaxis,1);
+
+					let qipos10=add_axis(qipos00, vaxis,1);
+					let qipos11=add_axis(qipos01, vaxis,1);
+
+					// todo less cut-pasty.. 'map qpos make_vpos'
+					// todo - consider cell for texture info
+					let mut v00=make_vertex(qipos00,axis,(0.0,0.0));
+					let mut v01=make_vertex(qipos01,axis,(1.0,0.0));
+					let mut v10=make_vertex(qipos10,axis,(0.0,1.0));
+					let mut v11=make_vertex(qipos11,axis,(1.0,1.0));
+					mesh.push_quad((v00,v01,v11,v10),());
+				}
+			};
+
+			for z in 0..voltex.len()-1{
+				for y in 0..voltex[0].len()-1{
+					for x in 0..voltex[0][0].len()-1{
+						let pos=[x,y,z];
+						fn_cmpcell(pos, 0, 1,2);		
+						fn_cmpcell(pos, 1, 0,2);		
+						fn_cmpcell(pos, 2, 0,1);		
+					}
+				}
+			}
+			// runthe fill algorithm in the console.
+		}
+		mesh.dump_info();
+		return mesh;
+	}
+}
+
 pub type TriInd=VtIdx;
 pub struct EdgeLink{
 	pub vertex:[VtIdx;2],

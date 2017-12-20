@@ -234,7 +234,8 @@ impl GlMesh {
 	}
 }
 
-static mut g_torus_mesh:GlMesh=GlMesh{
+static mut g_torus_mesh:GlMesh=GlMesh{..g_null_mesh};
+const g_null_mesh:GlMesh=GlMesh{
 	num_vertices:0,
 	num_indices:0,
 	vbo:-1i32 as uint,
@@ -242,13 +243,9 @@ static mut g_torus_mesh:GlMesh=GlMesh{
 	vertex_size:0,
 	prim_mode:GL_TRIANGLES
 };
-static mut g_landscape_mesh:GlMesh=GlMesh{
-	num_vertices:0,
-	num_indices:0,
-	vbo:-1i32 as uint,
-	ibo:-1i32 as uint,
-	vertex_size:0,
-	prim_mode:GL_TRIANGLES
+static mut g_landscape_mesh:GlMesh=GlMesh{..g_null_mesh
+};
+static mut g_voxel_mesh:GlMesh=GlMesh{..g_null_mesh
 };
 
 type UniformIndex=GLint;
@@ -531,7 +528,8 @@ pub fn	render_no_swap(debug:u32)
 				let ig=ii/RenderModeCount;
 				let ig2=ig/RenderModeCount;
 
-				let msh=if i&1==0{&g_torus_mesh}else{&g_landscape_mesh};
+				let msh=match i%3{0=>&g_torus_mesh,1=>&g_landscape_mesh,_=>&g_voxel_mesh};
+				
 				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
 			}
 
@@ -561,10 +559,18 @@ fn idle()
 }
 
 pub fn create_landscape()->GlMesh{
-	let ht=landscape::generate(4,0.125,1.1f32,1.0,0x987412ab);
+	let ht=landscape::generate2d(4,0.125,1.1f32,1.0,0x987412ab);
 	let tm=trimesh::TriMesh::<Vec3>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
+pub fn create_voxel_landscape()->GlMesh{
+	trace!();
+	let vox=landscape::generate3d(4,1,0.225,1.1f32,1.0,0x987412ab);
+	dump!(vox[2]);
+	let tm=trimesh::TriMesh::<MyVertex>::from_voxels(&vox,0.25f32);
+	GlMesh::from(&tm)
+}
+
 use trimesh::TriMesh;
 impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 	fn from(src:&TriMesh<Vec3>)->Self {
@@ -593,6 +599,26 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 		}
 	}
 }
+// when it's a renderable vertex already, pull it in directly
+impl<'a> From<&'a TriMesh<MyVertex>> for GlMesh{
+	fn from(src:&TriMesh<MyVertex>)->Self {
+		let mut concati:Vec<i32> = Vec::new();
+		dump!(src.vertices.len(),src.indices.len());
+		let refvts=&src.vertices;
+		//todo: tri normals, and what are you doing for UVs,colors ?
+		for t in src.indices.iter(){ concati.push(t[0]);concati.push(t[1]);concati.push(t[2]);}
+		unsafe{
+			GlMesh{
+				num_vertices:src.vertices.len() as u32,
+				num_indices:concati.len() as u32,
+				vertex_size: mem::size_of_val(&refvts[0]) as GLsizei, 
+				vbo: create_vertex_buffer(refvts),
+				ibo: create_index_buffer(&concati),
+				prim_mode:GL_TRIANGLES
+			}
+		}
+	}
+}
 
 static mut g_lazy_init:bool=false;
 pub fn lazy_create_resources() {
@@ -604,6 +630,7 @@ pub fn lazy_create_resources() {
 			g_lazy_init=true;
 			g_torus_mesh = GlMesh::new_torus((16,16)); //new GridMesh(16,16);
 			g_landscape_mesh=create_landscape();
+			g_voxel_mesh=create_voxel_landscape();
 			create_shaders();
 			create_textures();
 
@@ -708,6 +735,7 @@ pub fn test_seq(){
 	println!("{:?}", seq![1,2,3]);
 	println!("{:?}", seq![1=>10,2=>3,3=>5]);
 }
+
 
 pub fn main(){
 	voxels::test_array3d();
