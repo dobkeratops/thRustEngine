@@ -154,7 +154,7 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex
 	let norm=Vec3(sy*cx, sy*sx, cy).vnormalize().vscale(0.1);
 
 	MyVertex{
-		pos:[(rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy],
+		pos:Vec3((rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy),
 		color:[1.0,1.0,1.0,fj],
 		norm:[norm.x,norm.y,norm.z],
 		tex0:[fi*16.0, fj*2.0],
@@ -531,6 +531,15 @@ pub fn	render_no_swap(debug:u32)
 				let msh=match i%3{0=>&g_torus_mesh,1=>&g_landscape_mesh,_=>&g_voxel_mesh};
 				
 				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
+				draw::set_texture(0,0);
+				draw::set_texture(1,0);
+				draw::set_matrix_p_mv(&matP,&rot_trans);
+				glBegin(GL_LINES);
+				glVertex3f(-1.0,-1.0,0.0);
+				glVertex3f(1.0,1.0,0.0);
+				glVertex3f(-1.0,1.0,0.0);
+				glVertex3f(1.0,-1.0,0.0);
+				glEnd()
 			}
 
 
@@ -565,7 +574,18 @@ pub fn create_landscape()->GlMesh{
 }
 pub fn create_voxel_landscape()->GlMesh{
 	trace!();
-	let vox=landscape::generate3d(4,1,0.225,1.1f32,1.0,0x987412ab);
+	// raw noise,
+	let mut vox=landscape::generate3d(4,1,0.225,1.1f32,1.0,0x987412ab);
+	// add a centre blob
+	landscape::array3d_foreach(&mut vox,&|pos,v:&mut _|{
+		let fx=pos[0].fdivi(1<<4)*2.0-1.0;
+		let fy=pos[1].fdivi(1<<4)*2.0-1.0;
+		let fz=pos[2].fdivi(1<<4)*2.0-1.0;
+		let r=(fx*fx+fy*fy+fz*fz).sqrt();
+		*v+=(0.5-r)*0.25f32;
+	});
+
+
 	dump!(vox[2]);
 	let tm=trimesh::TriMesh::<MyVertex>::from_voxels(&vox,0.25f32);
 	GlMesh::from(&tm)
@@ -578,7 +598,7 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 		let normals=src.vertex_normals();
 		for (i,v) in src.vertices.iter().enumerate(){
 			vts.push(MyVertex{
-				pos:[v.x,v.y,v.z],
+				pos:Vec3(v.x,v.y,v.z),
 				color:[1.0,1.0,1.0,1.0],
 				norm:normals[i].into(),
 				tex0:[0.0,0.0],

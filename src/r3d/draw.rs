@@ -831,10 +831,20 @@ pub unsafe fn set_texture(tex_unit:i32, tex_id:GLuint) {
 		glEnable(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, tex_id);
 	} else {
+		glBindTexture(GL_TEXTURE_2D, 0);
 		glDisable(GL_TEXTURE_2D);
 	}
 }
-
+pub unsafe fn set_matrix_projection(m:&Mat44) {
+            glSetMatrix(GL_PROJECTION, &m.ax.x);
+}
+pub unsafe fn set_matrix_modelview(m:&Mat44) {
+            glSetMatrix(GL_MODELVIEW, &m.ax.x);
+}
+pub unsafe fn set_matrix_p_mv(p:&Mat44,m:&Mat44){
+	set_matrix_projection(p);
+	set_matrix_modelview(m);
+}
 
 pub fn random_color3(a:uint,b:uint,c:uint)->u32 {
 	(a*b*c ^(a<<3)^(b<<8)*(c<<2)^(a<<19)^(b<<22)*(c<<13) )as u32

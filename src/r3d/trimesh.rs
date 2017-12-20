@@ -207,7 +207,7 @@ impl TriMesh<MyVertex,()>{
 				let mut norm=[0.0;3]; norm[normal_axis_index]=1.0;
 				let s=voltex[ipos[2]][ipos[1]][ipos[0]];// pick shade from tex
 				MyVertex{
-					pos:[ipos[0].fmul(cell_size),ipos[1].fmul(cell_size),ipos[2].fmul(cell_size)],
+					pos:Vec3(ipos[0].fmul(cell_size),ipos[1].fmul(cell_size),ipos[2].fmul(cell_size)),
 					color:[s,s,s,1.0],
 					norm:norm,
 					tex0:[u,v]

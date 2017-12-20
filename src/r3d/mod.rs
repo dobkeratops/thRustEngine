@@ -149,7 +149,7 @@ pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 #[derive(Clone,Debug)]
 pub struct	MyVertex 
 {
-	pub pos:[f32;3],
+	pub pos:Vec3<f32>,
 	pub color:[f32;4],	// TODO: should be packed format!!!
 	pub norm:[f32;3],
 	pub tex0:[f32;2]
@@ -157,8 +157,8 @@ pub struct	MyVertex
 
 impl Pos<Vec3> for MyVertex{	
 	type Output=Vec3;
-	fn pos(&self)->Vec3 {Vec3(self.pos[0],self.pos[1],self.pos[2])}
-	fn set_pos(&mut self,v:&Vec3) {self.pos=[v.x,v.y,v.z];}
+	fn pos(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
+	fn set_pos(&mut self,v:&Vec3) {self.pos=v.clone();}
 }
 
 pub struct PackedARGB(pub u32);	// 'Color', most commonly packed 8888
@@ -904,6 +904,14 @@ pub trait HasXY :Sized+Clone {
 	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xy(self.x()+f,self.y())}
 	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xy(self.x(),self.y()+f)}
 
+	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
+		match axis{
+			0=>self.vadd_x(value),
+			1=>self.vadd_y(value),
+			_=>{panic!();self.clone()}
+		}
+	}
+
 }
 pub trait HasXYZ:Sized+Clone {
     type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
@@ -917,6 +925,16 @@ pub trait HasXYZ:Sized+Clone {
 	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyz(self.x(),self.y(),self.z()+f)}
 	fn append_w(&self,f:Self::Elem)->Self::Appended{Self::Appended::from_xyzw(self.x(),self.y(),self.z(),f)}
 //	fn to_vec3(&self)->Vec3<Self::Elem>{Vec3(self.x(),self.y(),self.z())}
+
+	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
+		match axis{
+			0=>self.vadd_x(value),
+			1=>self.vadd_y(value),
+			2=>self.vadd_z(value),
+			_=>{panic!();self.clone()}
+		}
+	}
+
 }
 pub trait HasXYZW :Sized+Clone{
     type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
@@ -929,6 +947,17 @@ pub trait HasXYZW :Sized+Clone{
 	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w())}
 	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w())}
 	fn vadd_w(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y(),self.z(),self.w()+f)}
+
+	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
+		match axis{
+			0=>self.vadd_x(value),
+			1=>self.vadd_y(value),
+			2=>self.vadd_z(value),
+			3=>self.vadd_w(value),
+			_=>{panic!();self.clone()}
+		}
+	}
+
 }
 impl<T:Float+Default> HasXY for (T,T){
     type Elem=T;
@@ -1012,6 +1041,8 @@ pub fn v2is_inside<V:HasXY>(v:&V, (minv,maxv):(&V,&V))->bool{
 	inrange(v.x(), (minv.x(), maxv.x()))&&
 	inrange(v.y(), (minv.y(), maxv.y()))
 }
+
+
 /// intersection returns the shape
 trait Intersect<T>{
     type Output;

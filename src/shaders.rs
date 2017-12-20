@@ -690,12 +690,29 @@ void main() {
 	gl_FragColor =getTex1() * getTex0()*vec4(2.0,2.0,2.0,1.0);
 }
 ";
+static g_PS_Tex0AddTex1:&'static str=&"
+// todo: we need to know the normalization factor,
+// not all textures are mid-grey.
+void main() {
+	gl_FragColor =getTex1() + getTex0()-vec4(0.5, 0.5, 0.5, 0.5);
+}
+";
+// blend the textures with their alpha; vertex alpha controls worldblend
 static g_PS_Tex0BlendTex1:&'static str=&"
 void main() {
 	gl_FragColor =mix(getTex0(),getTex1,v_color.w);
 }
 ";
 
+
+// tex 1 blend added by vertex alpha
+static g_PS_Tex0VertexBlendTex1:&'static str=&"
+void main() {
+	vec4 tex0=getTex0;
+	vec4 tex1=getTex1;
+	gl_FragColor =mix(getTex1() , getTex0(), clamp(tex1.w+(v_color.w-0.5)*2.0 ,0.0,1.0) );
+}
+";
 
 #[derive(Clone,Debug,Default,Copy)]
 pub struct UniformTable {

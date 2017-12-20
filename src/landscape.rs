@@ -127,6 +127,14 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 	//for y in (0..size){for x in 0..size{ ht[y as usize][x as usize]=sin(x as f32*ax)*sin(y as f32*ay)*init_amp}}
 	ht
 }
+// todo - a single allocation eg ([usize;3],Vec<T>)
+pub type Array3d<T>=Vec<Vec<Vec<T>>>;
+
+pub fn array3d_foreach<T>(a:&mut Array3d<T>,f:&Fn([usize;3],&mut T)){
+	for z in 0..a[0].len(){ for y in 0..a[0][0].len(){for (x,ref mut v)  in a[z][y].iter_mut().enumerate(){
+		f([x,y,z],v)
+	}}}
+}
 
 /// 3d volume noise texture.
 pub fn generate3d(log_2_size:i32,first_disp_scale:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<Vec<Vec<f32>>>{
@@ -251,14 +259,23 @@ pub fn generate3d(log_2_size:i32,first_disp_scale:i32,init_amp:f32,dimension:f32
 	let ax=6.248f32/(size as f32);
 	let ay=6.248f32/(size as f32);
 	// dump slices
-	for z in (0..size).step(4){
-	for x in 0..size{ for y in 0..size {
-		print!("{}",if *ht.get_wrap3(x,y,size/2)>0.0{"O"}else{"."})
-	}print!("\n\n")}
+	#[cfg(debug_voxels)]
+	{
+		for z in (0..size).step(4){
+			for x in 0..size{
+				for y in 0..size {
+					print!("{}",if *ht.get_wrap3(x,y,size/2)>0.0{"O"}else{"."});
+				}
+				print!("\n\n");
+			}
+		}
+		dump!(ampscale,ampscale*ampscale*ampscale,total_disp/((num_writes-1) as f32));
+		let mut acc=0.0f32;
+		for x in 0..40{
+			let rnd=frandsm(&mut seed);acc+=rnd;print!("{} ",rnd);
+		}
+		println!("ok avrrnd={}",acc*(1.0/40.0));
 	}
-	dump!(ampscale,ampscale*ampscale*ampscale,total_disp/((num_writes-1) as f32));
-	let mut acc=0.0f32;
-	for x in 0..40{let rnd=frandsm(&mut seed);acc+=rnd;print!("{} ",rnd);}println!("ok avrrnd={}",acc*(1.0/40.0));
 	//assert!(num_writes==size*size*size,"num writes {} size^3={} size={}",num_writes,size*size*size,size);
 	ht
 }

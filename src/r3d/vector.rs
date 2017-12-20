@@ -752,6 +752,7 @@ impl<T:ops::BitAnd<Output=T>+ops::BitOr<Output=T>+ops::BitXor<Output=T>+ops::Not
 	type Output=T;
 }
 
+
 impl<T:Float>  Vec3<T>{
     pub fn to_vec4_w(&self, w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
     pub fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
@@ -764,6 +765,59 @@ impl<T:Float> Vec2<T>{
     pub fn to_vec3_z(&self, z:T)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),z)}
     pub fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),z,w)}
 }
+
+// float/int conversions 
+pub trait VecConv {
+	type OUT_I32;
+	type OUT_U32;
+	type OUT_USIZE;
+	type OUT_ISIZE;
+	type OUT_F32;
+	type OUT_F64;
+
+	fn vto_i32(&self)->Self::OUT_I32;
+	fn vto_u32(&self)->Self::OUT_U32;
+	fn vto_isize(&self)->Self::OUT_ISIZE;
+	fn vto_usize(&self)->Self::OUT_USIZE;
+	fn vto_f32(&self)->Self::OUT_F32;
+	fn vto_f64(&self)->Self::OUT_F64;
+}
+macro_rules! impl_vec_conv{
+	($t:ty)=>{
+		impl VecConv for Vec3<$t>{
+			type OUT_I32=Vec3<i32>;
+			type OUT_U32=Vec3<u32>;
+			type OUT_F32=Vec3<f32>;
+			type OUT_F64=Vec3<f64>;
+			type OUT_ISIZE=Vec3<isize>;
+			type OUT_USIZE=Vec3<usize>;
+			fn vto_i32(&self)->Vec3<i32>{
+				Vec3(self.x as i32,self.y as i32,self.z as i32)
+			}
+			fn vto_u32(&self)->Vec3<u32>{
+				Vec3(self.x as u32,self.y as u32,self.z as u32)
+			}
+			fn vto_isize(&self)->Vec3<isize>{
+				Vec3(self.x as isize,self.y as isize,self.z as isize)
+			}
+			fn vto_usize(&self)->Vec3<usize>{
+				Vec3(self.x as usize,self.y as usize,self.z as usize)
+			}
+			fn vto_f32(&self)->Vec3<f32>{
+				Vec3(self.x as f32,self.y as f32,self.z as f32)
+			}
+			fn vto_f64(&self)->Vec3<f64>{
+				Vec3(self.x as f64,self.y as f64,self.z as f64)
+			}
+		}
+	}
+}
+impl_vec_conv!(f32);
+impl_vec_conv!(i32);
+impl_vec_conv!(u32);
+impl_vec_conv!(usize);
+impl_vec_conv!(f64);
+impl_vec_conv!(isize);
 
 impl<T:Copy+Sized+BitAnd<T,Output=T>+BitOr<T,Output=T>+Not<Output=T> +BitXor<T,Output=T>>
   VecBitOps for Vec2<T> {
@@ -1587,7 +1641,6 @@ impl<T> HasElem for (T,T,T,T){
 impl<T,V> VecNumOps for V where V:HasXYZ<Elem=T>,T:Num+Default{
     fn vadd(&self, b: &Self) -> Self { V::from_xyz(self.x() + b.x(), self.y() + b.y(), self.z() + b.z()) }
     fn vsub(&self, b: &Self) -> Self { V::from_xyz(self.x() - b.x(), self.y() - b.y(), self.z() - b.z()) }
-
 }
 
 
