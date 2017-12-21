@@ -1058,6 +1058,9 @@ impl<T:Clone> Concat for Vec3<T>{
 /// May be simpler than full permutes,
 /// does not require acess to the float type
 
+pub trait PermuteXYZ {
+}
+
 pub trait Permute :Siblings {
 	// default implementation of permutes,
 	// can be over-ridden with platform-specific SIMD..
@@ -1281,6 +1284,7 @@ pub fn transpose4x4<V:Permute+VecAccessors>(a:&V,b:&V,c:&V,d:&V)->(
 {	Permute::transpose4x4(a,b,c,d)
 }
 
+// assumptions - might not even have accessible component.
 pub trait VecNumOps :Sized
 {
     fn vassign_add(&mut self, b:&Self){ *self=self.vadd(b);}
@@ -1990,9 +1994,8 @@ impl_vec_component_method!(Max::max where T:PartialOrd, for VecN<T>);
 impl<T:Clone+Num+Copy> VecNumOps for Vec2<T> {
     fn vadd(&self, b: &Vec2<T>) -> Vec2<T> { Vec2::new(self.x + b.x, self.y + b.y) }
     fn vsub(&self, b: &Vec2<T>) -> Vec2<T> { Vec2::new(self.x - b.x, self.y - b.y) }
-
-
 }
+
 /// these are only really interesting where .vx,.vy,.vz are not available,
 /// some platforms dont like moving between vector and scalar registers.
 /// some past platforms have had direct instructions for these functions.
