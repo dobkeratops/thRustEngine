@@ -1673,7 +1673,7 @@ impl<F,V> Zero for V where V:HasXYZ<Elem=F>,F:Zero+Num+Default{
 //todo - how?
 //impl<F:Float,V:HasXY<F>> VecOps for V{
 
-impl<F:Float> VecFloatAccessors for (F,F,F){
+impl<F:Float> VecAccessors for (F,F,F){
 	fn vx(&self)->F{self.0}
 	fn vy(&self)->F{self.1}
 	fn vz(&self)->F{self.2}
