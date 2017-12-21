@@ -896,35 +896,40 @@ macro_rules! seq{
 // TODO rework main vector maths to work this way
 // these are mutually exclusive, e.g. HasXY !=HasXYZ
 // named x() y() etc to avoid conflict with existing vx vx vy HasX etc
-pub trait HasXY :Sized+Clone {
-    type Elem : PartialOrd+Num+Zero+One+Default+Clone;
+pub trait HasXY :Sized+Clone+HasElem {
+//    type Elem : PartialOrd+Num+Zero+One+Default+Clone;
     fn x(&self)->Self::Elem;
     fn y(&self)->Self::Elem;
     fn from_xy(x:Self::Elem,y:Self::Elem)->Self;
 
-	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xy(self.x()+f,self.y())}
-	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xy(self.x(),self.y()+f)}
+//	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xy(self.x()+f,self.y())}
+//	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xy(self.x(),self.y()+f)}
 
-	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
+/*	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
 		match axis{
 			0=>self.vadd_x(value),
 			1=>self.vadd_y(value),
 			_=>{panic!();self.clone()}
 		}
 	}
-
+*/
 }
-pub trait HasXYZ:Sized+Clone {
-    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
+pub trait HasXYZ:Sized+Clone+HasElem{
+//    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
 	type Appended : HasXYZW<Elem=Self::Elem>;
     fn x(&self)->Self::Elem;
     fn y(&self)->Self::Elem;
     fn z(&self)->Self::Elem;
     fn from_xyz(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self;
-	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xyz(self.x()+f,self.y(),self.z())}
-	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xyz(self.x(),self.y()+f,self.z())}
-	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyz(self.x(),self.y(),self.z()+f)}
 	fn append_w(&self,f:Self::Elem)->Self::Appended{Self::Appended::from_xyzw(self.x(),self.y(),self.z(),f)}
+}
+
+pub trait ComponentOps3 : HasXYZ
+{
+	fn vadd_x(&self,f:Self::Elem)->Self;
+
+	fn vadd_y(&self,f:Self::Elem)->Self;
+	fn vadd_z(&self,f:Self::Elem)->Self;
 //	fn to_vec3(&self)->Vec3<Self::Elem>{Vec3(self.x(),self.y(),self.z())}
 
 	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
@@ -935,15 +940,70 @@ pub trait HasXYZ:Sized+Clone {
 			_=>{panic!();self.clone()}
 		}
 	}
-
 }
-pub trait HasXYZW :Sized+Clone{
-    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
+pub trait ComponentOps4 : HasXYZW
+{
+	fn vadd_x(&self,f:Self::Elem)->Self;
+
+	fn vadd_y(&self,f:Self::Elem)->Self;
+	fn vadd_z(&self,f:Self::Elem)->Self;
+	fn vadd_w(&self,f:Self::Elem)->Self;
+//	fn to_vec3(&self)->Vec3<Self::Elem>{Vec3(self.x(),self.y(),self.z())}
+
+	fn vadd_axis(&self, axis:i32, value:Self::Elem)->Self{
+		match axis{
+			0=>self.vadd_x(value),
+			1=>self.vadd_y(value),
+			2=>self.vadd_z(value),
+			3=>self.vadd_w(value),
+			_=>{panic!();self.clone()}
+		}
+	}
+}
+
+impl<T:Num+Clone+Default> ComponentOps3 for Vec3<T>{
+	fn vadd_x(&self,f:Self::Elem)->Self {
+		Self::from_xyz(self.x()+f,self.y(),self.z())
+	}
+
+	fn vadd_y(&self,f:Self::Elem)->Self {
+		Self::from_xyz(self.x(),self.y()+f,self.z())
+	}
+
+	fn vadd_z(&self,f:Self::Elem)->Self {
+		Self::from_xyz(self.x(),self.y(),self.z()+f)
+	}
+}
+impl<T:Num+Clone+Default> ComponentOps4 for Vec4<T>{
+	fn vadd_x(&self,f:Self::Elem)->Self {
+		Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w)
+	}
+
+	fn vadd_y(&self,f:Self::Elem)->Self {
+		Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w)
+	}
+
+	fn vadd_z(&self,f:Self::Elem)->Self {
+		Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w)
+	}
+	fn vadd_w(&self,f:Self::Elem)->Self {
+		Self::from_xyzw(self.x(),self.y(),self.z(),self.w+f)
+	}
+}
+
+pub trait FloatXYZ : HasXYZ where Self::Elem : Float{}
+pub trait NumXYZ : HasXYZ{}
+impl<T:Float,V:HasXYZ<Elem=T>> FloatXYZ for V {}
+impl<T:Num,V:HasXYZ<Elem=T>> NumXYZ for V {}
+
+pub trait HasXYZW :Sized+Clone+HasElem{
+//    type Elem : PartialOrd+Num+Num+Zero+One+Default+Clone;
     fn x(&self)->Self::Elem;
     fn y(&self)->Self::Elem;
     fn z(&self)->Self::Elem;
     fn w(&self)->Self::Elem;
     fn from_xyzw(x:Self::Elem,y:Self::Elem,z:Self::Elem,w:Self::Elem)->Self;
+/*
 	fn vadd_x(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w())}
 	fn vadd_y(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w())}
 	fn vadd_z(&self,f:Self::Elem)->Self{Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w())}
@@ -958,16 +1018,16 @@ pub trait HasXYZW :Sized+Clone{
 			_=>{panic!();self.clone()}
 		}
 	}
-
+*/
 }
 impl<T:Float+Default> HasXY for (T,T){
-    type Elem=T;
+//    type HasElem::Elem=T;
     fn x(&self)->T{self.0}
     fn y(&self)->T{self.1}
     fn from_xy(x:T,y:T)->Self{(x,y)}
 }
 impl<T:Float+Default> HasXYZ for (T,T,T){
-    type Elem=T;
+//    type HasElem=T;
 	type Appended=(T,T,T,T);
     fn x(&self)->T{self.0}
     fn y(&self)->T{self.1}
@@ -975,7 +1035,7 @@ impl<T:Float+Default> HasXYZ for (T,T,T){
     fn from_xyz(x:T,y:T,z:T)->Self{(x,y,z)}
 }
 impl<T:Float+Default> HasXYZW for (T,T,T,T){
-    type Elem=T;
+//    type Elem=T;
     fn x(&self)->T{self.0}
     fn y(&self)->T{self.1}
     fn z(&self)->T{self.2}
@@ -989,56 +1049,56 @@ type VF2<F>=(F,F,F);
 pub type V2=(f32,f32);		pub type V3=(f32,f32,f32);	pub type V4=(f32,f32,f32,f32);
 pub type M33<V=V3>=(V,V,V);	pub type M43<V/*:HasXYZ*/=V3>=(V,V,V,V);	pub type M44<V/*:HasXYZW*/=V4>=(V,V,V,V);
 pub fn v3neg<F:Float>(&(x,y,z):&VF3<F>)->VF3<F>			{ (-x,-y,-z)}
-pub fn v3scale<V:HasXYZ>(v:&V,s:V::Elem)->V		{ V::from_xyz(v.x()*s,v.y()*s,v.z()*s)}
-pub fn v3sub<V:HasXYZ>(a:&V,b:&V)->V	{	V::from_xyz(a.x()-b.x(),a.y()-b.y(),a.z()-b.z())}
-pub fn v3add<V:HasXYZ>(a:&V,b:&V)->V	{	V::from_xyz(a.x()+b.x(),a.y()+b.y(),a.z()+b.z())}
-pub fn v3min<V:HasXYZ>(a:&V,b:&V)->V{V::from_xyz(min(a.x(),b.x()),min(a.y(),b.y()),min(a.z(),b.z()))}
-pub fn v3max<V:HasXYZ>(a:&V,b:&V)->V{V::from_xyz(max(a.x(),b.x()),max(a.y(),b.y()),max(a.z(),b.z()))}
-pub fn v3zero<V:HasXYZ>()->V{V::from_xyz(zero(),zero(),zero())}
-pub fn v3add4<V:HasXYZ>(a:&V,b:&V,c:&V,d:&V)->V	{v3add(&v3add(a,b),&v3add(c,d))}
-pub fn v3add3<V:HasXYZ>(a:&V,b:&V,c:&V)->V		{v3add(&v3add(a,b),c)}
-pub fn v3mad<V:HasXYZ>(v0:&V,v1:&V,f:V::Elem)->V 	{ v3add(v0,&v3scale(v1,f))}
-pub fn v3lerp<V:HasXYZ>(v0:&V,v1:&V,f:V::Elem)->V	{ v3add(v0,&v3scale(&v3sub(v1,v0),f))}
-pub fn v3dot<V:HasXYZ>(a:&V,b:&V)->V::Elem			{	a.x()*b.x()+a.y()*b.y()+a.z()*b.z() }
-pub fn v3cross<V:HasXYZ>(a:&V,b:&V)->V			{ panic!("cross product untested");V::from_xyz((a.y()*b.z()-a.z()*b.y()),(a.z()*b.x()-a.x()*b.z()),(a.x()*b.y()-a.y()*b.x())) }
+pub fn v3scale<T:Float,V:FloatXYZ<Elem=T>>(v:&V,s:T)->V 		{ V::from_xyz(v.x()*s,v.y()*s,v.z()*s)}
+pub fn v3sub<T:Float,V:FloatXYZ<Elem=T>>(a:&V,b:&V)->V	{	V::from_xyz(a.x()-b.x(),a.y()-b.y(),a.z()-b.z())}
+pub fn v3add<T:Num,V:NumXYZ<Elem=T>>(a:&V,b:&V)->V	{	V::from_xyz(a.x()+b.x(),a.y()+b.y(),a.z()+b.z())}
+pub fn v3min<T:PartialOrd+Clone,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V{V::from_xyz(min(a.x(),b.x()),min(a.y(),b.y()),min(a.z(),b.z()))}
+pub fn v3max<T:PartialOrd+Clone,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V{V::from_xyz(max(a.x(),b.x()),max(a.y(),b.y()),max(a.z(),b.z()))}
+pub fn v3zero<T:Zero+Clone,V:HasXYZ<Elem=T>>()->V{V::from_xyz(zero(),zero(),zero())}
+pub fn v3add4<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V,c:&V,d:&V)->V	{v3add(&v3add(a,b),&v3add(c,d))}
+pub fn v3add3<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V,c:&V)->V		{v3add(&v3add(a,b),c)}
+pub fn v3madd<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V,f:V::Elem)->V 	{ v3add(v0,&v3scale(v1,f))}
+pub fn v3lerp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V,f:V::Elem)->V	{ v3add(v0,&v3scale(&v3sub(v1,v0),f))}
+pub fn v3dot<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V::Elem			{	a.x()*b.x()+a.y()*b.y()+a.z()*b.z() }
+pub fn v3cross<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V			{ panic!("cross product untested");V::from_xyz((a.y()*b.z()-a.z()*b.y()),(a.z()*b.x()-a.x()*b.z()),(a.x()*b.y()-a.y()*b.x())) }
 pub fn v3norm<T:Float+Default,V:HasXYZ<Elem=T>>(v0:&V)->V { v3scale(v0,one::<T>()/(v3dot(v0,v0).sqrt())) }
-pub fn v3sub_norm<V:HasXYZ>(v0:&V,v1:&V)->V	 where V::Elem:Float{ v3norm(&v3sub(v0,v1))}
-pub fn v3perp<V:HasXYZ>(v0:&V,axis:&V)->V		{ v3mad(v0, axis, -v3dot(v0,axis))}
-pub fn v3para_perp<V:HasXYZ>(v0:&V,axis:&V)->(V,V){ let para=v3scale(axis, v3dot(v0,axis));let perp=v3sub(v0,&para); (para, perp) }
-pub fn v3mat_mul<V:HasXYZ>(m:&M43<V>, p:&V)->V { v3add4(&v3scale(&m.0,p.x()), &v3scale(&m.1,p.y()), &v3scale(&m.2,p.z()),&m.3 ) }
+pub fn v3sub_norm<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V)->V	 where V::Elem:Float{ v3norm(&v3sub(v0,v1))}
+pub fn v3perp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,axis:&V)->V		{ v3madd(v0, axis, -v3dot(v0,axis))}
+pub fn v3para_perp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,axis:&V)->(V,V){ let para=v3scale(axis, v3dot(v0,axis));let perp=v3sub(v0,&para); (para, perp) }
+pub fn v3mat_mul<T:Float,V:HasXYZ<Elem=T>>(m:&M43<V>, p:&V)->V { v3add4(&v3scale(&m.0,p.x()), &v3scale(&m.1,p.y()), &v3scale(&m.2,p.z()),&m.3 ) }
 // inv only if orthonormal
-pub fn v3mat_invmul<V:HasXYZ>(m:&M43<V>,src:&V)->V { let ofs=v3sub(src,&m.3); V::from_xyz(v3dot(src,&m.0),v3dot(src,&m.1),v3dot(src,&m.2)) }
-pub fn v3mat_lookat<V:HasXYZ>(pos:&V, at:&V,up:&V)->M43<V>	where V::Elem : Float{ let az=v3sub_norm(at,pos); let ax=v3norm(&v3cross(&az,up)); let ay=v3cross(&ax,&az); (ax,ay,az,pos.clone()) }
+pub fn v3mat_invmul<T:Float,V:HasXYZ<Elem=T>>(m:&M43<V>,src:&V)->V { let ofs=v3sub(src,&m.3); V::from_xyz(v3dot(src,&m.0),v3dot(src,&m.1),v3dot(src,&m.2)) }
+pub fn v3mat_lookat<T:Float,V:HasXYZ<Elem=T>>(pos:&V, at:&V,up:&V)->M43<V>	where V::Elem : Float{ let az=v3sub_norm(at,pos); let ax=v3norm(&v3cross(&az,up)); let ay=v3cross(&ax,&az); (ax,ay,az,pos.clone()) }
 pub fn v3mat_identity()->M43 						{((1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0),(0.0,0.0,0.0))}
-pub fn v3triangle_norm<V:HasXYZ>(v0:&V,v1:&V,v2:&V)->V where V::Elem:Float	{ let v01=v3sub(v1,v0); let v02=v3sub(v2,v0); v3norm(&v3cross(&v02,&v01))}
+pub fn v3triangle_norm<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V,v2:&V)->V where V::Elem:Float	{ let v01=v3sub(v1,v0); let v02=v3sub(v2,v0); v3norm(&v3cross(&v02,&v01))}
 // inv only if orthonormal
-pub fn v3dist_squared<V:HasXYZ>(v0:&V,v1:&V)->V::Elem where V::Elem : Float {let ofs=v3sub(v0,v1); return v3dot(&ofs,&ofs);}
-pub fn v3length<V:HasXYZ>(v0:&V)->V::Elem where V::Elem:Float{return v3dot(v0,v0).sqrt();}
-pub fn v3addto<V:HasXYZ>(dst:&mut V, src:&V){ let v=v3add(dst,src); *dst=v;}
-pub fn v3madto<V:HasXYZ>(dst:&mut V, src:&V, f:V::Elem){ let v=v3mad(dst,src,f); *dst=v;}
-pub fn v3fromv2<V2:HasXY,V3:HasXYZ<Elem=V2::Elem>>(xy:&V2,z:V2::Elem)->V3{ return V3::from_xyz(xy.x(), xy.y(), z)}
+pub fn v3dist_squared<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V)->V::Elem where V::Elem : Float {let ofs=v3sub(v0,v1); return v3dot(&ofs,&ofs);}
+pub fn v3length<V:FloatXYZ>(v0:&V)->V::Elem where V::Elem:Float{return v3dot(v0,v0).sqrt();}
+pub fn v3addto<T:Float,V:HasXYZ<Elem=T>>(dst:&mut V, src:&V){ let v=v3add(dst,src); *dst=v;}
+pub fn v3madto<T:Float,V:HasXYZ<Elem=T>>(dst:&mut V, src:&V, f:V::Elem){ let v=v3madd(dst,src,f); *dst=v;}
+pub fn v3fromv2<T:Num,V2:HasXY<Elem=T>,V3:HasXYZ<Elem=T>>(xy:&V2,z:V2::Elem)->V3{ return V3::from_xyz(xy.x(), xy.y(), z)}
 pub fn v3mat_inv(&(ref mx,ref my,ref mz,ref pos):&M43 )->M43{
     let (ax,ay,az)=((mx.0,my.0,mz.0),(mx.1,my.1,mz.1),(mx.2,my.2,mz.2));
     let invpos= (-v3dot(&ax,pos), -v3dot(&ay,pos), -v3dot(&az,pos));
     (ax,ay,az, invpos) }
-pub fn v2zero<V:HasXY>()->V{V::from_xy(zero(),zero())}
-pub fn v2sub<V:HasXY>(a:&V,b:&V)->V{ V::from_xy(a.x()-b.x(), a.y()-b.y()) }
-pub fn v2add<V:HasXY>(a:&V,b:&V)->V{
+pub fn v2zero<T:Zero+Clone,V:HasXY<Elem=T>>()->V{V::from_xy(zero(),zero())}
+pub fn v2sub<T:Num,V:HasXY<Elem=T>>(a:&V,b:&V)->V{ V::from_xy(a.x()-b.x(), a.y()-b.y()) }
+pub fn v2add<T:Num,V:HasXY<Elem=T>>(a:&V,b:&V)->V{
     V::from_xy(a.x()+b.x(), a.y()+b.y())
 }
-pub fn v2lerp<V:HasXY>(a:&V,b:&V,f:V::Elem)->V{
-    v2mad(&a, &v2sub(&b,&a), f)
+pub fn v2lerp<T:Float,V:HasXY<Elem=T>>(a:&V,b:&V,f:V::Elem)->V{
+    v2madd(&a, &v2sub(&b,&a), f)
 }
-pub fn v2mad<V:HasXY>(a:&V,b:&V,f:V::Elem)->V{
+pub fn v2madd<T:Num,V:HasXY<Elem=T>>(a:&V,b:&V,f:V::Elem)->V{
     V::from_xy(a.x()+b.x()*f, a.y()+b.y()*f)
 }
-pub fn v2scale<V:HasXY>(a:&V,f:V::Elem)->V{
+pub fn v2scale<T:Num,V:HasXY<Elem=T>>(a:&V,f:V::Elem)->V{
     V::from_xy(a.x()*f, a.y()*f)
 }
-pub fn v2min<V:HasXY>(a:&V,b:&V)->V { V::from_xy(min(a.x(),b.x()),min(a.y(),b.y())) }
-pub fn v2max<V:HasXY>(a:&V,b:&V)->V{ V::from_xy(max(a.x(),b.x()),max(a.y(),b.y())) }
+pub fn v2min<T:PartialOrd+Clone,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy(min(a.x(),b.x()),min(a.y(),b.y())) }
+pub fn v2max<T:PartialOrd+Clone,V:HasXY<Elem=T>>(a:&V,b:&V)->V{ V::from_xy(max(a.x(),b.x()),max(a.y(),b.y())) }
 pub fn v2avr<T:Float+Default,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy((a.x()+b.x())*half(), (a.y()+b.y())*half()) }
-pub fn v2is_inside<V:HasXY>(v:&V, (minv,maxv):(&V,&V))->bool{
+pub fn v2is_inside<T:PartialOrd+Clone,V:HasXY<Elem=T>>(v:&V, (minv,maxv):(&V,&V))->bool{
 	inrange(v.x(), (minv.x(), maxv.x()))&&
 	inrange(v.y(), (minv.y(), maxv.y()))
 }

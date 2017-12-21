@@ -47,8 +47,10 @@ pub type ScreenPos=Vec2;
 #[derive(Debug,Clone,Copy)]
 pub struct ScrPos(pub f32,pub f32);
 
+impl HasElem for ScrPos{
+	type Elem=f32;
+}
 impl HasXY for ScrPos{
-    type Elem=f32;
     fn x(&self)->Self::Elem{self.0}
     fn y(&self)->Self::Elem{self.1}
     fn from_xy(x:Self::Elem, y:Self::Elem)->Self{ScrPos(x,y)}

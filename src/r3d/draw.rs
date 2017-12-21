@@ -547,7 +547,7 @@ pub fn line_c<V:HasXYZ<Elem=f32>>(v0:&V,v1:&V, color:u32) {
 }
 pub fn arrow(vs:&V3, ve:&V3, head:f32,color:Color){
 	let axis=v3sub_norm(ve,vs);
-	let base=v3mad(ve,&axis,-head);
+	let base=v3madd(ve,&axis,-head);
 	let ofs=v3scale(&(axis.1,-axis.0,axis.2),head*0.5f32);
 	let b0=v3add(&base,&ofs);
 	let b1=v3sub(&base,&ofs);

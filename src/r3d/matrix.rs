@@ -260,7 +260,7 @@ impl<F:Float> Matrix3<Vec3<F>> where {
 		)
 	}
 }
-impl<V:VMath> Matrix4<V> where
+impl<T:Float,V:VMath<Elem=T>> Matrix4<V> where
 //	<V as HasElem>::Elem : Float
 
 {
@@ -299,10 +299,10 @@ impl<V:VMath> Matrix4<V> where
 		let ofs=pt.vsub(&self.aw);
 		VecOps::vfrom_xyz_f(ofs.vdot(&self.ax),ofs.vdot(&self.ay),ofs.vdot(&self.az))
 	}
-	pub fn mul_vec3_vec(&self,pt:&Vec3<V::ElemF>)->V{
+	pub fn mul_vec3_vec(&self,pt:&Vec3<V::Elem>)->V{
 		self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z)
 	}
-    pub fn mul_vec3_point(&self,pt:&Vec3<V::ElemF>)->V{
+    pub fn mul_vec3_point(&self,pt:&Vec3<V::Elem>)->V{
         self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z).vadd(&self.aw)
     }
 	pub fn mul_vec4(&self,pt:&V)->V{
