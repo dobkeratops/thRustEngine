@@ -86,13 +86,30 @@ pub struct Extents<T:Sized=Vec3<f32>> {
 	pub min:T,pub max:T
 }
 
-// 'Position' trait for  objects with a spatial centre.
+// 'Position' trait for anything with a spatial centre/position.
 // position should be an x,y,z or x,y,z,1
 pub trait Pos<V=Vec3<f32>> {
 	type Output;
 	fn pos(&self)->V;
 	fn set_pos(&mut self,v:&V) {unimplemented!()}
 }
+pub trait Norm<V=Vec3<f32>> {
+	type Output;
+	fn norm(&self)->V;
+	fn set_norm(&mut self,v:&V) {unimplemented!()}
+}
+pub trait Color<V=Vec4<f32>> {
+	type Output;
+	fn color(&self)->V;
+	fn set_color(&mut self,v:&V) {unimplemented!()}
+}
+pub trait Tex0<V=Vec2<f32>> {
+	type Output;
+	fn tex0(&self)->V;
+	fn set_tex0(&mut self,v:&V) {unimplemented!()}
+}
+// todo - f16 type for sanity.
+
 
 impl Extents<Vec3<f32>>{
 	pub fn new()->Extents<Vec3<f32>> {

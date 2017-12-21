@@ -598,7 +598,7 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
             _=>{println!("keycode:{:?}, mods{:?}",k.0,k.1);
                 ()}
         };
-        let wdelta = vcs.screen_to_world.ax.vscale(view_delta.x).vmad(&vcs.screen_to_world.ay,view_delta.y).vmad(&vcs.screen_to_world.az,view_delta.z).to_vec3();
+        let wdelta = vcs.screen_to_world.ax.vscale(view_delta.x).vmadd(&vcs.screen_to_world.ay,view_delta.y).vmadd(&vcs.screen_to_world.az,view_delta.z).to_vec3();
         ed.interest_point.vassign_add(&wdelta);
         Flow::Continue()
     }

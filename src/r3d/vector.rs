@@ -830,6 +830,53 @@ impl<X:Copy,T:BitSel<X>> VSelect<Vec2<X>> for Vec2<T> {
 	fn vselect(&self,a:&Vec2<X>,b:&Vec2<X>)->Vec2<X>{ Vec2(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y)) }
 }
 
+impl<T:Sized> ::std::ops::Index<usize> for Vec3<T>{
+	type Output=T;
+	fn index(&self,i:usize)->&T{
+		match i{
+			0=>&self.x,
+			1=>&self.y,
+			2=>&self.z,
+			_=>panic!()
+		}
+	}
+}
+impl<T:Sized> ::std::ops::IndexMut<usize> for Vec3<T>{
+	fn index_mut(&mut self,i:usize)->&mut T{
+		match i{
+			0=>&mut self.x,
+			1=>&mut self.y,
+			2=>&mut self.z,
+			_=>panic!()
+		}
+	}
+}
+
+impl<T:Sized> ::std::ops::Index<usize> for Vec4<T>{
+	type Output=T;
+	fn index(&self,i:usize)->&T{
+		match i{
+			0=>&self.x,
+			1=>&self.y,
+			2=>&self.z,
+			3=>&self.w,
+			_=>panic!()
+		}
+	}
+}
+impl<T:Sized> ::std::ops::IndexMut<usize> for Vec4<T>{
+	fn index_mut(&mut self,i:usize)->&mut T{
+		match i{
+			0=>&mut self.x,
+			1=>&mut self.y,
+			2=>&mut self.z,
+			3=>&mut self.w,
+			_=>panic!()
+		}
+	}
+}
+
+
 pub trait BitSel<X>{
 	fn bitsel(&self,a:&X,b:&X)->X;
 }
@@ -1362,8 +1409,8 @@ pub struct Normal<V=Vec3<f32>>(pub V);
 impl<V:VecOps> Normal<V> {
 	pub fn as_vec(&self)->V{self.0.clone()}
 	pub fn vlerp_norm(&self,b:&Self,f:V::ElemF)->Self { Normal(self.0.vlerp(&b.0, f).vnormalize()) }
-	pub fn vmadd_norm(&self,b:&Self,f:V::ElemF )->Self { Normal(self.0.vmad(&b.0,f).vnormalize()) }
-	pub fn vmadd2_norm(&self,b:&Self,fb:V::ElemF,c:&Self,fc:V::ElemF )->Self { Normal(self.0.vmad(&b.0,fb).vmad(&c.0,fc).vnormalize()) }
+	pub fn vmadd_norm(&self,b:&Self,f:V::ElemF )->Self { Normal(self.0.vmadd(&b.0,f).vnormalize()) }
+	pub fn vmadd2_norm(&self,b:&Self,fb:V::ElemF,c:&Self,fc:V::ElemF )->Self { Normal(self.0.vmadd(&b.0,fb).vmadd(&c.0,fc).vnormalize()) }
 	pub fn vcross_norm(&self,b:&Self)->Self{ Normal(self.0 .vcross(&b.0).vnormalize() )}
 	pub fn vscale(&self,f:V::ElemF)->V{self.0.vscale(f)}
 	pub fn vsub(&self,b:&Self)->V{self.0.vsub(&b.0)}
@@ -1378,7 +1425,7 @@ impl<V:VMath> Point<V> {
 	pub fn vsub(&self,b:&Self)->Vector<V>{ Vector(self.0 .vsub(&b.0)) }
 	pub fn vadd(&self,b:&Vector<V>)->Point<V>{ Point(self.0 .vadd(&b.0)) }
 	pub fn vsub_norm(&self,b:&Self)->Normal<V>{ Normal(self.0 .vsub_norm(&b.0)) }
-	pub fn vmad(&self,b:&Vector<V>, f:V::ElemF)->Point<V>{ Point(self.0 .vmad(&b.0, f)) }
+	pub fn vmadd(&self,b:&Vector<V>, f:V::ElemF)->Point<V>{ Point(self.0 .vmadd(&b.0, f)) }
 	pub fn vlerp(&self,b:&Point<V>, f:V::ElemF)->Point<V>{ Point(self.0 .vlerp(&b.0, f)) }
 	pub fn vtriangle_norm(&self,b:&Self,c:&Self)->Normal<V> { Normal(self.0 .vsub(&b.0) .vcross_norm(&self.0 .vsub(&c.0)))}
 	pub fn vdist(&self,b:&Self)->V::ElemF{ (self.0.vsub(&b.0)).vlength() }
@@ -1398,7 +1445,7 @@ impl<V:VMath> Vector<V> {
 	pub fn vcross(&self,b:&Self)->Vector<V>{ Vector(self.0.vcross(&b.0))}
 	pub fn vnormalize(&self)->Normal<V>{ Normal(self.0.vnormalize())}
 	pub fn vcross_norm(&self,b:&Self)->Normal<V>{ Normal(self.0.vcross(&b.0).vnormalize())}
-	pub fn vmad(&self,b:&V, f:V::ElemF)->Point<V>{ Point(self.0 .vmad(b, f)) }
+	pub fn vmadd(&self,b:&V, f:V::ElemF)->Point<V>{ Point(self.0 .vmadd(b, f)) }
 	pub fn vlerp(&self,b:&Point<V>, f:V::ElemF)->Point<V>{ Point(self.0 .vlerp(&b.0, f)) }
 	pub fn vlength(&self)->V::ElemF { self.0 .vlength() }
 	pub fn vdist(&self,b:&Self)->V::ElemF{ (self.0.vsub(&b.0)).vlength() }
@@ -1549,10 +1596,10 @@ pub trait VecBroadcastOps:Sized {
 	fn vmul_z(&self,b:&Self)->Self;
 	fn vmul_w(&self,b:&Self)->Self;
 
-	fn vmad_x(&self,a:&Self,b:&Self)->Self;
-	fn vmad_y(&self,a:&Self,b:&Self)->Self;
-	fn vmad_z(&self,a:&Self,b:&Self)->Self;
-	fn vmad_w(&self,a:&Self,b:&Self)->Self;
+	fn vmadd_x(&self,a:&Self,b:&Self)->Self;
+	fn vmadd_y(&self,a:&Self,b:&Self)->Self;
+	fn vmadd_z(&self,a:&Self,b:&Self)->Self;
+	fn vmadd_w(&self,a:&Self,b:&Self)->Self;
 
 	/// self * b.x self*b.y, self*b.z, self*b.w
 	fn vmul_xyzw(&self,b:&Self)->(Self,Self,Self,Self){(self.vmul_x(b),self.vmul_y(b),self.vmul_z(b),self.vmul_w(b))}
@@ -1663,7 +1710,7 @@ pub trait VecOps: Clone+
 	fn vcross(&self,b:&Self)->Self			{unimplemented!()}
 	fn vdot(&self,b:&Self)-> Self::ElemF	{self.vmul(b).vsum_elems()}
     // 'multiply-add' a+b*c operation. receiver, the asymetrical one, is the add operand
-	fn vmad(&self,b:&Self,f: Self::ElemF)->Self	{self.vadd(&b.vscale(f))}
+	fn vmadd(&self,b:&Self,f: Self::ElemF)->Self	{self.vadd(&b.vscale(f))}
     fn vmsub(&self,b:&Self,f: Self::ElemF)->Self	{self.vsub(&b.vscale(f))}
     // 'multiply-accumulate' - mutates in place, the receiver is an accumulator
     fn vmacc(&mut self, src1:&Self, src2:&Self)->&mut Self {self.vassign_add(&src1.vmul(src2)); self}
@@ -1673,7 +1720,7 @@ pub trait VecOps: Clone+
 	fn vpara(&self,vaxis:&Self)->Self	{  	let dotp=self.vdot(vaxis); vaxis.vscale(dotp) }
 	fn vneg(&self)->Self				;//{self.vscale(-one::<Self::ElemF> ())}
 	fn vavr(&self,b:&Self)->Self		{self.vadd(b).vscale(one::<Self::ElemF>()/(one::<Self::ElemF>()+one::<Self::ElemF>()))}
-	fn vlerp(&self,b:&Self,f: Self::ElemF)->Self	{self.vmad(&b.vsub(self),f)}
+	fn vlerp(&self,b:&Self,f: Self::ElemF)->Self	{self.vmadd(&b.vsub(self),f)}
 
 	fn vsqr(&self)->Self::ElemF			{ self.vdot(self)}
 	fn vlength(&self)->Self::ElemF		{ self.vsqr().sqrt()} //vlength!=vec.len ..
@@ -1972,10 +2019,10 @@ impl<V:VecOps+VecFloatAccessors> VecBroadcastOps for V {
 	fn vmul_y(&self,b:&Self)->Self{ self.vscale(b.vy()) }
 	fn vmul_z(&self,b:&Self)->Self{ self.vscale(b.vz()) }
 	fn vmul_w(&self,b:&Self)->Self{ self.vscale(b.vw()) }
-	fn vmad_x(&self,b:&Self,c:&Self)->Self{ self.vmad(b,c.vx()) }
-	fn vmad_y(&self,b:&Self,c:&Self)->Self{ self.vmad(b,c.vy()) }
-	fn vmad_z(&self,b:&Self,c:&Self)->Self{ self.vmad(b,c.vz()) }
-	fn vmad_w(&self,b:&Self,c:&Self)->Self{ self.vmad(b,c.vw()) }
+	fn vmadd_x(&self,b:&Self,c:&Self)->Self{ self.vmadd(b,c.vx()) }
+	fn vmadd_y(&self,b:&Self,c:&Self)->Self{ self.vmadd(b,c.vy()) }
+	fn vmadd_z(&self,b:&Self,c:&Self)->Self{ self.vmadd(b,c.vz()) }
+	fn vmadd_w(&self,b:&Self,c:&Self)->Self{ self.vmadd(b,c.vw()) }
 }
 
 /// master 'Vector' trait, handles the most common interfaces we expect to use.
@@ -2044,6 +2091,49 @@ impl<T:Clone+Num+Copy> VecNumOps for Vec3<T> {
     fn vsub(&self, b: &Vec3<T>) -> Vec3<T> { Vec3(self.x - b.x, self.y - b.y, self.z - b.z) }
 }
 */
+
+// For the moment this must be specific.. 
+// a trait can't generate the right type
+/*
+impl<A:Copy> Vec3<A>{
+	// dont know which to pick :( lack of C++ references.
+	fn fmapr<R:Copy,F:Fn(&A)->R>(&self,f:&F)->Vec3<R>{
+		Vec3(f(&self.x),f(&self.y),f(&self.z))
+	}
+	fn fmapv<R:Copy,F:Fn(A)->R>(&self,f:F)->Vec3<R>{
+		Vec3(f(self.x),f(self.y),f(self.z))
+	}
+	fn fzip_with<B:Copy,R:Copy,F:Fn(A,B)->R>(&self,b:&Vec3<B>,f:F)->Vec3<R>{
+		Vec3( f(self.x,b.x), f(self.y,b.y), f(self.z,b.z))
+	}
+	fn fzip_with3<B:Copy,C:Copy,R:Copy,F:Fn(A,B,C)->R>(&self,b:&Vec3<B>,c:&Vec3<C>,f:F)->Vec3<R>{
+		Vec3(f(self.x,b.x,c.x), f(self.y,b.y,c.y), f(self.z,b.z,c.z))
+	}
+}
+*/
+macro_rules! impl_vecn_fmap{
+	// works for named elements
+	($vectype:ident{$($elem:ident),*})=>{
+		impl<A> $vectype<A>{
+			// dont know which to pick :( lack of C++ references.
+			pub fn fmap<R,F:Fn(&A)->R>(&self,fnc:F)->$vectype<R>{
+				$vectype{ $( $elem:fnc(&self.$elem) ),* }
+			}
+			pub fn zip_with<B,R,F:Fn(&A,&B)->R>(&self,b:&$vectype<B>,fnc:F)->$vectype<R>{
+				$vectype( $( fnc(&self.$elem, &b.$elem) ),*)
+			}
+			pub fn foldr<B:Clone,F:Fn(&A,&B)->B>(&self, fnc:F, input:&B)->B{
+				let mut acc=input.clone();
+				$(acc=fnc(&self.$elem, &acc); )*;
+				acc
+			}
+		}
+	}
+}
+impl_vecn_fmap!{Vec2{x,y}}
+impl_vecn_fmap!{Vec3{x,y,z}}
+impl_vecn_fmap!{Vec4{x,y,z,w}}
+
 
 impl<T:Clone+PartialOrd> VecCmpOps for Vec3<T> {
 	type CmpOutput=Vec3<bool>;	// todo: figure out nesting, e.g. impl this for scalars to terminate

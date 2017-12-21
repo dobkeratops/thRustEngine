@@ -14,6 +14,7 @@
 #![allow(unreachable_patterns)]
 //#[warn(unused_macros)]
 #![allow(unused_macros)]
+#![feature(concat_idents)]
 #![feature(link_args)]
 //#![feature(drop_types_in_const)]
 //#![overflow_checks(off)]
@@ -138,7 +139,7 @@ pub struct	GlMesh
 
 
 
-pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex {
+pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::VertexNCT {
 	let pi=3.14159265f32;
 	let tau=pi*2.0f32;
 	let (i,j)=div_rem(ij, num_u);
@@ -153,11 +154,11 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::MyVertex
 	let (sy,cy)=sin_cos(fj*tau);
 	let norm=Vec3(sy*cx, sy*sx, cy).vnormalize().vscale(0.1);
 
-	MyVertex{
+	VertexNCT{
 		pos:Vec3((rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy),
-		color:[1.0,1.0,1.0,fj],
-		norm:[norm.x,norm.y,norm.z],
-		tex0:[fi*16.0, fj*2.0],
+		color:Vec4(1.0,1.0,1.0,fj),
+		norm:norm,
+		tex0:Vec2(fi*16.0, fj*2.0),
 	}	
 }
 
@@ -265,7 +266,7 @@ impl GlMesh {
 			glBindBuffer(GL_ARRAY_BUFFER, self.vbo);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ibo);
 
-			let baseVertex=0 as *const MyVertex;
+			let baseVertex=0 as *const VertexNCT;
 			let	stride=mem::size_of_val(&*baseVertex) as GLsizei;
 
 			glVertexPointer(3, GL_FLOAT, stride,  0 as *const c_void);//(&(*baseVertex).pos[0]) as *f32 as *c_void);
@@ -333,7 +334,7 @@ impl GlMesh {
 		let vsa=&g_vertex_shader_attrib[modei];
 		let shu=&g_shader_uniforms[modei];
 		
-		let baseVertex=0 as *const MyVertex; // for computing offsets
+		let baseVertex=0 as *const VertexNCT; // for computing offsets
 		assert!(vsa.pos==glGetAttribLocation(prg,c_str("a_pos\0")));
 		if vsa.pos>=0 {
 			gl_verify!{
@@ -587,21 +588,21 @@ pub fn create_voxel_landscape()->GlMesh{
 
 
 	dump!(vox[2]);
-	let tm=trimesh::TriMesh::<MyVertex>::from_voxels(&vox,0.25f32);
+	let tm=trimesh::TriMesh::<VertexNCT>::from_voxels(&vox,0.25f32);
 	GlMesh::from(&tm)
 }
 
 use trimesh::TriMesh;
 impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 	fn from(src:&TriMesh<Vec3>)->Self {
-		let mut vts:Vec<MyVertex>=Vec::new();
+		let mut vts:Vec<VertexNCT>=Vec::new();
 		let normals=src.vertex_normals();
 		for (i,v) in src.vertices.iter().enumerate(){
-			vts.push(MyVertex{
+			vts.push(VertexNCT{
 				pos:Vec3(v.x,v.y,v.z),
-				color:[1.0,1.0,1.0,1.0],
-				norm:normals[i].into(),
-				tex0:[0.0,0.0],
+				color:Vec4(1.0,1.0,1.0,1.0),
+				norm:normals[i],
+				tex0:Vec2(0.0,0.0),
 			});
 		}
 		let mut concati:Vec<i32> = Vec::new();
@@ -620,8 +621,8 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 	}
 }
 // when it's a renderable vertex already, pull it in directly
-impl<'a> From<&'a TriMesh<MyVertex>> for GlMesh{
-	fn from(src:&TriMesh<MyVertex>)->Self {
+impl<'a> From<&'a TriMesh<VertexNCT>> for GlMesh{
+	fn from(src:&TriMesh<VertexNCT>)->Self {
 		let mut concati:Vec<i32> = Vec::new();
 		dump!(src.vertices.len(),src.indices.len());
 		let refvts=&src.vertices;

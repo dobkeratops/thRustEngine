@@ -4,6 +4,7 @@ pub mod matrix;
 pub mod quaternion;
 pub mod geom;
 pub mod voxels;
+pub mod vertex;
 pub mod triangulatevoxels;
 pub mod mesh;
 pub mod trimesh;
@@ -27,6 +28,7 @@ pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,con
 pub use io::Read;
 pub use fmt::Debug;
 pub use triangulatevoxels::*;
+pub use vertex::*;
 
 use ::std::f32::consts::PI;
 
@@ -146,20 +148,9 @@ macro_rules! cstr{
 pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 	ptr as *const T as *const c_void
 }
-#[derive(Clone,Debug)]
-pub struct	MyVertex 
-{
-	pub pos:Vec3<f32>,
-	pub color:[f32;4],	// TODO: should be packed format!!!
-	pub norm:[f32;3],
-	pub tex0:[f32;2]
-}
 
-impl Pos<Vec3> for MyVertex{	
-	type Output=Vec3;
-	fn pos(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
-	fn set_pos(&mut self,v:&Vec3) {self.pos=v.clone();}
-}
+
+
 
 pub struct PackedARGB(pub u32);	// 'Color', most commonly packed 8888
 pub struct PackedS8x4(pub u32);	// packed vector in -1 to 1 range
@@ -176,49 +167,67 @@ struct PackedXYZ(pub u32);
 fn to_u32(f:f32)->u32{
 	(f*255.0f32) as u32
 }
-/// because it reads better than the annoying long casts
+
+/// because it reads better than rusts annoying long casts
 pub trait FMul{
 
 	fn fmul(&self,b:f32)->f32;
-	fn fdiv(&self,b:f32)->f32;
-	fn fdivi(&self,b:Self)->f32;
+	fn fdiv(&self,b:Self)->f32;
+	fn fdivi(&self,b:i32)->f32;
 	fn fadd(&self,a:f32)->f32;
+	fn fmuldiv(&self, a:i32, quotient:i32)->f32; //multiply by fraction
 	fn fsub(&self,a:f32)->f32;
 }
 impl FMul for i32{
 	fn fmul(&self,b:f32)->f32{*self as f32 * b}
-	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
-	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fmuldiv(&self,a:i32,quotient:i32)->f32{
+		((*self * a) as f32) / (quotient as f32)
+	}
+	fn fdiv(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdivi(&self,b:i32)->f32{*self as f32 / (b as f32)}
 	fn fadd(&self,b:f32)->f32{*self as f32+ b}
 	fn fsub(&self,b:f32)->f32{*self as f32- b}
 }
 impl FMul for u32{
 	fn fmul(&self,b:f32)->f32{*self as f32 * b}
-	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
-	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdiv(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdivi(&self,b:i32)->f32{*self as f32 / (b as f32)}
 	fn fadd(&self,b:f32)->f32{*self as f32+ b}
 	fn fsub(&self,b:f32)->f32{*self as f32- b}
+	fn fmuldiv(&self,a:i32,q:i32)->f32{
+		(((*self as i32) * a) as f32) / (q as f32)
+	}
 }
 impl FMul for usize{
 	fn fmul(&self,b:f32)->f32{*self as f32 * b}
-	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
-	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdiv(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdivi(&self,b:i32)->f32{*self as f32 / (b as f32)}
 	fn fadd(&self,b:f32)->f32{*self as f32+ b}
 	fn fsub(&self,b:f32)->f32{*self as f32- b}
+	fn fmuldiv(&self,a:i32,q:i32)->f32{
+		((*self * (a as usize)) as f32) / (q as f32)
+	}
 }
 impl FMul for isize{
 	fn fmul(&self,b:f32)->f32{*self as f32 * b}
-	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
-	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdiv(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdivi(&self,b:i32)->f32{*self as f32 / (b as f32)}
 	fn fadd(&self,b:f32)->f32{*self as f32+ b}
 	fn fsub(&self,b:f32)->f32{*self as f32- b}
+	fn fmuldiv(&self,a:i32,q:i32)->f32{
+		((*self * (a as isize))as f32) / (q as f32)
+	}
 }
 impl FMul for f32{
 	fn fmul(&self,b:f32)->f32{*self as f32 * b}
-	fn fdiv(&self,b:f32)->f32{*self as f32 / b}
-	fn fdivi(&self,b:Self)->f32{*self as f32 / (b as f32)}
+	fn fdiv(&self,b:Self)->f32{*self as f32 /  (b as f32)}
+	fn fdivi(&self,b:i32)->f32{*self as f32 / (b as f32)}
 	fn fadd(&self,b:f32)->f32{*self as f32+ b}
 	fn fsub(&self,b:f32)->f32{*self as f32- b}
+	fn fmuldiv(&self,a:i32,q:i32)->f32{
+		(*self * (a as f32)) / (q as f32)
+	}
+
 }
 
 
@@ -343,14 +352,6 @@ impl From<vector::Vec3<f32>> for PackedXYZ {
 	}
 }
 
-mod vertex {
-	use super::*;
-	use super::vector::*;
-	//various vertex types..
-	struct PT(Vec3,Vec2);
-	struct PC(Vec3,PackedARGB);
-	struct PNCT(Vec3,Vec3,PackedARGB,Vec2);
-}
 
 /// simple wrapper around GL, aimed at debug graphics
 pub trait DrawingWrapper {

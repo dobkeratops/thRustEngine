@@ -293,20 +293,20 @@ impl<V:VMath> Matrix4<V> where
 		Matrix4::look_along(&self.aw,&self.az,&self.ay)
 	}
 	pub fn mul_point(&self,pt:&V)->V{
-		self.aw.vmad_x(&self.ax,pt).vmad_y(&self.ay,pt).vmad_z(&self.az,pt)
+		self.aw.vmadd_x(&self.ax,pt).vmadd_y(&self.ay,pt).vmadd_z(&self.az,pt)
 	}
 	pub fn inv_mul_point(&self,pt:&V)->V{
 		let ofs=pt.vsub(&self.aw);
 		VecOps::vfrom_xyz_f(ofs.vdot(&self.ax),ofs.vdot(&self.ay),ofs.vdot(&self.az))
 	}
 	pub fn mul_vec3_vec(&self,pt:&Vec3<V::ElemF>)->V{
-		self.ax.vscale(pt.x).vmad(&self.ay,pt.y).vmad(&self.az,pt.z)
+		self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z)
 	}
     pub fn mul_vec3_point(&self,pt:&Vec3<V::ElemF>)->V{
-        self.ax.vscale(pt.x).vmad(&self.ay,pt.y).vmad(&self.az,pt.z).vadd(&self.aw)
+        self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z).vadd(&self.aw)
     }
 	pub fn mul_vec4(&self,pt:&V)->V{
-		self.ax.vmul_x(pt).vmad_y(&self.ay,pt).vmad_z(&self.az,pt).vmad_w(&self.aw,pt)
+		self.ax.vmul_x(pt).vmadd_y(&self.ay,pt).vmadd_z(&self.az,pt).vmadd_w(&self.aw,pt)
 	}
 	pub fn mul_matrix(&self,other:&Matrix4<V>)->Matrix4<V> {
 		Matrix4(
