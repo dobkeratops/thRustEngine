@@ -33,10 +33,10 @@ impl<V:IndexMut<usize>> IndexWrap for V where <V as Index<usize>>::Output : Size
 impl<T:Sized> IndexWrap for Array<T>{
 	type Output=T;
 	fn index_wrap(&self, i:i32)->&Self::Output{
-		return self.index(mymod(i,self.num_elems()));
+		return self.index(mymod(i,self.len()));
 	}
 	fn index_wrap_mut(&mut self, i:i32)->&mut Self::Output{
-		let l=self.num_elems();
+		let l=self.len();
 		return self.index_mut(mymod(i,l));
 	}	
 }
@@ -66,10 +66,11 @@ impl<T> WrappedArray3d<T,i32> for Array<Array<Array<T>>>{
 	}
 }
 fn dump_row_sizes(ht:&Array<Array<f32>>){
-	for i in 0..ht[0i32].num_elems(){
+	for i in 0..ht[0i32].len(){
 		println!("size[row {:?}]={:?}",i,ht[i]);
 	}
 }
+
 /// generate by filling array inplace. repeating on square.
 pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Array<Array<f32>>{
 	type T=f32;
@@ -141,9 +142,9 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 pub type Array3d<T>=Array<Array<Array<T>>>;
 
 pub fn array3d_foreach<T>( a:&mut Array3d<T>, f:&Fn([i32;3], &mut T)){
-	let nz:i32=a.num_elems();
-	let ny:i32=a[0i32].num_elems();
-	let nx:i32=a[0i32][0i32].num_elems();
+	let nz:i32=a.len();
+	let ny:i32=a[0i32].len();
+	let nx:i32=a[0i32][0i32].len();
 	for z in 0..nz{ for y in 0..ny{for x in 0..nz{
 		f([x,y,z],&mut a[z][y][x])
 	}}}

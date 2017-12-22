@@ -643,8 +643,8 @@ impl<'a> From<&'a TriMesh<VertexNCT>> for GlMesh{
 				num_vertices:src.vertices.len() as u32,
 				num_indices:concati.len() as u32,
 				vertex_size: mem::size_of_val(&refvts[0]) as GLsizei, 
-				vbo: create_vertex_buffer(refvts),
-				ibo: create_index_buffer(&concati),
+				vbo: create_vertex_buffer(refvts.as_slice()),
+				ibo: create_index_buffer(concati.as_slice()),
 				prim_mode:GL_TRIANGLES
 			}
 		}

@@ -134,10 +134,10 @@ impl TriMesh<Vec3,()> {
 	// must rotate it after if you want something else
 	pub fn from_heightfield(ht:&Array<Array<f32>>,size:f32)->Self{
 		let row:&Array<f32>=&ht[0];
-		let width=row.num_elems() as i32;
-		let height=ht.num_elems() as i32;
+		let width=row.len();
+		let height=ht.len();
 		for col in ht.iter(){
-			assert!(col.len() as i32==width);
+			assert!(col.len()==width);
 		}
 		let mut vertices:Array<Vec3> = Array::new();
 		let cellxsize=size/(width as f32);
@@ -172,7 +172,7 @@ impl TriMesh<Vec3,()> {
 			ret
 		};	
 //		for  x in (&mut ret).iter_mut(){x.vassign_norm();}
-		for x in 0..ret.num_elems(){
+		for x in 0..ret.len(){
 			ret[x].vassign_norm();
 		}
 		ret
@@ -182,7 +182,7 @@ impl TriMesh<Vec3,()> {
 		// brute force.. hashmap *per vertex*, vertex->vertex connect?
 		// or do it the C way..
 		// TODO - we need to discover the best way using hashmaps etc
-		let r:Array<Array2<i32>> =unsafe {unsafe_edgebuilder(self.vertices.num_elems(),self.indices.as_slice())};
+		let r:Array<Array2<i32>> =unsafe {unsafe_edgebuilder(self.vertices.len(),self.indices.as_slice())};
 		return r;
 	}
 }
@@ -261,9 +261,9 @@ impl TriMesh<VertexNCT,()>{
 			let e1:&Array<Array<f32>>=&e0[0];
 			let e2:&Array<f32>=&e1[0];
 
-			for z in 0..e0.num_elems()-1{
-				for y in 0..e1.num_elems()-1{
-					for x in 0..e2.num_elems()-1{
+			for z in 0..e0.len()-1{
+				for y in 0..e1.len()-1{
+					for x in 0..e2.len()-1{
 						let pos=Array3(x,y,z);
 						fn_cmpcell(pos, 0i32, 1i32,2i32);		
 						fn_cmpcell(pos, 1i32, 0i32,2i32);		
