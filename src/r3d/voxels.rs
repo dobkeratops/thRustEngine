@@ -170,19 +170,6 @@ impl<T:Debug+Clone+Sized> Array3d<T>for FlatArray3d<T>{
 		}
 	}
 }
-/// TODO check efficiency,there's a better way
-/// want: mymod(x,power_of_two) == x & (power_of_two-1) as per binary wrapround
-pub fn mymod(x:i32,y:i32)->i32{
-	if x>=0{x%y} else{
-		if y<=0 {return 0;}
-		let mut a=x; let mut b=y;
-		while a<0{
-			a+=b;
-			b*=2;
-		}
-		a
-	}
-}
 // -3  -2  -1  0  1  2
 //  0   1   2  0  1  2
 pub fn test_array3d(){

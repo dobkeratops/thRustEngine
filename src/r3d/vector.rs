@@ -828,9 +828,10 @@ impl<X:Copy,T:BitSel<X>> VSelect<Vec2<X>> for Vec2<T> {
 	fn vselect(&self,a:&Vec2<X>,b:&Vec2<X>)->Vec2<X>{ Vec2(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y)) }
 }
 
-impl<T:Sized> ::std::ops::Index<usize> for Vec3<T>{
+macro_rules! impl_vecn_index{($index_t:ty)=>{
+impl<T:Sized> ::std::ops::Index<$index_t> for Vec3<T>{
 	type Output=T;
-	fn index(&self,i:usize)->&T{
+	fn index(&self,i:$index_t)->&T{
 		match i{
 			0=>&self.x,
 			1=>&self.y,
@@ -839,8 +840,8 @@ impl<T:Sized> ::std::ops::Index<usize> for Vec3<T>{
 		}
 	}
 }
-impl<T:Sized> ::std::ops::IndexMut<usize> for Vec3<T>{
-	fn index_mut(&mut self,i:usize)->&mut T{
+impl<T:Sized> ::std::ops::IndexMut<$index_t> for Vec3<T>{
+	fn index_mut(&mut self,i:$index_t)->&mut T{
 		match i{
 			0=>&mut self.x,
 			1=>&mut self.y,
@@ -850,9 +851,10 @@ impl<T:Sized> ::std::ops::IndexMut<usize> for Vec3<T>{
 	}
 }
 
-impl<T:Sized> ::std::ops::Index<usize> for Vec4<T>{
+
+impl<T:Sized> ::std::ops::Index<$index_t> for Vec4<T>{
 	type Output=T;
-	fn index(&self,i:usize)->&T{
+	fn index(&self,i:$index_t)->&T{
 		match i{
 			0=>&self.x,
 			1=>&self.y,
@@ -862,8 +864,8 @@ impl<T:Sized> ::std::ops::Index<usize> for Vec4<T>{
 		}
 	}
 }
-impl<T:Sized> ::std::ops::IndexMut<usize> for Vec4<T>{
-	fn index_mut(&mut self,i:usize)->&mut T{
+impl<T:Sized> ::std::ops::IndexMut<$index_t> for Vec4<T>{
+	fn index_mut(&mut self,i:$index_t)->&mut T{
 		match i{
 			0=>&mut self.x,
 			1=>&mut self.y,
@@ -873,7 +875,15 @@ impl<T:Sized> ::std::ops::IndexMut<usize> for Vec4<T>{
 		}
 	}
 }
-
+}}
+impl_vecn_index!(usize);
+impl_vecn_index!(i32);
+impl_vecn_index!(u32);
+impl_vecn_index!(isize);
+impl_vecn_index!(i16);
+impl_vecn_index!(u16);
+impl_vecn_index!(i8);
+impl_vecn_index!(u8);
 
 pub trait BitSel<X>{
 	fn bitsel(&self,a:&X,b:&X)->X;

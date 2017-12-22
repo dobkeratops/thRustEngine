@@ -30,14 +30,14 @@ impl<V:IndexMut<usize>> IndexWrap for V where <V as Index<usize>>::Output : Size
 	}	
 }
 */
-impl<T:Sized> IndexWrap for Vec<T>{
+impl<T:Sized> IndexWrap for Array<T>{
 	type Output=T;
 	fn index_wrap(&self, i:i32)->&Self::Output{
-		return self.index(((i as usize)% self.len()) as usize);
+		return self.index(mymod(i,self.num_elems()));
 	}
 	fn index_wrap_mut(&mut self, i:i32)->&mut Self::Output{
-		let l=self.len();
-		return self.index_mut(((i as usize) % l) as usize);
+		let l=self.num_elems();
+		return self.index_mut(mymod(i,l));
 	}	
 }
 
@@ -45,7 +45,7 @@ trait WrappedArray2d<T,I>{
 	fn get_wrap(&self,x:I,y:I)->&T;
 	fn set_wrap(&mut self,x:I,y:I,v:T);
 }
-impl<T> WrappedArray2d<T,i32> for Vec<Vec<T>>{
+impl<T> WrappedArray2d<T,i32> for Array<Array<T>>{
 	fn get_wrap(&self,i:i32,j:i32)->&T{
 		self.index_wrap(j).index_wrap(i)
 	}
@@ -57,7 +57,7 @@ trait WrappedArray3d<T,I>{
 	fn get_wrap3(&self,x:I,y:I,z:I)->&T;
 	fn set_wrap3(&mut self,x:I,y:I,z:I,v:T);
 }
-impl<T> WrappedArray3d<T,i32> for Vec<Vec<Vec<T>>>{
+impl<T> WrappedArray3d<T,i32> for Array<Array<Array<T>>>{
 	fn get_wrap3(&self,i:i32,j:i32,k:i32)->&T{
 		self.index_wrap(k).index_wrap(j).index_wrap(i)
 	}
@@ -65,24 +65,30 @@ impl<T> WrappedArray3d<T,i32> for Vec<Vec<Vec<T>>>{
 		*(self.index_wrap_mut(k).index_wrap_mut(j).index_wrap_mut(i))=v;
 	}
 }
-
-
+fn dump_row_sizes(ht:&Array<Array<f32>>){
+	for i in 0..ht[0i32].num_elems(){
+		println!("size[row {:?}]={:?}",i,ht[i]);
+	}
+}
 /// generate by filling array inplace. repeating on square.
-pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<Vec<f32>>{
+pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Array<Array<f32>>{
 	type T=f32;
 	let mut seed=iseed;
 	// todo - version using expansion/smoothing/noise. 
 	// that would be more cachefriendly, and yields other useful parts.
 	let size=(1<<log_2_size) as i32;
-	let mut ht:Vec<Vec<f32>> = Vec::new();
-	ht.reserve(size as usize);
+	let mut ht:Array<Array<f32>> = Array::new();
+	ht.reserve(size);
 
 
 	for j in 0..size{
-		let mut row:Vec<f32>= vec![0.0;size as usize];
+		let mut row=Array::from_val_n(0.0,size);
 		ht.push(row);
 	}
-	ht[0][0]=0.0f32;
+		
+	ht[0i32][0i32]=0.0f32;
+	//let mut row:&Array<f32>=&mut ht[0];
+	//row[0]=0.0f32;
 	let mut amp=init_amp;
 	// classic diamond-square algorithm
 	let mut step=size as i32;
@@ -90,6 +96,7 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 	let ampscale= (dimension/(one::<T>()+one::<T>())).sqrt();
 	let mut pass=1;
 	while step >=2 {
+		trace!();
 		let hstep=step/2;
 		for x in (0..size).step(step as usize){
 			for y in (0..size).step(step as usize){
@@ -104,6 +111,7 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 		//  
 		//  x   .   x
 		amp*=ampscale;
+		trace!();
 		for xx in (0..size).step(step as usize){
 			for yy in (0..size).step(step as usize){
 				let mut fill_pt=|x,y|{
@@ -114,6 +122,7 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 				fill_pt(xx,yy+hstep);
 			}
 		}
+		trace!();
 		//break;
 		pass+=2;
 		amp*=ampscale;
@@ -127,34 +136,38 @@ pub fn generate2d(log_2_size:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)
 	//for y in (0..size){for x in 0..size{ ht[y as usize][x as usize]=sin(x as f32*ax)*sin(y as f32*ay)*init_amp}}
 	ht
 }
-// todo - a single allocation eg ([usize;3],Vec<T>)
-pub type Array3d<T>=Vec<Vec<Vec<T>>>;
 
-pub fn array3d_foreach<T>(a:&mut Array3d<T>,f:&Fn([usize;3],&mut T)){
-	for z in 0..a[0].len(){ for y in 0..a[0][0].len(){for (x,ref mut v)  in a[z][y].iter_mut().enumerate(){
-		f([x,y,z],v)
+// todo - a single allocation eg ([usize;3],Vec<T>)
+pub type Array3d<T>=Array<Array<Array<T>>>;
+
+pub fn array3d_foreach<T>( a:&mut Array3d<T>, f:&Fn([i32;3], &mut T)){
+	let nz:i32=a.num_elems();
+	let ny:i32=a[0i32].num_elems();
+	let nx:i32=a[0i32][0i32].num_elems();
+	for z in 0..nz{ for y in 0..ny{for x in 0..nz{
+		f([x,y,z],&mut a[z][y][x])
 	}}}
 }
 
 /// 3d volume noise texture.
-pub fn generate3d(log_2_size:i32,first_disp_scale:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Vec<Vec<Vec<f32>>>{
+pub fn generate3d(log_2_size:i32,first_disp_scale:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Array<Array<Array<f32>>>{
 	type T=f32;
 	let mut seed=iseed;
 	// todo - version using expansion/smoothing/noise. 
 	// that would be more cachefriendly, and yields other useful parts.
 	let size=(1<<log_2_size) as i32;
-	let mut ht:Vec<Vec<Vec<f32>>> = Vec::new();
-	ht.reserve(size as usize);
+	let mut ht:Array<Array<Array<f32>>> = Array::new();
+	ht.reserve(size);
 
 	for k in 0..size{
-		let mut jslice:Vec<Vec<f32>>= Vec::new();
+		let mut jslice:Array<Array<f32>>= Array::new();
 		for j in 0..size{
-			let mut islice:Vec<f32>= vec![0.0;size as usize];
+			let mut islice= Array::<f32>::from_val_n(0.0,size);
 			jslice.push(islice);
 		}
 		ht.push(jslice);
 	}
-	ht[0][0][0]=0.0f32;
+	ht[0i32][0i32][0i32]=0.0f32;
 
 	let mut amp=init_amp;
 	// classic diamond-square algorithm ext to 3d

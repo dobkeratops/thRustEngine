@@ -6,3 +6,4 @@ authors = ["dobkeratops <dobkeratopsgit@gmail.com>"]
 [dependencies]
 image = "0.18.0"
 itertools = "0.7.4"
+vecgenericindex = { git = "https://github.com/dobkeratops/rust_arrays_with_generic_index.git" }

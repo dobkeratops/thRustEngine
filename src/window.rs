@@ -396,7 +396,7 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
 
 // implement this to open a 'gridview' on something
 // texture-palette, toolbox etc.
-type Index=i32;
+type Idx=i32;
 
 
 pub trait WindowContainer<A> {

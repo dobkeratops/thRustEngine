@@ -1,5 +1,6 @@
 //#![feature(macro_rules)]
 //#![feature(default_type_params)]
+#![feature(type_ascription)]
 #![allow(unused_parens)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
@@ -19,6 +20,15 @@
 //#![feature(drop_types_in_const)]
 //#![overflow_checks(off)]
 //#![feature(link_args)]
+#![feature(collections_range)]
+#![feature(drain_filter)]
+#![feature(slice_rsplit)]
+#![feature(slice_get_slice)]
+#![feature(vec_resize_default)] 
+#![feature(vec_remove_item)]
+#![feature(collections_range)] 
+#![feature(slice_rotate)]
+#![feature(swap_with_slice)]
 
 
 //#![allow(non_camel_cased_types)]
@@ -179,11 +189,11 @@ unsafe fn create_vertex_buffer_from_ptr(size:GLsizei, data:*const c_void)->GLuin
 unsafe fn create_index_buffer_from_ptr(size:GLsizei, data:*const c_void)->GLuint {
 	create_buffer(size,data,GL_ELEMENT_ARRAY_BUFFER)
 }
-unsafe fn create_vertex_buffer<T>(data:&Vec<T>)->GLuint {
+unsafe fn create_vertex_buffer<T>(data:&[T])->GLuint {
 	assert!(data.len()>0);
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ARRAY_BUFFER)
 }
-unsafe fn create_index_buffer<T>(data:&Vec<T>)->GLuint {
+unsafe fn create_index_buffer<T>(data:&[T])->GLuint {
 	assert!(data.len()>0);
 	create_buffer(data.len()as GLsizei *mem::size_of::<T>() as GLsizei, as_void_ptr(&data[0]), GL_ELEMENT_ARRAY_BUFFER)
 }
@@ -601,7 +611,7 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 			vts.push(VertexNCT{
 				pos:Vec3(v.x,v.y,v.z),
 				color:Vec4(1.0,1.0,1.0,1.0),
-				norm:normals[i],
+				norm:normals[i as i32],
 				tex0:Vec2(0.0,0.0),
 			});
 		}
@@ -623,7 +633,7 @@ impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
 // when it's a renderable vertex already, pull it in directly
 impl<'a> From<&'a TriMesh<VertexNCT>> for GlMesh{
 	fn from(src:&TriMesh<VertexNCT>)->Self {
-		let mut concati:Vec<i32> = Vec::new();
+		let mut concati:Array<i32> = Array::new();
 		dump!(src.vertices.len(),src.indices.len());
 		let refvts=&src.vertices;
 		//todo: tri normals, and what are you doing for UVs,colors ?
@@ -759,6 +769,15 @@ pub fn test_seq(){
 
 
 pub fn main(){
+	let mut ar:Array<i32,i32>=Array::new();
+	ar.push(0);ar.push(10);ar.push(20);ar.push(30);
+	let i:i32=1;
+	dump!(ar[i]);
+	for (i,x) in ar.iter().enumerate(){
+		dump!(i,x)
+	}
+	
+
 	voxels::test_array3d();
  	#[cfg(all(shadertest,target_os="emscripten"))]
 	{

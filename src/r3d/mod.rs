@@ -1,4 +1,5 @@
 pub mod vectypes;
+pub mod array;
 pub mod vector;
 pub mod matrix;
 pub mod quaternion;
@@ -23,13 +24,14 @@ pub mod scene;
 pub mod classes;
 pub mod bsp;
 pub use sdl::*;
+pub extern crate vecgenericindex;
+pub use vecgenericindex::*;
 // Common standard library imports.. file, memory, operators..
 pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,convert};
 pub use io::Read;
 pub use fmt::Debug;
 pub use triangulatevoxels::*;
 pub use vertex::*;
-
 use ::std::f32::consts::PI;
 
 pub use ffi::{CString,CStr};
@@ -45,9 +47,10 @@ pub use fs::File;
 pub use path::Path;
 pub use mem::size_of;
 
+pub use array::*;
 pub use num::*;
 pub use cmp::{Ord,PartialOrd,PartialEq};
-pub use ops::{Add,Sub,Mul,Div,Rem,Neg,BitOr,BitAnd,Not,BitXor,Deref};
+pub use ops::{Add,Sub,Mul,Div,Rem,Neg,BitOr,BitAnd,Not,BitXor,Deref,Index,IndexMut};
 
 pub type int=i32;
 pub type uint=u32;
@@ -64,11 +67,27 @@ pub use vector::{Vec3f,Vec2f,Vec4f, Vec1,Vec3,Vec4,Vec2};
 pub use matrix::{Mat33f,Mat34f,Mat43f,Mat44f,Mat34,Mat44,Mat33,Mat43};
 //pub use dimensionval;
 
+// -1 % 5
+// => 1%5= 1
+// desired point = '4' = 5-1
+// -2 %5 => 2;
+// desired point = '3'; 5-2=3
+// -6 desired point = 4
+// 6 mod 5 = 1; => 5-1 = 4
+// -6  -5  -4  -3  -2  -1  0 1 2 3 4 5
+//  4   0   1   2   3   4
+
+/// TODO check efficiency,there's a better way
+/// want: mymod(x,power_of_two) == x & (power_of_two-1) as per binary wrapround
+pub fn mymod(x:i32,max:i32)->i32{
+	if x>=0{x%max} else{
+		max-((-x) %max)
+	}
+}
 
 pub enum ShaderType{
 	Pixel,Vertex,Geometry,Compute
 }
-
 
 //pub static GL_TEXTURE_2D:rawglbinding::uint=0x0DE1;
 
@@ -151,10 +170,13 @@ pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 
 
 
-
+#[derive(Debug,Clone,Copy)]
 pub struct PackedARGB(pub u32);	// 'Color', most commonly packed 8888
+#[derive(Debug,Clone,Copy)]
 pub struct PackedS8x4(pub u32);	// packed vector in -1 to 1 range
+#[derive(Debug,Clone,Copy)]
 pub struct PackedARGB1555(pub u16);	// 'Color', most commonly packed 8888
+#[derive(Debug,Clone,Copy)]
 pub struct PackedRGB565(pub u16);	// 'Color', most commonly packed 8888
 type Color = PackedARGB;        // ånother synonym
 type PackedARGB8888=PackedARGB;    // explicit
@@ -851,13 +873,13 @@ macro_rules! new{
 }
 
 macro_rules! dump{ ($($a:expr),*)=>
-    (   {   let mut txt=String::new(); txt.push_str(format!("{:?}:{:?}",file!(),line!()).as_str());
+    (   {   let mut txt=String::new(); txt.push_str(format!("{}:{:?} ",file!(),line!()).as_str());
             $( {
                 let s=format!("{}={:?};",stringify!($a),$a);
                 txt.push_str(s.as_str());
                 }
             );*;
-            println!("{:?}",txt);
+            println!("{}",txt);
         }
    )
 }

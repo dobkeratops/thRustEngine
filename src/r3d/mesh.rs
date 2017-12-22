@@ -1,9 +1,8 @@
 use super::*;
 
-type VertexId=usize;
-type AttrVertexId=usize;
-type MaterialId=usize;
-type vec<T> = Vec<T>;   // todo: want replaceable vertex index.
+type VertexId=Idx;
+type AttrVertexId=Idx;
+type MaterialId=Idx;
 type TexelScale=f32;    // scaling units to UV coords
 type ShaderId=usize;
 type BoneId=usize;
@@ -17,8 +16,7 @@ enum UVSource {
     ReflectionMap,
     Normal,
     CameraFacingNormal,
-
-    XYZ     // pick xy xz yz planes according to normal
+    TriplanarXYZ     // pick xy xz yz planes according to normal
 }
 
 #[derive(Clone,Debug)]
@@ -27,6 +25,7 @@ enum AlphaMode {
 }
 
 /// Description of texture/shading blending tree
+/// todo - dynamically generate a shader from this...
 #[derive(Clone,Debug)]
 enum TexNode {
     Tex2d(TextureId, UVSource,TexelScale),
@@ -55,7 +54,7 @@ struct Material {
     program:ShaderId,
     texture:TexNode,
     source:String,     // texnodes represented in string format.
-    textures:vec<TextureId> // collected list of textures
+    textures:Vec<TextureId> // collected list of textures
 }
 
 /// rendermesh, optimized vertices.
@@ -70,12 +69,37 @@ struct RMesh<V> {
 /// raw unsorted mesh
 /// a mesh with positions sharable between multiple render-vertices,
 /// e.g. a textured cube would have 8 positions but 24 rendervertices
+
+type Idx=usize;		// TODO how to use i32 index without fighting rust
+type PositionId=Idx;	
+
+
+type Position=Vec3;
+type Normal=Vec3;
+type Texcoord=Vec2;
+
+// channels: tex0, color, ..?
+// TODO - channelmesh.
+
 #[derive(Clone,Debug)]
-struct UMesh<POINT,ATTR>{
-    vertices:Vec<POINT>,                // spatial position
-    attrvertex:Vec<(VertexId,ATTR)>,    // pos+normal,texture etc
-    triangles:Vec<(MaterialId,[VertexId;3])>,
-    weightmaps:Vec<(BoneId,Vec<(VertexId,f32)>)>,    // skinning weights
+struct IndexedVertex{
+	pos_index:Idx,
+	normal:Idx,
+	tex0:Idx,
+	color:Idx,	
+}
+type VertexIndex=Idx;
+
+#[derive(Clone,Debug)]
+pub struct Mesh {
+	// attribute arrays
+    positions:Vec<Position>,
+	normals:Vec<Normal>,
+	texcoords:Vec<Texcoord>,
+	colors:Vec<Color>,
+    vertex:Vec<IndexedVertex>,
+    polygons:Vec<(MaterialId,Vec<[VertexIndex;3]>)>,
+    weightmaps:Vec<(BoneId,Vec<(PositionId,f32)>)>,    // skinning weights
     materials:Vec<Material>
 }
 

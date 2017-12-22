@@ -32,10 +32,10 @@ impl_operator!{Mul::mul(Normal<V>,T)->Ofs<V>};
 impl_operator!{Mul::mul(Ofs<V>,T)->Ofs<V>};//todo.. all the options.. accel, yada..
 */
 
-pub type Index=uint;
+pub type Idx=uint;
 pub trait	VertexArray<V:VecCmpOps> {
-	fn num_vertices(&self)->Index;
-	fn vertex(&self,i:Index)->V;
+	fn num_vertices(&self)->Idx;
+	fn vertex(&self,i:Idx)->V;
 	fn aabb(&self)->Extents<V> {
 		let mut vmin=self.vertex(0); let mut vmax=self.vertex(0);
 		let mut i=self.num_vertices()-1;
@@ -164,7 +164,7 @@ pub trait Polygon<V:Copy>
 {
 	fn num_vertices()->usize;
 	fn normal()->V;
-	fn edge(i:Index)->Line<V>;
+	fn edge(i:Idx)->Line<V>;
 	fn aabb(&self)->Extents<V>;
 }
 
