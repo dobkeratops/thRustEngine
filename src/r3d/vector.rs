@@ -620,9 +620,22 @@ pub type Vec2f = Vec2<f32>;
 pub type Vec3f = Vec3<f32>;
 pub type Vec4f = Vec4<f32>;
 
+pub type Vec1h = Vec1<f16>;
+pub type Vec2h = Vec2<f16>;
+pub type Vec3h = Vec3<f16>;
+pub type Vec4h = Vec4<f16>;
+
+pub type Vec2s = Vec2<i16>;
+pub type Vec3s = Vec3<i16>;
+pub type Vec4s = Vec4<i16>;
+
 pub type Vec2i = Vec2<i32>;
 pub type Vec3i = Vec3<i32>;
 pub type Vec4i = Vec4<i32>;
+
+pub type Vec2l = Vec2<i64>;
+pub type Vec3l = Vec3<i64>;
+pub type Vec4l = Vec4<i64>;
 
 pub type Vec2d = Vec2<f64>;
 pub type Vec3d = Vec3<f64>;
@@ -884,6 +897,7 @@ impl_vecn_index!(i16);
 impl_vecn_index!(u16);
 impl_vecn_index!(i8);
 impl_vecn_index!(u8);
+
 
 pub trait BitSel<X>{
 	fn bitsel(&self,a:&X,b:&X)->X;

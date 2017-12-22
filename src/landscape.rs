@@ -150,6 +150,7 @@ pub fn array3d_foreach<T>( a:&mut Array3d<T>, f:&Fn([i32;3], &mut T)){
 	}}}
 }
 
+
 /// 3d volume noise texture.
 pub fn generate3d(log_2_size:i32,first_disp_scale:i32,init_amp:f32,dimension:f32,power:f32,iseed:i32)->Array<Array<Array<f32>>>{
 	type T=f32;

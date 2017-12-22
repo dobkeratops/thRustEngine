@@ -2,6 +2,7 @@ pub mod vectypes;
 pub mod vector;
 pub mod matrix;
 pub mod quaternion;
+pub mod array3d;
 pub mod geom;
 pub mod voxels;
 pub mod vertex;
@@ -24,6 +25,8 @@ pub mod classes;
 pub mod bsp;
 pub use sdl::*;
 pub extern crate vecgenericindex;
+pub extern crate half;
+pub use self::half::f16;
 pub use vecgenericindex::*;
 // Common standard library imports.. file, memory, operators..
 pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,convert};
@@ -56,6 +59,9 @@ type Scalar=f32;
 
 pub use vector::*;
 
+pub struct Array3d<T>{pub shape:Vec3<i32>,pub data:Vec<T>}
+
+pub use array3d::*;
 pub use rawglbinding::*;
 pub use geom::*;
 pub use gl_constants::*;
