@@ -62,6 +62,10 @@ pub use itertools::Itertools;
 #[link_args="-framework OpenGL -framework glut -L/usr/local/lib -F/Library/Frameworks -framework SDL2 -framework Cocoa"]
 extern{}
 
+#[cfg(target_os="linux")]
+#[link_args="-lGL -lglut"]
+extern{}
+
 #[cfg(target_os = "android")]
 extern { fn android_logw(s:*const c_char);}
 
