@@ -1,5 +1,4 @@
 pub mod vectypes;
-pub mod array;
 pub mod vector;
 pub mod matrix;
 pub mod quaternion;
