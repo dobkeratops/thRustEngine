@@ -46,7 +46,6 @@ pub use fs::File;
 pub use path::Path;
 pub use mem::size_of;
 
-pub use array::*;
 pub use num::*;
 pub use cmp::{Ord,PartialOrd,PartialEq};
 pub use ops::{Add,Sub,Mul,Div,Rem,Neg,BitOr,BitAnd,Not,BitXor,Deref,Index,IndexMut};
