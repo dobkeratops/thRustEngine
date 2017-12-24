@@ -494,6 +494,7 @@ pub fn	render_no_swap(debug:u32)
 	unsafe {
 		if 0==g_frame&31{println!("render frame{}\n",g_frame);
 			//texture::load_req(,0,"foobar")
+			async_req(texture::AsyncReq::DebugMessage("hello thread".into()));
 		}
 //		android_logw(c_str("render_no_swap"));
 //		println!("{:?}",g_grid_mesh);
@@ -548,7 +549,7 @@ pub fn	render_no_swap(debug:u32)
 
 				let msh=match i%5{0=>&g_torus_mesh,1=>&g_landscape_mesh,2=>&g_voxel_mesh,3=>&g_voxsphere_mesh,4=>&g_voxblob_mesh,_=>panic!()};
 				
-				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
+				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%5), 1+(ig2%5));
 				draw::set_texture(0,0);
 				draw::set_texture(1,0);
 				draw::set_matrix_p_mv(&matP,&rot_trans);

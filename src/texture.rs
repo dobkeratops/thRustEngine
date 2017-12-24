@@ -3,8 +3,14 @@ use std::{thread,time};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::channel;
 use std::collections::{VecDeque};
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
+use std::time::Duration;
 
-pub static mut g_textures:[GLuint;5]=[0;5];
+static NTHREADS: i32 = 3;
+
+
+pub static mut g_textures:[GLuint;6]=[0;6];
 pub type TextureIndex=usize;
 
 #[cfg(target_os="emscripten")]
@@ -132,13 +138,14 @@ pub fn	create_textures() {
 		#[cfg(not(emscripten))]
 		{
 			println!("texture loading");
-			load_texture_async_at(1,"data/mossy_rock.jpg");
+			load_texture_async_at(1,"data/metal.jpg");
 			load_texture_async_at(2,"data/mossy_rock.jpg");
-			load_texture_async_at(3,"data/mossy_rock.jpg");
-			load_texture_async_at(4,"data/mossy_rock.jpg");
+			load_texture_async_at(3,"data/stone.jpg");
+//			load_texture_async_at(4,"data/metal.jpg");
 //			load_texture_async_at(2,"data/stone.jpg");
 //			load_texture_async_at(3,"data/metal.jpg");
-//			load_texture_async_at(4,"data/grass7.png");
+			load_texture_async_at(4,"data/grass_dry.jpg");
+			load_texture_async_at(5,"Brick_07_UV_H_CM_1.jpg");
 		}
 		println!("texture load done");
 	}
@@ -191,11 +198,14 @@ static mut g_load_req:Option<Arc<Mutex<VecDeque<LoadReq>>>>=None;
 //static mut g_file_ready:Option<Arc<Mutex<VecDeque<(i32,Vec<u8>)>>>>=None;
 static mut g_file_ready:Option<Mutex<VecDeque<(i32,Vec<u8>)>>>=None;
 
+fn sleep_ms(x:u64){thread::sleep(Duration::from_millis(x))}
+
 #[cfg(not(target_os="emscripten"))]
 fn async_loader_func(arclq:Arc<Mutex<VecDeque<LoadReq>>>){
+
 	println!("async loader thread init");
 	loop {
-		thread::sleep(time::Duration::from_millis(1000));
+		sleep_ms(1000);
 		unsafe{g_file_ready=Some(Mutex::new(VecDeque::new()));}
 		println!("async loader is active");
 		// access the mutex,
@@ -255,19 +265,114 @@ pub fn load_req(index:usize,fname:&str){
 
 pub fn poll() {
 	unsafe {
-	if let Some(ref frq)=g_file_ready{
-		if let Ok(mut q)=frq.lock(){
-			if let Some(item)=q.pop_front(){
-				println!("got a file: {},{}",item.0,item.1.len());
-				println!("initializing texture..\n");
-				// todo - this also needs to happen asynchronously
-				let gltex=load_texture_from_memory(&item.1);
-				g_textures[item.0 as usize]=gltex;
-				println!("..initializing texture done\n");
+		if let Some(ref frq)=g_file_ready{
+			if let Ok(mut q)=frq.lock(){
+				if let Some(item)=q.pop_front(){
+					println!("got a file: {},{}",item.0,item.1.len());
+					println!("initializing texture..\n");
+					// todo - this also needs to happen asynchronously
+					let gltex=load_texture_from_memory(&item.1);
+					g_textures[item.0 as usize]=gltex;
+					println!("..initializing texture done\n");
+				}
 			}
 		}
 	}
-	}
+}
+type ResName=String;
+#[derive(Clone,Debug)]
+pub enum AsyncReq {
+	DebugMessage(String),
+	LoadTexture(i32,ResName)
+	//..Models,..
+}
+type FileData=Vec<u8>;
+type ReadyData=Vec<u8>;
+
+#[derive(Clone,Debug)]
+enum DecomReq{
+	DebugMessage(String),
+	SomeFileData(AsyncReq,FileData)
+}
+#[derive(Clone,Debug)]
+pub enum AsyncResult {
+	TextureData(i32,ResName,ReadyData)
+//	ModelData(i32,ResName)
 }
 
+static mut g_async_req_ch:Option<Mutex<Sender<AsyncReq>>>=None;
+static mut g_async_result_ch:Option<Mutex<Receiver<AsyncResult>>>=None;
+macro_rules! spawn_thread_loop_channel_match{
+	([$recver:expr]$($a:pat=>$b:expr,)*)=>{
+	thread::spawn(move||{
+		let chname=stringify!($channel);
+		loop{
+			println!("{}:procesing message:-", chname);
+			let rmsg:Result<_,_>=$recver.recv(); // poll instead??
+			match rmsg{
+				Ok(msg)=>match msg{
+					$(
+						$a=>$b,
+					)*
+				}
+				Err(_)=>{
+					println!("{}:no msg",chname);
+				}
+			}
+		}
+	});};
+}
+// TODO - want to make this library code, 
+// with generic types for of AsyncReq/AsyncResult
+// sticking point is the global decl.
 
+fn async_loader_ch(
+	// g_async_req_ch, result_ch would be params here to enable generics 
+
+		makechannel:&Fn()-> (Sender<AsyncReq>,Receiver<AsyncResult>), 
+		do_with_channel:&Fn(&mut Sender<AsyncReq>))
+{
+	unsafe{
+		match g_async_req_ch {
+			Some( ref mut x)=>{do_with_channel(&mut x.lock().unwrap());return},
+			None=>{
+				let mut newch=makechannel();
+				do_with_channel(&mut newch.0);
+				g_async_req_ch=Some(Mutex::new(newch.0));
+				g_async_result_ch=Some(Mutex::new(newch.1));
+			}
+		}
+	}
+}
+fn make_threads_and_channels()->(Sender<AsyncReq>,Receiver<AsyncResult>){
+// create the channels and worker threads
+	//ch.0=sender,ch.1=receiver
+	let (file_loader_send,file_loader_rec) = mpsc::channel();
+	let decompression_worker_ch = mpsc::channel(); // in practice might be multiple
+	let (result_send,result_rec) = mpsc::channel();
+
+	spawn_thread_loop_channel_match!{[file_loader_rec]
+		AsyncReq::DebugMessage(m)=>{println!("{}",m)},
+		AsyncReq::LoadTexture(_,_)=>println!("got a request"),
+//		_=>sleep_ms(500),
+	}
+
+	spawn_thread_loop_channel_match!{[decompression_worker_ch.1]
+		DecomReq::DebugMessage(_)=>{},
+		DecomReq::SomeFileData(_,_)=>println!("got some data"),
+//		_=>,
+	}
+
+	// return the channel endpoints that the main program deals with
+	(file_loader_send,result_rec)
+}
+
+// client interface
+pub fn async_req(a:AsyncReq){
+	async_loader_ch(
+		&||make_threads_and_channels(),
+		&|snd:&mut Sender<AsyncReq>|{
+			snd.send(a.clone());
+		}
+	);	
+}
