@@ -250,6 +250,7 @@ impl GlMesh {
 }
 
 static mut g_torus_mesh:GlMesh=GlMesh{..g_null_mesh};
+static mut g_voxsphere_mesh:GlMesh=GlMesh{..g_null_mesh};
 const g_null_mesh:GlMesh=GlMesh{
 	num_vertices:0,
 	num_indices:0,
@@ -260,9 +261,9 @@ const g_null_mesh:GlMesh=GlMesh{
 };
 static mut g_landscape_mesh:GlMesh=GlMesh{..g_null_mesh
 };
-static mut g_voxel_mesh:GlMesh=GlMesh{..g_null_mesh
-};
+static mut g_voxel_mesh:GlMesh=GlMesh{..g_null_mesh};
 
+static mut g_voxblob_mesh:GlMesh=GlMesh{..g_null_mesh};
 type UniformIndex=GLint;
 
 
@@ -421,7 +422,7 @@ impl GlMesh {
 static mut g_angle:f32=0.0f32;
 static mut g_frame:int=0;
 
-static g_num_torus:int = 256;
+static g_num_torus:int = 128;
 /// render a load of meshes in a lissajous
 
 type StringMap<T,K=String> = HashMap<K,T>;
@@ -491,7 +492,9 @@ pub fn	render_no_swap(debug:u32)
 	lazy_create_resources();	
 	let x:StringMap<usize>;
 	unsafe {
-		if 0==g_frame&31{println!("render frame{}\n",g_frame);}
+		if 0==g_frame&31{println!("render frame{}\n",g_frame);
+			//texture::load_req(,0,"foobar")
+		}
 //		android_logw(c_str("render_no_swap"));
 //		println!("{:?}",g_grid_mesh);
 		g_angle+=0.0025f32;
@@ -543,7 +546,7 @@ pub fn	render_no_swap(debug:u32)
 				let ig=ii/RenderModeCount;
 				let ig2=ig/RenderModeCount;
 
-				let msh=match i%3{0=>&g_torus_mesh,1=>&g_landscape_mesh,_=>&g_voxel_mesh};
+				let msh=match i%5{0=>&g_torus_mesh,1=>&g_landscape_mesh,2=>&g_voxel_mesh,3=>&g_voxsphere_mesh,4=>&g_voxblob_mesh,_=>panic!()};
 				
 				msh.render_mesh_shader(&matP,&rot_trans, rmode, 1+(ig%4), 1+(ig2%4));
 				draw::set_texture(0,0);
@@ -562,6 +565,7 @@ pub fn	render_no_swap(debug:u32)
 		}
 		//test_draw_2d();
 		glUseProgram(0);
+		texture::poll();
 		g_frame+=1;
 	}
 }
@@ -587,18 +591,21 @@ pub fn create_landscape()->GlMesh{
 	let tm=trimesh::TriMesh::<Vec3>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
-pub fn create_voxel_landscape()->GlMesh{
+pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3)->GlMesh{
 	trace!();
 	// raw noise,
-	let mut vox=landscape::generate3d(4,1,0.225,1.1f32,1.0,0x987412ab);
+	let lsz=5;
+	let mut vox=landscape::generate3d(lsz,1,amp,1.1f32,1.0,0x987412ab);
 	// add a centre blob
-	landscape::array3d_foreach(&mut vox,&|pos,v:&mut _|{
-		let fx=pos[0].fdivi(1<<4)*2.0-1.0;
-		let fy=pos[1].fdivi(1<<4)*2.0-1.0;
-		let fz=pos[2].fdivi(1<<4)*2.0-1.0;
-		let r=(fx*fx+fy*fy+fz*fz).sqrt();
-		*v+=(0.5-r)*0.25f32;
-	});
+	landscape::array3d_foreach(&mut vox,
+		&|pos,v:&mut _|{
+			let fx=pos[0].fdivi(1<<lsz)*2.0-1.0;
+			let fy=pos[1].fdivi(1<<lsz)*2.0-1.0;
+			let fz=pos[2].fdivi(1<<lsz)*2.0-1.0;
+			let r=(fx*fx+fy*fy+fz*fz).sqrt();
+			*v+=(0.5-r)*sphere + fx * gradient.x+fy*gradient.y+fz*gradient.z;
+		}
+	);
 
 
 	dump!(vox[2]);
@@ -665,7 +672,9 @@ pub fn lazy_create_resources() {
 			g_lazy_init=true;
 			g_torus_mesh = GlMesh::new_torus((16,16)); //new GridMesh(16,16);
 			g_landscape_mesh=create_landscape();
-			g_voxel_mesh=create_voxel_landscape();
+			g_voxel_mesh=create_voxel_landscape(0.25,0.0,&Vec3(0.0,0.15,0.0));// landscape with gradient to make flat-ish
+			g_voxblob_mesh=create_voxel_landscape(0.25,0.225,&Vec3::zero());// less spherical
+			g_voxsphere_mesh=create_voxel_landscape(0.0,1.0,&Vec3::zero()); // more spherical
 			create_shaders();
 			create_textures();
 

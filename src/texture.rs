@@ -1,4 +1,8 @@
 use super::*;
+use std::{thread,time};
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::channel;
+use std::collections::{VecDeque};
 
 pub static mut g_textures:[GLuint;5]=[0;5];
 pub type TextureIndex=usize;
@@ -7,10 +11,12 @@ pub type TextureIndex=usize;
 pub fn load_texture(filename:&str)->GLuint{
 	return 0;
 }
-
+pub fn load_texture_async_at(ti:TextureIndex, filename:&str){
+	load_req(ti,filename);
+}
 #[cfg(not(target_os="emscripten"))]
 pub fn load_texture(filename:&str)->GLuint{
-	use image::*;
+	let x=get_load_req();
 	use std::io::prelude::*;
 	use std::fs::File;
 
@@ -28,10 +34,15 @@ pub fn load_texture(filename:&str)->GLuint{
 	}
 	
 	println!("loaded {} bytes from {}",data.len(),filename);
-	let imr=image::load_from_memory(&data);
+	load_texture_from_memory(&data)
+}
+
+pub fn load_texture_from_memory(data:&Vec<u8>)->GLuint{
+	use image::*;
+	let imr=image::load_from_memory(data);
 
 	match imr{
-		Err(x)=>{println!("failed to init {}",filename); return 0;},
+		Err(x)=>{println!("failed to init image file data"); return 0;},
 		Ok(mut dimg)=>{
 			let (mut usize,mut vsize)=dimg.dimensions();
 			let mut usize1=1; let mut vsize1=1;
@@ -41,6 +52,7 @@ pub fn load_texture(filename:&str)->GLuint{
 				println!("scaling to {}x{}",usize1,vsize1);
 				dimg=dimg.resize(usize1,vsize1,FilterType::Gaussian);
 			}
+			println!("rescaling done\n");
 			if let DynamicImage::ImageRgb8(img)=dimg{
 				let (mut usize,mut vsize)=img.dimensions();
 				let mut usize1=1; let mut vsize1=1;
@@ -89,9 +101,6 @@ pub fn load_texture(filename:&str)->GLuint{
 }
 
 
-pub unsafe fn create_texture(filename:String)->GLuint {
-	return g_textures[0]
-}
 
 pub fn	create_textures() {
 //	static_assert(sizeof(GLuint)==sizeof(int));
@@ -123,26 +132,34 @@ pub fn	create_textures() {
 		#[cfg(not(emscripten))]
 		{
 			println!("texture loading");
-			g_textures[1] = load_texture("data/mossy_rock.jpg");
-			g_textures[2] = load_texture("data/stone.jpg");
-			g_textures[3] = load_texture("data/metal.jpg");
-			g_textures[4] = load_texture("data/grass7.png");
+			load_texture_async_at(1,"data/mossy_rock.jpg");
+			load_texture_async_at(2,"data/mossy_rock.jpg");
+			load_texture_async_at(3,"data/mossy_rock.jpg");
+			load_texture_async_at(4,"data/mossy_rock.jpg");
+//			load_texture_async_at(2,"data/stone.jpg");
+//			load_texture_async_at(3,"data/metal.jpg");
+//			load_texture_async_at(4,"data/grass7.png");
 		}
 		println!("texture load done");
 	}
 }
 
-pub fn load_file(fname:&str)->Vec<u8>{
-	let mut buffer=Vec::<u8>::new();
-	let f=File::open(fname).unwrap().read_to_end(&mut buffer);
-	buffer
+pub fn load_file(fname:&str)->Option<Vec<u8>>{
+	match File::open(fname){
+		Ok(mut f)=>{
+			let mut buffer=Vec::<u8>::new();
+			f.read_to_end(&mut buffer);
+			Some(buffer)
+		}
+		Err(_)=>{None}
+	}
 }
 // todo - async..
 fn create_texture_from_url(url:&str,waiting_color:u32)->GLuint{
 	// todo - make a tmp filename hash
 	unsafe {
 		emscripten::emscripten_wget(c_str(url),c_str("tmp_image1.dat\0"));
-		let buffer=load_file("tmp_image1.dat\0");
+		let buffer=load_file("tmp_image1.dat\0").unwrap();
 		let mut texname:GLuint=0;
 		glGenTextures(1,&mut texname);
 		glBindTexture(GL_TEXTURE_2D,texname);
@@ -164,3 +181,93 @@ fn create_texture_from_url(url:&str,waiting_color:u32)->GLuint{
 		texname
 	}
 }
+
+// async texture loading system?
+#[cfg(not(target_os="emscripten"))]
+pub type LoadReq=(i32,String);
+#[cfg(not(target_os="emscripten"))]
+static mut g_load_req:Option<Arc<Mutex<VecDeque<LoadReq>>>>=None;
+#[cfg(not(target_os="emscripten"))]
+//static mut g_file_ready:Option<Arc<Mutex<VecDeque<(i32,Vec<u8>)>>>>=None;
+static mut g_file_ready:Option<Mutex<VecDeque<(i32,Vec<u8>)>>>=None;
+
+#[cfg(not(target_os="emscripten"))]
+fn async_loader_func(arclq:Arc<Mutex<VecDeque<LoadReq>>>){
+	println!("async loader thread init");
+	loop {
+		thread::sleep(time::Duration::from_millis(1000));
+		unsafe{g_file_ready=Some(Mutex::new(VecDeque::new()));}
+		println!("async loader is active");
+		// access the mutex,
+		if let Ok(ref mut q)=arclq.try_lock() {
+			if let Some(ref item)=q.pop_front(){
+				println!("ASL.received request - {:?}",item.1);
+				if let Some(data)=load_file(&item.1){
+					//push_ready_data(item.0,data)
+					println!("ASL:loaded {} bytes*****",data.len());
+					unsafe {match g_file_ready{
+							Some(ref mtx)=>{
+								mtx.lock().unwrap().push_front((item.0,data));
+							}
+							None=>{}
+						}
+					}
+				}
+			}
+		} else {
+			println!("ASl could not check q");
+		}
+	}
+}
+
+#[cfg(not(target_os="emscripten"))]
+pub fn get_load_req()->Arc<Mutex<VecDeque<LoadReq>>>{
+	unsafe {
+		match g_load_req{
+			None=>{
+				let asl=Arc::new(Mutex::new(VecDeque::new()));
+				g_load_req=Some(asl.clone());
+				let asl2=asl.clone();
+				thread::spawn(move||{async_loader_func(asl2)});
+				asl
+			}
+			Some(ref x)=>{ x.clone() }
+		}
+	}
+}
+
+#[cfg(not(target_os="emscripten"))]
+pub fn load_req(index:usize,fname:&str){
+	//TODO - we seemed to need to do this to fix borrow issues?! 
+	// is there a better way?
+	(|mq:Arc<Mutex<VecDeque<LoadReq>>>|
+	{	match (*mq).lock(){
+			Ok(mut q)=>{
+				println!("push a request");
+				q.push_front((index as i32,String::from(fname)));
+			}
+			,
+			_=>{println!("load req failed\n");}
+		}
+	})(get_load_req())
+}
+// for this to be sane we need a global-able Channel type.
+
+pub fn poll() {
+	unsafe {
+	if let Some(ref frq)=g_file_ready{
+		if let Ok(mut q)=frq.lock(){
+			if let Some(item)=q.pop_front(){
+				println!("got a file: {},{}",item.0,item.1.len());
+				println!("initializing texture..\n");
+				// todo - this also needs to happen asynchronously
+				let gltex=load_texture_from_memory(&item.1);
+				g_textures[item.0 as usize]=gltex;
+				println!("..initializing texture done\n");
+			}
+		}
+	}
+	}
+}
+
+

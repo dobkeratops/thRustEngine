@@ -216,7 +216,7 @@ impl TriMesh<VertexNCT,()>{
 		// needed to constrain lifetimes
 		{
 			let cell_size=size/(voltex.len() as f32);
-			let make_vertex=|ipos:Array3<i32>,normal_axis_index:i32,(u,v)|{
+			let make_vertex=|ipos:Array3<i32>,clip:f32,normal_axis_index:i32,(u,v)|{
 				let mut norm=Vec3::zero(); norm[normal_axis_index]=1.0;
 				let (pix,piy,piz):(i32,i32,i32)=(ipos[0],ipos[1],ipos[2]);
 				let s:f32=voltex[piz][piy][pix];// pick shade from tex
@@ -224,8 +224,9 @@ impl TriMesh<VertexNCT,()>{
 				let fy:f32=ipos[1] as f32 *cell_size;
 				let fz:f32=ipos[2] as f32 *cell_size;
 				let pv:Vec3<f32>=Vec3(fx,fy,fz);
+				// todo - confusion about centreing ,0.0 or 0.05?
 				VertexNCT{
-					pos:pv,
+					pos:pv.vmadd(&norm,clip*cell_size),
 					color:Vec4(s,s,s,1.0),
 					norm:norm,
 					tex0:Vec2(u,v)
@@ -239,7 +240,11 @@ impl TriMesh<VertexNCT,()>{
 				let a=geti3(voltex,ipos);let b=geti3(voltex,cmppos);
 
 				// render all transition planes.
+
+				
 				if (a>0.0 && b<0.0) || (a<0.0 && b>0.0){
+					// find the clip position
+					let fclip = (0.0-a)/(b-a);
 					// quad vertex index positions
 					let qipos00=cmppos;
 					let qipos01=add_axis(qipos00, uaxis,1);
@@ -249,10 +254,10 @@ impl TriMesh<VertexNCT,()>{
 
 					// todo less cut-pasty.. 'map qpos make_vpos'
 					// todo - consider cell for texture info
-					let mut v00=make_vertex(qipos00,axis,(0.0,0.0));
-					let mut v01=make_vertex(qipos01,axis,(1.0,0.0));
-					let mut v10=make_vertex(qipos10,axis,(0.0,1.0));
-					let mut v11=make_vertex(qipos11,axis,(1.0,1.0));
+					let mut v00=make_vertex(qipos00,0.0,axis,(0.0,0.0));
+					let mut v01=make_vertex(qipos01,0.0,axis,(1.0,0.0));
+					let mut v10=make_vertex(qipos10,0.0,axis,(0.0,1.0));
+					let mut v11=make_vertex(qipos11,0.0,axis,(1.0,1.0));
 					mesh.push_quad((v00,v01,v11,v10),());
 				}
 			};

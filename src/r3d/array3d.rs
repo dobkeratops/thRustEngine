@@ -2,14 +2,17 @@
 pub type Idx=i32;
 use std::ops::Range;
 use std::ops::{Add,Sub,Mul,Div,Rem,BitOr,BitAnd,BitXor,Index,IndexMut};
+extern crate lininterp;
+use lininterp::{Lerp,avr};
 
 // local mini maths decouples
+// TODO - make another crate declaring our style of Vec<T>
 #[derive(Copy,Debug,Clone)]
-pub struct Vec2<T>{pub x:T,pub y:T} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+pub struct Vec2<X,Y=X>{pub x:X,pub y:Y} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
 #[derive(Copy,Debug,Clone)]
-pub struct Vec3<T>{pub x:T,pub y:T,pub z:T} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+pub struct Vec3<X,Y=X,Z=Y>{pub x:X,pub y:Y,pub z:Z} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
 #[derive(Copy,Debug,Clone)]
-pub struct Vec4<T>{pub x:T,pub y:T,pub z:T,pub w:T} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+pub struct Vec4<X,Y=X,Z=Y,W=Z>{pub x:X,pub y:Y,pub z:Z,pub w:WT} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
 pub type V2i=Vec2<Idx>;
 pub type V3i=Vec3<Idx>;
 pub type V4i=Vec4<Idx>;//TODO
@@ -102,7 +105,7 @@ impl<T:Clone> IndexMut<V2i> for Array2d<T>{
 		&mut self.data[i]
 	}
 }
-
+dont compile this, dont
 impl<T:Clone> Array3d<T>{	
 	pub fn from_fn<F:Fn(V3i)->T> (s:V3i,f:F) -> Array3d<T> {
 		let mut a=Array3d{shape:s, data:Vec::new()};
@@ -453,30 +456,9 @@ fn avr<Diff,T>(a:&T,b:&T)->T where
 	a.add(&a.sub(b).mul(0.5f32))
 }
 */
-pub trait Lerp<F=f32> {
-	fn lerp(&self,b:&Self,factor:&F)->Self;
-}
-// generic implementation which should work for propogation of
-// dimensional intermediate types, fraction/fixed point types, etc
-
-impl<T,Diff,Scaled,Factor> Lerp<Factor> for T where
-	for<'u,'v> &'u T:Sub<&'v T,Output=Diff>,
-	for<'u,'v> &'u Diff:Mul<&'v Factor,Output=Scaled>,
-//	for<'u,'v> &'u DiffScaled:Add<&'v T,Output=T>,
-	for<'u,'v,'w> &'u T:Add<&'v Scaled,Output=T>,   
-	//<Diff as Mul<&'w Factor>>::Output
-{
-	fn lerp(&self,b:&Self,factor:&Factor)->Self{
-		let diff=self.sub(b);
-		let scaled=diff.mul(factor);
-		self.add(&scaled)
-	}
-}	
-pub fn avr<T:Lerp>(a:&T,b:&T)->T{ a.lerp(b,&0.5f32) }
 // for types T with arithmetic,
 impl<T:Clone+Lerp> Array3d<T>
 {
-
 	/// downsample, TODO downsample centred on alternate cells
 	fn downsample_half(&self)->Array3d<T>{
 		self.fold_half(|pos:V3i,cell:[[[&T;2];2];2]|->T{

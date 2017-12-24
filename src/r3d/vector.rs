@@ -775,11 +775,11 @@ impl<T:Clone>  Vec3<T>{
     pub fn to_vec4_w(&self, w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
     pub fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
 }
-impl<T:Float>  Vec4<T>{
+impl<T:Clone>  Vec4<T>{
     pub fn to_vec3(&self)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),self.z.clone())}
     pub fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
 }
-impl<T:Float> Vec2<T>{
+impl<T:Clone> Vec2<T>{
     pub fn to_vec3_z(&self, z:T)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),z)}
     pub fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),z,w)}
 }
