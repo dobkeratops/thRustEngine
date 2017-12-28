@@ -269,9 +269,11 @@ pub fn quad<V:HasXYZ<Elem=f32>>(a:&V,b:&V,c:&V,d:&V){
 pub struct VertexCT{
 	pos:Vec3,tex:Vec2,color:u32
 }
+
 pub struct VertexNCT{
 	pos:Vec3,norm:Vec3,tex:Vec2,color:Color
 }
+
 pub struct VertexC{
 	pos:Vec3, color:Color,
 }
@@ -281,6 +283,7 @@ pub struct VertexCRef<'a,V3:HasXYZ+'a>{
 pub struct Vertex{
 	pos:Vec3,
 }
+
 struct Line<V,A=()> {
 	vertex:[V;2],
 	attr:A
@@ -293,10 +296,7 @@ struct Quad<V,A=()> {
 	vertex:[V;4],
 	attr:A
 }
-trait HasVertices<V>{
-	fn num_vertices(&self )->usize;
-	fn vertex<'a>(&'a self,i:usize)->&'a V;
-}
+
 
 pub trait RenderVertex{
 	fn render_vertex(&self);
@@ -604,8 +604,8 @@ pub fn circle_fill_xy_c<V3:HasXYZ<Elem=f32>>(pos:&V3,r2:f32, color:u32){
 
         glEnd();
     }
-
 }
+
 pub fn cuboid(size:&V3,color:u32) {
 	cuboid_aabb_at(&(0.0f32,0.0f32,0.0f32),size,color)
 }

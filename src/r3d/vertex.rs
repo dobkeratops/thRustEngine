@@ -1,5 +1,17 @@
 use super::*;
 
+// N normal
+// C color(packed), todo
+// T texcoord
+// P position
+// D DiffuseColor
+// W weights
+// B bones
+// S specularColor
+
+// packed color vs float color
+// blend weights
+
 #[derive(Clone,Debug)]
 pub struct	VertexNCT
 {
@@ -7,6 +19,18 @@ pub struct	VertexNCT
 	pub norm:Vec3<f32>,
 	pub color:Vec4<f32>,	// TODO: should be packed format!!!
 	pub tex0:Vec2<f32>
+}
+
+/// simple vertex, position without attributes,but semantically distinct from 'vector'
+#[derive(Clone,Debug)]
+pub struct	Vertex
+{
+	pub pos:Vec3<f32>,
+}
+
+impl Pos<Vec3> for Vertex {
+	type Output=Vec3;
+	fn pos(&self)->Vec3{self.pos}
 }
 
 impl Pos<Vec3> for VertexNCT{	
@@ -19,6 +43,47 @@ impl Norm<Vec3> for VertexNCT{
 	type Output=Vec3;
 	fn norm(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
 	fn set_norm(&mut self,v:&Vec3) {self.pos=v.clone();}
+}
+
+/// trait for objects with vertex-arrays
+/// TODO - should it just return a slice? 
+/// ...you dont want indexing interface unless it's efficient for indexing..
+/// todo: return enumerated vertex iterator aswell, whats the protocol?
+
+/// TODO - how to make vertex index generic? gen 'to_usize'/'from_usize'
+/// for the moment,just throw hardcoded i32 around as a universal vertex index.
+
+type VTI=i32;
+pub trait HasVertices<V:Pos>{
+	fn num_vertices(&self )->VTI;
+	fn vertex<'a>(&'a self,i:VTI)->&'a V;
+
+	/// compute object's local extents of position vectors
+	fn bounding_box(&self)->Extents<Vec3f>{
+		let mut e=Extents::new();	
+		for i in 0..self.num_vertices() as i32{
+			e.include(&self.vertex(i).pos());
+		}
+		e
+	}
+
+	///Compute the AABB of all vertex attributes
+	/// TODO - not so sure about this.
+	/// not all vertices will have linearly combinable attributes.
+	/// we might need 2 types of vertex.
+//	fn vertex_extents()->Extents<V>{//of all vertex params
+//	}
+
+	fn map_vertices<R,F:Fn(VTI,&V)->R>(&self,f:F)->Array<R>{
+		let mut result=Array::new();
+		for i in 0..self.num_vertices(){ result.push( f(i,self.vertex(i))) }
+		result
+	}
+	fn fold_vertices<A,R,F:Fn(VTI,A,& V)->A>(&self,input:A,f:F)->A{
+		let mut acc=input;
+		for i in 0..self.num_vertices(){ acc=f(i,acc,self.vertex(i))}
+		acc
+	}
 }
 
 

@@ -428,6 +428,7 @@ static g_num_torus:int = 128;
 type StringMap<T,K=String> = HashMap<K,T>;
 
 #[cfg(target_os = "emscripten")]
+/// Compatability for Emscripten - for some reason this was tracked down as cause of error (fvARB calls)
 unsafe fn glUniformMatrix4fvARB(loc:i32, count:i32,  flags:u8, ptr:*const f32){
 	glUniform4fv(
 		loc,
@@ -589,7 +590,7 @@ fn idle()
 
 pub fn create_landscape()->GlMesh{
 	let ht=landscape::generate2d(4,0.125,1.1f32,1.0,0x987412ab);
-	let tm=trimesh::TriMesh::<Vec3>::from_heightfield(&ht,0.25f32);
+	let tm=trimesh::TriMesh::<Vertex>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
 pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3)->GlMesh{
@@ -615,13 +616,13 @@ pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3)->GlMesh{
 }
 
 use trimesh::TriMesh;
-impl<'a> From<&'a TriMesh<Vec3>> for GlMesh{
-	fn from(src:&TriMesh<Vec3>)->Self {
+impl<'a> From<&'a TriMesh<Vertex>> for GlMesh{
+	fn from(src:&TriMesh<Vertex>)->Self {
 		let mut vts:Vec<VertexNCT>=Vec::new();
 		let normals=src.vertex_normals();
 		for (i,v) in src.vertices.iter().enumerate(){
 			vts.push(VertexNCT{
-				pos:Vec3(v.x,v.y,v.z),
+				pos:v.pos,
 				color:Vec4(1.0,1.0,1.0,1.0),
 				norm:normals[i as i32],
 				tex0:Vec2(0.0,0.0),

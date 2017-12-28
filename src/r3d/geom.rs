@@ -93,6 +93,7 @@ pub trait Pos<V=Vec3<f32>> {
 	fn pos(&self)->V;
 	fn set_pos(&mut self,v:&V) {unimplemented!()}
 }
+
 pub trait Norm<V=Vec3<f32>> {
 	type Output;
 	fn norm(&self)->V;

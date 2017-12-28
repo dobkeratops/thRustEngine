@@ -9,11 +9,19 @@ type VtIdx=i32;
 /// all attributes on the vertex.
 /// triangle mesh; 'vertex' doesn't need an attr, you'd just extend 'V' itself.
 #[derive(Clone,Debug)]
-pub struct TriMesh<V,ATTR=()> {
+pub struct TriMesh<V:Pos,ATTR=()> {
 	pub vertices:Array<V>,
 	pub indices:Array<Array3<VtIdx>>,
 	pub attr:Array<ATTR>,
 }
+
+impl<V:Pos,ATTR> HasVertices<V> for TriMesh<V,ATTR>{
+	fn num_vertices(&self)->VtIdx{self.vertices.len()}
+	fn vertex(&self,i:i32)->&V{&self.vertices[i]}
+	
+}
+
+
 // TODO: 'VertexAttrMesh'
 // -shared positions
 // surface vertices indexed by the triangles
@@ -24,7 +32,7 @@ pub fn add_quad(tris:&mut Array<Array3<VtIdx>>, quad:Array4<VtIdx>){
 	tris.push(Array3(quad[0],quad[1],quad[3]));
 	tris.push(Array3(quad[1],quad[2],quad[3]));
 }
-impl<V> TriMesh<V,()>{
+impl<V:Pos> TriMesh<V,()>{
 	pub fn new()->Self{
 		TriMesh{
 			vertices:Array::new(),
@@ -76,7 +84,7 @@ impl<V> TriMesh<V,()>{
 	}
 }
 
-impl<V:Sized,ATTR> TriMesh<V,ATTR>{
+impl<V:Pos+Sized,ATTR> TriMesh<V,ATTR>{
 	pub fn foreach_triangle(&self, f:&mut FnMut([&V;3],&ATTR)->() ){
 		for (i,t) in self.indices.iter().enumerate(){
 			f([&self.vertices[t[0]],
@@ -113,7 +121,7 @@ impl<V:Sized,ATTR> TriMesh<V,ATTR>{
 }
 
 /// push an unshared cyclic orderquad into a mesh. 
-impl<V,ATTR:Clone> TriMesh<V,ATTR>{
+impl<V:Pos,ATTR:Clone> TriMesh<V,ATTR>{
 	pub fn push_quad(&mut self,vs:(V,V,V,V),a:ATTR){ 
 		// todo: parallel arrays?
 		let index=self.vertices.len() as i32;
@@ -129,7 +137,7 @@ impl<V,ATTR:Clone> TriMesh<V,ATTR>{
 	}
 }
 
-impl TriMesh<Vec3,()> {
+impl TriMesh<Vertex,()> {
 	// generates xy-plane heightfield z is up. 
 	// must rotate it after if you want something else
 	pub fn from_heightfield(ht:&Array<Array<f32>>,size:f32)->Self{
@@ -139,14 +147,14 @@ impl TriMesh<Vec3,()> {
 		for col in ht.iter(){
 			assert!(col.len()==width);
 		}
-		let mut vertices:Array<Vec3> = Array::new();
+		let mut vertices:Array<Vertex> = Array::new();
 		let cellxsize=size/(width as f32);
 		let cellysize=size/(height as f32);
 		let mut fy=-0.5f32*cellysize;
 		for y in 0..height{
 			let mut fx=-0.5f32*cellxsize;
 			for x in 0..width{
-				vertices.push(Vec3(fx,fy,ht[y][x]));
+				vertices.push(Vertex{pos:Vec3(fx,fy,ht[y][x])});
 				fx+=cellxsize;
 			}
 			fy+=cellysize;
@@ -154,7 +162,7 @@ impl TriMesh<Vec3,()> {
 		TriMesh::grid(width as VtIdx,height as VtIdx,&|i,j|vertices[j*width+i].clone())
 	}
 	pub fn triangle_normals(&self)->Array<Vec3>{
-		self.map_triangles(&|tri,_|tri[0].vtriangle_norm(tri[1],tri[2]))
+		self.map_triangles(&|tri,_|tri[0].pos.vtriangle_norm(&tri[1].pos(),&tri[2].pos()))
 	}
 	pub fn vertex_normals(&self)->Array<Vec3>{
 		let mut ret={
@@ -208,6 +216,7 @@ impl<V:Debug+Pos> TriMesh<V,()>{
 		ex
 	}
 }
+
 impl TriMesh<VertexNCT,()>{
 
 	//todo - customize with lambdas
