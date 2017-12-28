@@ -22,10 +22,10 @@ pub fn begin(){
 pub fn end(){
 }
 
-pub fn gl_vertex(a:Vec3){
+pub fn gl_vertex(a:Vec3f){
 	unsafe {glVertex3f(a.x,a.y,a.z);}
 }
-pub fn gl_vertex_tc(pos:&Vec3,uv:&Vec2,col:u32){
+pub fn gl_vertex_tc(pos:&Vec3f,uv:&Vec2f,col:u32){
 	unsafe {
 		gl_color(col);
 		glTexCoord2f(uv.x,uv.y);
@@ -102,19 +102,19 @@ pub fn rect_vertices_v2<V2:HasXY<Elem=f32>>(a:&V2,b:&V2)->(V2,V2,V2,V2) {
      V2::from_xy(b.x(), b.y()))
 }
 
-pub fn crosshair_xy(a:&Vec3, inner:f32, outer:f32, color:Color){
+pub fn crosshair_xy(a:&Vec3f, inner:f32, outer:f32, color:Color){
 	line_c(&a.vadd_x(-inner), &a.vadd_x(-outer), color);
 	line_c(&a.vadd_x(inner), &a.vadd_x(outer), color);
 	line_c(&a.vadd_y(-inner), &a.vadd_y(-outer), color);
 	line_c(&a.vadd_y(inner), &a.vadd_y(outer), color);
 }
 
-pub fn crosshair_z(a:&Vec3, inner:f32, outer:f32, color:Color){
+pub fn crosshair_z(a:&Vec3f, inner:f32, outer:f32, color:Color){
 	line_c( &a.vadd_z(-inner), &a.vadd_z(-outer), color);
 	line_c( &a.vadd_z(inner), &a.vadd_z(outer), color);
 }
 
-pub fn crosshair_xyz(a:&Vec3, inner:f32, outer:f32, color:Color){
+pub fn crosshair_xyz(a:&Vec3f, inner:f32, outer:f32, color:Color){
 	crosshair_xy(a, inner,outer,color);
 	crosshair_z(a,inner,outer,color);	
 }
@@ -146,7 +146,7 @@ pub fn rect_outline_v2<V2:HasXY<Elem=f32>>(a:&V2,b:&V2,color:u32) {
 	}
 }
 
-pub fn box_corners(a:&Vec3,b:&Vec3,f:f32,c:Color){
+pub fn box_corners(a:&Vec3f,b:&Vec3f,f:f32,c:Color){
 	rect_corners_xy(a, &Vec3(b.x,b.y,a.z), f,c);
 	rect_corners_xy(a, &Vec3(b.x,b.y,b.z), f,c);
 	line_ends(&Vec3(a.x,a.y,a.z),&Vec3(a.x,a.y,b.z),f,c);
@@ -155,12 +155,12 @@ pub fn box_corners(a:&Vec3,b:&Vec3,f:f32,c:Color){
 	line_ends(&Vec3(b.x,b.y,a.z),&Vec3(b.x,b.y,b.z),f,c);
 }
 
-fn line_ends(a:&Vec3,b:&Vec3,f:f32,color:Color){
+fn line_ends(a:&Vec3f,b:&Vec3f,f:f32,color:Color){
 	line_c(a,&a.vlerp(b,f),color);
 	line_c(b,&b.vlerp(a,f),color);
 }
 
-pub fn rect_corners_xy(a:&Vec3,b:&Vec3,corner_fraction:f32,c:Color) {
+pub fn rect_corners_xy(a:&Vec3f,b:&Vec3f,corner_fraction:f32,c:Color) {
     let dx=b.x-a.x;
     let dy=b.y-a.y;
     let cx=dx*corner_fraction;
@@ -177,16 +177,16 @@ pub fn rect_corners_xy(a:&Vec3,b:&Vec3,corner_fraction:f32,c:Color) {
     line_strip2_c( &Vec3(b.x, a.y+cy,a.z), &ba, &Vec3(b.x-cx, a.y,a.z),c);
     line_strip2_c( &Vec3(b.x, b.y-cy,a.z), &bb, &Vec3(b.x-cx, b.y,a.z),c);
 }
-pub fn circle_point_xy(a:f32, r:f32)->Vec3{
+pub fn circle_point_xy(a:f32, r:f32)->Vec3f{
     Vec3(a.cos()*r,a.sin()*r,0.0)
 }
-pub fn circle_point_xz(a:f32, r:f32)->Vec3{
+pub fn circle_point_xz(a:f32, r:f32)->Vec3f{
     Vec3(a.cos()*r,0.0,a.sin()*r)
 }
-pub fn circle_point_yz(a:f32, r:f32)->Vec3{
+pub fn circle_point_yz(a:f32, r:f32)->Vec3f{
     Vec3(0.0,a.cos()*r,a.sin()*r)
 }
-pub fn curve_open<F:Fn(f32)->Vec3>(f:F, start:f32,end:f32,segs:i32){
+pub fn curve_open<F:Fn(f32)->Vec3f>(f:F, start:f32,end:f32,segs:i32){
     let mut i=0;
     let mut t=0.0f32;
     let dt=(end-start)/(segs as f32);
@@ -198,7 +198,7 @@ pub fn curve_open<F:Fn(f32)->Vec3>(f:F, start:f32,end:f32,segs:i32){
         vs=ve;
     }
 }
-pub fn curve_closed<F:Fn(f32)->Vec3>(f:F, start:f32,end:f32,segs:i32){
+pub fn curve_closed<F:Fn(f32)->Vec3f>(f:F, start:f32,end:f32,segs:i32){
     // todo,un-cutpaste.
     let mut i=0;
     let mut t=0.0f32;
@@ -214,27 +214,27 @@ pub fn curve_closed<F:Fn(f32)->Vec3>(f:F, start:f32,end:f32,segs:i32){
     line(&vs,&vstart);//close it.
 }
 
-pub fn circle_xy(centre:&Vec3, r:f32){
+pub fn circle_xy(centre:&Vec3f, r:f32){
     curve_closed(|a|circle_point_xy(a,r), 0.0f32, PI, 32);
 }
-pub fn arc_xy<A:Angle>(centre:&Vec3,r:f32, a0:A,a1:A){
+pub fn arc_xy<A:Angle>(centre:&Vec3f,r:f32, a0:A,a1:A){
 	curve_open(|a|circle_point_xy(a,r), a0.to_radians(),a1.to_radians(),32);
 }
-pub fn circle_yz(centre:&Vec3, r:f32){
+pub fn circle_yz(centre:&Vec3f, r:f32){
     curve_closed(|a|circle_point_yz(a,r), 0.0f32, 6.248f32, 32);
 }
-pub fn arc_yz<A:Angle>(centre:&Vec3,r:f32, a0:A,a1:A){
+pub fn arc_yz<A:Angle>(centre:&Vec3f,r:f32, a0:A,a1:A){
 	curve_open(|a|circle_point_yz(a,r), a0.to_radians(),a1.to_radians(),32);
 }
-pub fn circle_xz(centre:&Vec3, r:f32){
+pub fn circle_xz(centre:&Vec3f, r:f32){
     curve_closed(|a|circle_point_xz(a,r), 0.0f32, 6.248f32, 32);
 }
-pub fn arc_xz<A:Angle>(centre:&Vec3,r:f32, a0:A,a1:A){
+pub fn arc_xz<A:Angle>(centre:&Vec3f,r:f32, a0:A,a1:A){
 	curve_open(|a|circle_point_xz(a,r), a0.to_radians(),a1.to_radians(),32);
 }
 
 // wireframe sphereoid, aprox by axis circles.
-pub fn sphere(centre:&Vec3, r:f32){
+pub fn sphere(centre:&Vec3f, r:f32){
     circle_xy(centre,r);
     circle_xz(centre,r);
     circle_yz(centre,r);
@@ -267,21 +267,21 @@ pub fn quad<V:HasXYZ<Elem=f32>>(a:&V,b:&V,c:&V,d:&V){
 */
 // todo - macro..
 pub struct VertexCT{
-	pos:Vec3,tex:Vec2,color:u32
+	pos:Vec3f,tex:Vec2f,color:u32
 }
 
 pub struct VertexNCT{
-	pos:Vec3,norm:Vec3,tex:Vec2,color:Color
+	pos:Vec3f,norm:Vec3f,tex:Vec2f,color:Color
 }
 
 pub struct VertexC{
-	pos:Vec3, color:Color,
+	pos:Vec3f, color:Color,
 }
 pub struct VertexCRef<'a,V3:HasXYZ+'a>{
 	pos:&'a V3, color:&'a Color,
 }
 pub struct Vertex{
-	pos:Vec3,
+	pos:Vec3f,
 }
 
 struct Line<V,A=()> {
@@ -378,7 +378,7 @@ pub fn rect_tex_c_crop<V2:HasXY<Elem=f32>>(a:&V2,b:&V2,z:f32,col:u32,uv0:&V2,uv1
 pub fn rect_tex<V:HasXY<Elem=f32>>(a:&V,b:&V,z:f32){
 	rect_tex_c_crop(a,b,z,0xffffffff,&V::from_xy(0.0f32,1.0f32),&V::from_xy(1.0f32,0.0f32));
 }
-pub fn rect_xy_tex(a:&Vec2,b:&Vec2,z:f32){
+pub fn rect_xy_tex(a:&Vec2f,b:&Vec2f,z:f32){
 	rect_tex_c_crop(&Vec2(a.x,a.y), &Vec2(b.x,b.y),z, 0xffffffff, &Vec2(0.0f32,1.0f32), &Vec2(1.0f32,0.0f32) );
 }
 
@@ -400,7 +400,7 @@ pub fn triangle<V:HasXYZ<Elem=f32>>(a:&V,b:&V,c:&V){
 }
 
 
-pub fn sprite_at(a:&Vec3,r:f32,color:Color) {
+pub fn sprite_at(a:&Vec3f,r:f32,color:Color) {
 // todo - pointsprite buffer, camera facing, etc.
 	rect_tex_c_crop(
 		&Vec2(a.x, a.y),&Vec2(a.x, a.y), a.z,
@@ -429,15 +429,15 @@ pub fn sprite_at(a:&Vec3,r:f32,color:Color) {
 */
 }
 
-pub fn axes_color_coded(centre:&Vec3, len:f32,xc:Color,yc:Color,zc:Color){
+pub fn axes_color_coded(centre:&Vec3f, len:f32,xc:Color,yc:Color,zc:Color){
 	line_c(centre, &centre.vadd_x(len), xc);
 	line_c(centre, &centre.vadd_y(len), yc);
 	line_c(centre, &centre.vadd_z(len), zc);
 }
-pub fn axes(centre:&Vec3,len:f32){
+pub fn axes(centre:&Vec3f,len:f32){
 	axes_color_coded(centre,len,0xff0000,0x00ff00,0x0000ff);
 }
-pub fn axes_c(centre:&Vec3,len:f32,c:Color){
+pub fn axes_c(centre:&Vec3f,len:f32,c:Color){
 	axes_color_coded(centre,len,c,c,c);
 }
 
@@ -568,7 +568,7 @@ pub fn arrow(vs:&V3, ve:&V3, head:f32,color:Color){
 	}
 }
 
-pub fn arrow_mid(vs:&Vec3,ve:&Vec3, head:f32,color:Color){
+pub fn arrow_mid(vs:&Vec3f,ve:&Vec3f, head:f32,color:Color){
 }
 
 pub fn circle_fill_xy_c<V3:HasXYZ<Elem=f32>>(pos:&V3,r2:f32, color:u32){
@@ -675,7 +675,7 @@ trait GlColor {
 impl GlColor for Color {
 	fn gl_color(&self){unsafe {gl_color(*self)}}
 }
-impl GlColor for Vec4 {
+impl GlColor for Vec4f {
 	fn gl_color(&self){
 		unsafe {glColor4f(self.x,self.y,self.z,self.w)}
 	}

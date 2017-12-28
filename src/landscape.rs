@@ -6,7 +6,7 @@ pub struct LandscapeDef {
 }
 
 pub struct Landscape {
-	pts:Option<[Vec3;4]>	// landscape is a tree of quads.
+	pts:Option<[Vec3f;4]>	// landscape is a tree of quads.
 }
 
 // TODO: as a primitive in the Editor

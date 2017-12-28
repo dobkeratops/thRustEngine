@@ -43,7 +43,7 @@ pub type PixelSizei=(i32,i32);
 pub type PixelSizef=(f32,f32);
 pub type PixelRectf=(PixelPosf,PixelPosf);
 pub type PixelRecti=(PixelPosi,PixelPosi);
-pub type ScreenPos=Vec2;
+pub type ScreenPos=Vec2f;
 #[derive(Debug,Clone,Copy)]
 pub struct ScrPos(pub f32,pub f32);
 
@@ -770,7 +770,7 @@ fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
         _ => () // default - continue
     }
 }
-fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3{Vec3(x,y,z)}
+fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3f{Vec3(x,y,z)}
 
 /// window and cursor state, passed down because the framework calculates sizes.
 #[derive(Clone,Debug)]
@@ -824,7 +824,7 @@ unsafe fn render_drag_overlay(){
     // clear all rendering states
     draw::identity();
     let sv=to_screenpos(g_ldrag_start.unwrap()).to_vec3_z(0.0);
-    let ev=from_tuple_z(cvp.into(),0.0);
+    let ev=Vec3(cvp.x,cvp.y,0.0);//from_tuple_z(cvp.into(),0.0);
     match g_dragmode{
         DragMode::Line=>{
             draw::line(&sv, &ev);

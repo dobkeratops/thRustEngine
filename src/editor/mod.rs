@@ -55,7 +55,7 @@ pub struct Editor<T:Editable> {             // a type of frame window.
 	redo_stack:Vec<EditorOp<T>>,
     transient_op:optbox<Operation<T>>,// not part of the doc yet
     transient_scene:Option<T>,
-    interest_point    :Vec3,
+    interest_point    :Vec3f,
     zoom:f32,
     tool    :Box<Tool<T>>,             // current tool.
     last_tool    :optbox<Tool<T>>,     // saved for 'last tool toggle'
@@ -326,13 +326,13 @@ pub trait Tool<T:Editable>{
 
 
 // operations that any 'Editable' must have
-#[derive(Default,Debug,Clone)]
+#[derive(Debug,Clone)]
 pub struct OpCut<T:Editable>{at:ScreenPos, phantom:PhantomData<T>}
 
-#[derive(Default,Debug,Clone)]
+#[derive(Debug,Clone)]
 pub struct OpCopy<T:Editable>{at:ScreenPos, phantom: PhantomData<T>}
 
-#[derive(Default,Debug,Clone)]
+#[derive(Debug,Clone)]
 pub struct OpPaste<T:Editable>{at:ScreenPos, phantom: PhantomData<T>}
 
 
@@ -534,14 +534,14 @@ pub struct ViewCursorSceneS{
     world_to_screen:Mat44,
     screen_to_world:Mat44,  // incorrect but we hack it for 2d views
     // 3d views need a complete different idea
-    interest_point:Vec3,
-    screen_interest_point:Vec3, //IP transformed into screenspace inc depth.
+    interest_point:Vec3f,
+    screen_interest_point:Vec3f, //IP transformed into screenspace inc depth.
 }
 impl ViewCursorSceneS{
-    pub fn world_to_viewport(&self,v:&Vec3)->Vec3{
+    pub fn world_to_viewport(&self,v:&Vec3f)->Vec3f{
         self.world_to_screen.mul_vec3_point(v).project_to_vec3()
     }
-    pub fn viewport_to_world(&self,v:&Vec3)->Vec3{
+    pub fn viewport_to_world(&self,v:&Vec3f)->Vec3f{
         self.screen_to_world.mul_vec3_point(v).project_to_vec3()
     }
 }

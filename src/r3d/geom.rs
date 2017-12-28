@@ -69,20 +69,20 @@ type AABB<T> =Extents<Vec3<T>>;
 //type Rect<T> =MinMax<Vec2<T>>;
 
 #[derive(Clone,Debug)]
-pub struct Sphere<T> {
+pub struct Sphere<T:VElem> {
 	pub pos:Vec3<T>, pub radius:T
 }
 #[derive(Clone,Debug)]
-pub struct NormalCone<T:Float>(Vec3<T>,T);
+pub struct NormalCone<T:VElem+Float>(Vec3<T>,T);
 
 #[derive(Clone,Debug)]
-pub struct OOBB<T> {
+pub struct OOBB<T:VElem> {
 	pub matrix:matrix::Matrix4<Vec3<T>>,
 	pub size:Vec3<T>
 }
 #[derive(Clone,Debug)]
-pub struct Extents<T:Sized=Vec3<f32>> {  
-	pub min:T,pub max:T
+pub struct Extents<V:Sized=Vec3<f32>> {  
+	pub min:V,pub max:V
 }
 
 // 'Position' trait for anything with a spatial centre/position.
@@ -127,8 +127,8 @@ impl Extents<Vec3<f32>>{
 }
 
 pub fn Extents<V:VecCmpOps+Clone>(a:&V,b:&V)->Extents<V>{ Extents{min:a.vmin(b),max:a.vmax(b)}}
-pub type Rect=Extents<Vec2>;
-pub type Cuboid=Extents<Vec3>;
+pub type Rect=Extents<Vec2f>;
+pub type Cuboid=Extents<Vec3f>;
 
 impl<V:VecCmpOps> Extents<V> { 
 	pub fn include(&mut self, v:&V) {
@@ -136,9 +136,9 @@ impl<V:VecCmpOps> Extents<V> {
 		self.max=self.max.vmax(v);
 	}
 }
-impl<V:Sub<Output=V>+Copy> Extents<V> {
+impl<T:Float,V:VMath<Elem=T>> Extents<V> {
     pub fn size(&self)->V {
-        self.max-self.min//.vsub(&self.min)
+        self.max.vsub(&self.min)
     }
 }
 
@@ -228,7 +228,7 @@ pub trait GetClosestFeatures<B> {
 }
 
 /// result of get_closest_features; contains the two points on the objects having been tested, their seperation and the normal
-pub struct ClosestFeatures<V=Vec3,S=f32>{
+pub struct ClosestFeatures<S=f32,V=Vec3<S>>{
 	pub points:[V;2],	//
 	pub normal:V,
 	pub seperation:S			// >0 means no collision, <0 means the objects intersect

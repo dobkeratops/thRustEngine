@@ -34,21 +34,21 @@ pub struct	VertexP
 	pub pos:Vec3<f32>,
 }
 
-impl Pos<Vec3> for VertexP {
-	type Output=Vec3;
-	fn pos(&self)->Vec3{self.pos}
+impl Pos<Vec3f> for VertexP {
+	type Output=Vec3f;
+	fn pos(&self)->Vec3f{self.pos}
 }
 
-impl Pos<Vec3> for VertexNFCT{	
-	type Output=Vec3;
-	fn pos(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
-	fn set_pos(&mut self,v:&Vec3) {self.pos=v.clone();}
+impl Pos<Vec3f> for VertexNFCT{	
+	type Output=Vec3f;
+	fn pos(&self)->Vec3f {Vec3(self.pos.x,self.pos.y,self.pos.z)}
+	fn set_pos(&mut self,v:&Vec3f) {self.pos=v.clone();}
 }
 
-impl Norm<Vec3> for VertexNFCT{	
-	type Output=Vec3;
-	fn norm(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
-	fn set_norm(&mut self,v:&Vec3) {self.pos=v.clone();}
+impl Norm<Vec3f> for VertexNFCT{	
+	type Output=Vec3f;
+	fn norm(&self)->Vec3f {Vec3(self.pos.x,self.pos.y,self.pos.z)}
+	fn set_norm(&mut self,v:&Vec3f) {self.pos=v.clone();}
 }
 
 /// trait for objects with vertex-arrays

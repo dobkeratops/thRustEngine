@@ -161,10 +161,10 @@ impl TriMesh<VertexP,()> {
 		}
 		TriMesh::grid(width as VtIdx,height as VtIdx,&|i,j|vertices[j*width+i].clone())
 	}
-	pub fn triangle_normals(&self)->Array<Vec3>{
+	pub fn triangle_normals(&self)->Array<Vec3f>{
 		self.map_triangles(&|tri,_|tri[0].pos.vtriangle_norm(&tri[1].pos(),&tri[2].pos()))
 	}
-	pub fn vertex_normals(&self)->Array<Vec3>{
+	pub fn vertex_normals(&self)->Array<Vec3f>{
 		let mut ret={
 			let mut ret=Array::<Vec3<f32>>::from_val_n(Vec3::zero(), self.vertices.len() as i32);
 			let tnorm=self.triangle_normals();
@@ -208,7 +208,7 @@ impl<V:Debug+Pos> TriMesh<V,()>{
 		println!("mesh: vertices{} triangles{} extents {:?}",self.vertices.len(),self.indices.len(),self.extents());
 		
 	}
-	pub fn extents(&self)->Extents<Vec3>{
+	pub fn extents(&self)->Extents<Vec3f>{
 		let mut ex=Extents::new();
 		for v in self.vertices.iter(){
 			ex.include(&v.pos())
@@ -226,7 +226,12 @@ impl TriMesh<VertexNFCT,()>{
 		{
 			let cell_size=size/(voltex.len() as f32);
 			let make_vertex=|ipos:Array3<i32>,clip:f32,normal_axis_index:i32,(u,v)|{
-				let mut norm=Vec3::zero(); norm[normal_axis_index]=1.0;
+				let mut norm:Vec3f=match normal_axis_index{
+					0=>Vec3(1.0,0.0,0.0),
+					1=>Vec3(0.0,1.0,0.0),
+					2=>Vec3(0.0,0.0,1.0),
+					_=>panic!()
+				} ;
 				let (pix,piy,piz):(i32,i32,i32)=(ipos[0],ipos[1],ipos[2]);
 				let s:f32=voltex[piz][piy][pix];// pick shade from tex
 				let fx:f32=ipos[0] as f32 * cell_size;

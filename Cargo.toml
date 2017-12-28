@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["dobkeratops <dobkeratopsgit@gmail.com>"]
 
 [dependencies]
+vec_xyzw = { git = "file:///Users/walter/rust_projects/vec_xyzw"}
+lininterp = { git = "file:///Users/walter/rust_projects/lininterp"}
+vecgenericindex = { git = "file:///Users/walter/rust_projects/vec_with_generic_index" }
 image = "0.18.0"
 itertools = "0.7.4"
 half = "1.0.1"
-array3d = { git = "file:///Users/walter/rust_projects/array3d"}
-vecgenericindex = "0.1.0"
-lininterp = { git = "file:///Users/walter/rust_projects/lininterp"}

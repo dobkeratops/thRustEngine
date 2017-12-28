@@ -10,15 +10,15 @@ pub struct Scene{
 type SceneSelection = Vec<bool>;
 
 trait SpatialScene{
-    fn ss_full_extents(&self)->Option<Extents<Vec3>>;
-    fn ss_selection_extents(&self)->Option<Extents<Vec3>>;
+    fn ss_full_extents(&self)->Option<Extents<Vec3f>>;
+    fn ss_selection_extents(&self)->Option<Extents<Vec3f>>;
 }
 
 impl SpatialScene for Scene {
-    fn ss_full_extents(&self)->Option<Extents<Vec3>>{
+    fn ss_full_extents(&self)->Option<Extents<Vec3f>>{
         None
     }
-    fn ss_selection_extents(&self)->Option<Extents<Vec3>>{
+    fn ss_selection_extents(&self)->Option<Extents<Vec3f>>{
         None
     }
 }
@@ -28,7 +28,7 @@ struct TreeNode<Common>{
     children:Vec<TreeNode<Common>>
 }
 struct SRT{
-    pos:Vec3, rotation:Vec3, scaling:Vec3,
+    pos:Vec3f, rotation:Vec3f, scaling:Vec3f,
 }
 struct Info{
     tag:bool,
@@ -37,13 +37,13 @@ struct Info{
     transform:SRT,
 }
 
-struct Vertices<V=Vec3> {
+struct Vertices<V=Vec3f> {
     // tags, transform, ..
     vertices:Vec<V>,
     tags:Vec<bool>
 }
 
-struct QuadMesh<Vertex=Vec3,PolyInfo=()> {
+struct QuadMesh<Vertex=Vec3f,PolyInfo=()> {
     vertices:Vec<Vertex>,
     triangles:Vec<(PolyInfo,[VertexIndex;4])>
 }
@@ -58,7 +58,7 @@ trait SceneElem {
     fn polygonize<'a>(&'a self)->RefOrBox<'a, QuadMesh>;    // .. it might have been a mesh
     fn render(&self,mat:&Mat44);
     fn dump(&self);
-    fn extents(&self)->Extents<Vec3>;
+    fn extents(&self)->Extents<Vec3f>;
 }
 
 mod primitive{
@@ -214,7 +214,7 @@ impl Operation<Scene> for Translate {
 
 static mut g_last_point:Option<VertexIndex>=None;
 
-pub fn crosshair_feedback(pos:&Vec3){
+pub fn crosshair_feedback(pos:&Vec3f){
 	draw::crosshair_xy(pos,g_snap_radius*0.5,g_snap_radius,g_color_feedback);
 }
 

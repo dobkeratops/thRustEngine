@@ -1,8 +1,5 @@
 use super::*;
-
-
-pub use self::conversions::*;
-
+/*
 // Vec3*scalar
 impl<A,B,C> Mul<B> for Vec3<A> 
 	where
@@ -13,7 +10,7 @@ impl<A,B,C> Mul<B> for Vec3<A>
 		Vec3(self.x*rhs   , self.y*rhs, self.z*rhs)
 	}
 }
-
+*/
 /// Helper trait expresses constraints that allow 'lerp' to work for general intermedaite types.
 pub trait Lerpable<Ratio> :
 	Sized
@@ -85,9 +82,9 @@ impl<X,T> PairWith<T> for X where X:Sized+Copy,T:Sized+Copy{
 pub trait NumElements {
 	fn num_elements(&self)->usize;
 }
-impl NumElements for Vec2{ fn num_elements(&self)->usize{2}}
-impl NumElements for Vec3{ fn num_elements(&self)->usize{3}}
-impl NumElements for Vec4{ fn num_elements(&self)->usize{4}}
+impl<T:VElem> NumElements for Vec2<T>{ fn num_elements(&self)->usize{2}}
+impl<T:VElem> NumElements for Vec3<T>{ fn num_elements(&self)->usize{3}}
+impl<T:VElem> NumElements for Vec4<T>{ fn num_elements(&self)->usize{4}}
 
 /// a
 pub trait ArrayDimensions {
@@ -104,7 +101,7 @@ impl ArrayDimensions for f64{
 }
 // TODO.. should this recurse inward,
 // e.g. 1+ T::array_dimensions..
-impl<T> ArrayDimensions for Vec3<T> {
+impl<T:VElem> ArrayDimensions for Vec3<T> {
 	fn array_dimensions(&self)->usize{1}
 }
 
@@ -391,11 +388,12 @@ pub trait Cross<VB>:Sized+Copy{
 	fn cross(self,rhs:VB)->Self::Output;
 }
 impl<A,B,O,P> Cross<Vec3<B>> for Vec3<A> where
-	A:Copy+Float,
-	B:Copy+Float,
-	A:Mul<B,Output=P>+Copy,
-	P:Add<P,Output=O>+Copy,
-	P:Sub<P,Output=O>+Copy,
+	A:VElem+Float,
+	B:VElem+Float,
+	A:Mul<B,Output=P>+VElem,
+	P:Add<P,Output=O>+VElem,
+	P:Sub<P,Output=O>+VElem,
+	O:VElem,
 {
 	type Output=Vec3<O>;
 	fn cross(self,b:Vec3<B>)->Self::Output{
@@ -404,11 +402,11 @@ impl<A,B,O,P> Cross<Vec3<B>> for Vec3<A> where
 }
 // vec4 cross just uses (x,y,z) and emits (x',y',z',0)
 impl<A,B,O,P> Cross<Vec4<B>> for Vec4<A> where
-	B:Copy+Float,
-	A:Mul<B,Output=P>+Copy+Float,
-	P:Add<P,Output=O>+Copy,
-	P:Sub<P,Output=O>+Copy,
-	O:Zero
+	B:VElem+Float,
+	A:Mul<B,Output=P>+VElem+Float,
+	P:Add<P,Output=O>+VElem,
+	P:Sub<P,Output=O>+VElem,
+	O:Zero+VElem
 {
 	type Output=Vec4<O>;
 	fn cross(self,b:Vec4<B>)->Self::Output{
@@ -443,8 +441,10 @@ impl<V,D,N> SubNorm for V where
 // Generic maths classes
 // member functions prefixed with 'v' for easier life without code-completion, and to distinguish from operator overloads (official langauge level "add") etc
 
+// using vec_xyzw Vec1,Vec2,Vec3,Vec4 types
+/*
 /// 1D vector - sounds dumb, but symetrical with declaring channels with n-dimensions . Symetry for 'vector transpose' as Matrix1<Scalar>
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Copy,Debug)]
 #[repr(C)]
 pub struct Vec1<X:Sized=f32> {pub x:X}
 
@@ -467,123 +467,13 @@ pub struct Vec3<X:Sized=f32,Y:Sized=X,Z:Sized=Y> {pub x:X, pub y:Y, pub z:Z}
 #[derive(Clone,Debug,Copy,Default)]
 #[repr(C)]
 pub struct Vec4<X:Sized=f32,Y:Sized=X,Z:Sized=Y,W:Sized=Z> {pub x:X, pub y:Y,pub  z:Z, pub w:W}
-
+*/
 /// '8 element vector' written for completeness e.g. if we allow using these vectors to represent in-register SIMD operations with component-wise operations
 /// todo.. at this level are we better off saying [T;8] etc.
 #[derive(Clone,Debug,Copy)]
 #[repr(C)]
 pub struct Vec8<T=f32>(pub T,pub T,pub T,pub T, pub T,pub T,pub T,pub T);
 
-/// Conversions for vector types.
-mod conversions {
-	use super::{Vec1,Vec2,Vec3,Vec4};
-	/// conversion to and from tuple types
-/*
-// it wont allow that, only 'into'
-	impl<X:Clone> From<Vec1<X>> for (X,){
-		fn from(v:&Vec1<X>)->Self{(v.x.clone(),)}
-	}
-	impl<X:Clone,Y:Clone> From<Vec2<X,Y>> for (X,Y){
-		fn from(v:&Vec2<X,Y>)->Self{(v.x.clone(),v.y.clone())}
-	}
-	impl<X:Clone,Y:Clone,Z:Clone> From<Vec3<X,Y,Z>> for (X,Y,Z){
-		fn from(v:&Vec3<X,Y,Z>)->Self{(v.x.clone(),v.y.clone(),v.z.clone())}
-	}
-	impl<X:Clone,Y:Clone,Z:Clone,W:Clone> From<Vec4<X,Y,Z,W>> for (X,Y,Z,W){
-		fn from(v:&Vec4<X,Y,Z,W>)->Self{(v.x.clone(),v.y.clone(),v.z.clone(),v.w.clone())}
-	}
-*/
-
-	impl<X:Clone,Y:Clone> Into< (X,Y) > for Vec2<X,Y>  {
-		fn into(self)->(X,Y){ (self.x.clone(),self.y.clone()) }
-	}
-	impl<X:Clone,Y:Clone,Z:Clone> Into< (X,Y,Z) > for Vec3<X,Y,Z>  {
-		fn into(self)->(X,Y,Z){ (self.x.clone(),self.y.clone(),self.z.clone()) }
-	}
-	impl<X:Clone,Y:Clone,Z:Clone,W:Clone> Into< (X,Y,Z,W) > for Vec4<X,Y,Z,W>  {
-		fn into(self)->(X,Y,Z,W){ (self.x.clone(),self.y.clone(),self.z.clone(),self.w.clone()) }
-	}
-
-	impl<X:Clone,Y:Clone> From< (X,Y) > for Vec2<X,Y>  {
-		fn from(src:(X,Y))->Self { Vec2(src.0 .clone(),src.1 .clone()) }
-	}
-
-	impl<X:Clone,Y:Clone,Z:Clone> From< (X,Y,Z) > for Vec3<X,Y,Z>  {
-		fn from(src:(X,Y,Z))->Self { Vec3(src.0 .clone(),src.1 .clone(),src.2 .clone()) }
-	}
-	impl<X:Clone,Y:Clone,Z:Clone,W:Clone> From< (X,Y,Z,W) > for Vec4<X,Y,Z,W>  {
-		fn from(src:(X,Y,Z,W))->Self { Vec4(src.0 .clone(),src.1 .clone(),src.2 .clone(),src.3 .clone()) }
-	}
-
-	/// conversion to & from array types
-	impl<T:Clone> Into< [T;2] > for Vec2<T>  {
-		fn into(self)->[T;2]{ [self.x.clone(),self.y.clone()] }
-	}
-	impl<T:Clone> Into< [T;3] > for Vec3<T>  {
-		fn into(self)->[T;3]{ [self.x.clone(),self.y.clone(),self.z.clone()] }
-	}
-	impl<T:Clone> Into< [T;4] > for Vec4<T>  {
-		fn into(self)->[T;4]{ [self.x.clone(),self.y.clone(),self.z.clone(),self.w.clone()] }
-	}
-	impl<T:Clone> From< [T;2] > for Vec2<T>  {
-		fn from(src:[T;2])->Self { Vec2(src[0] .clone(),src[1] .clone()) }
-	}
-
-	impl<T:Clone> From< [T;3] > for Vec3<T>  {
-		fn from(src:[T;3])->Self { Vec3(src[0] .clone(),src[1] .clone(),src[2] .clone()) }
-	}
-	impl<T:Clone> From< [T;4] > for Vec4<T>  {
-		fn from(src:[T;4])->Self { Vec4(src[0] .clone(),src[1] .clone(),src[2] .clone(),src[3] .clone()) }
-	}
-
-
-	/// helper trait to hack restriction, to avoid clash between generic componentwise conversions and the 'reflecti
-	pub trait IsNot<B>{}
-	impl IsNot<f32> for f64{}
-	impl IsNot<f64> for f32{}
-	impl IsNot<i32> for f32{}
-	impl IsNot<f32> for i32{}
-	impl IsNot<i8> for f32{}
-	impl IsNot<f32> for i8{}
-	impl IsNot<u8> for f32{}
-	impl IsNot<f32> for u8{}
-
-	// TODO could roll a macro for other types
-	/// Generic componentwise conversions to and from VecN<f32>
-	impl<B> From<Vec2<B>> for Vec2<f32> where f32:From<B>, B:IsNot<f32> {
-		fn from(b:Vec2<B>)->Self {
-			Vec2::<f32>{ x: b.x.into(), y: b.y.into() }		
-		}
-	}
-	impl<B> From<Vec2<f32>> for Vec2<B> where B:From<f32>, f32:IsNot<B> {
-		fn from(b:Vec2<f32>)->Self {
-			Vec2::<B>{ x: b.x.into(), y: b.y.into() }		
-		}
-	}
-
-	impl<B> From<Vec3<B>> for Vec3<f32> where f32:From<B>, B:IsNot<f32> {
-		fn from(b:Vec3<B>)->Self {
-			Vec3::<f32>{ x: b.x.into(), y: b.y.into(), z: b.z.into() }		
-		}
-	}
-	impl<B> From<Vec3<f32>> for Vec3<B> where B:From<f32>, f32:IsNot<B> {
-		fn from(b:Vec3<f32>)->Self {
-			Vec3::<B>{ x: b.x.into(), y: b.y.into(), z: b.z.into() }		
-		}
-	}
-
-	impl<B> From<Vec4<B>> for Vec4<f32> where f32:From<B>, B:IsNot<f32> {
-		fn from(b:Vec4<B>)->Self {
-			Vec4::<f32>{ x: b.x.into(), y: b.y.into(), z: b.z.into(), w: b.w.into() }		
-		}
-	}
-	impl<B> From<Vec4<f32>> for Vec4<B> where B:From<f32>, f32:IsNot<B> {
-		fn from(b:Vec4<f32>)->Self {
-			Vec4::<B>{ x: b.x.into(), y: b.y.into(), z: b.z.into(), w: b.w.into() }		
-		}
-	}
-
-}
 
 /// '16 element vector' written for completeness e.g. if we allow using these vectors for componentwise SIMD
 
@@ -593,24 +483,55 @@ pub struct Vec16<T=f32>(pub T,pub T,pub T,pub T, pub T,pub T,pub T,pub T, pub T,
 
 
 // constructors
-pub fn Vec4<X,Y,Z,W>(x:X,y:Y,z:Z,w:W)->Vec4<X,Y,Z,W> { Vec4{x:x,y:y,z:z,w:w}}
-pub fn Vec3<X,Y,Z>(x:X,y:Y,z:Z)->Vec3<X,Y,Z> { Vec3{x:x,y:y,z:z}}
-pub fn Vec2<X,Y>(x:X,y:Y)->Vec2<X,Y> { Vec2{x:x,y:y}}
-pub fn Vec1<X>(x:X)->Vec1<X> { Vec1{x:x}}
+pub fn Vec4<X:VElem,Y:VElem,Z:VElem,W:VElem>(x:X,y:Y,z:Z,w:W)->Vec4<X,Y,Z,W> { Vec4{x:x,y:y,z:z,w:w}}
+pub fn Vec3<X:VElem,Y:VElem,Z:VElem>(x:X,y:Y,z:Z)->Vec3<X,Y,Z> { Vec3{x:x,y:y,z:z}}
+pub fn Vec2<X:VElem,Y:VElem>(x:X,y:Y)->Vec2<X,Y> { Vec2{x:x,y:y}}
+pub fn Vec1<X:VElem>(x:X)->Vec1<X> { Vec1{x:x}}
 
-impl<T:Clone> HasElem for Vec1<T>{
+impl<T:VElem> HasElem for Vec1<T>{
     type Elem=T;
+	fn vget(&self,i:i32)->T{
+		match i{
+			0=>self.x,
+			_=>panic!()
+		}
+	}
+
 }
 
-impl<T:Clone> HasElem for Vec2<T>{
+impl<T:VElem> HasElem for Vec2<T>{
 	type Elem=T;
+	fn vget(&self,i:i32)->T{
+		match i{
+			0=>self.x,
+			1=>self.y,
+			_=>panic!()
+		}
+	}
 }
 
-impl<T:Clone> HasElem for Vec3<T>{
+impl<T:VElem> HasElem for Vec3<T>{
 	type Elem=T;
+	fn vget(&self,i:i32)->T{
+		match i{
+			0=>self.x,
+			1=>self.y,
+			2=>self.z,
+			_=>panic!()
+		}
+	}
 }
-impl<T:Clone> HasElem for Vec4<T>{
+impl<T:VElem> HasElem for Vec4<T>{
 	type Elem=T;
+	fn vget(&self,i:i32)->T{
+		match i{
+			0=>self.x,
+			1=>self.y,
+			2=>self.z,
+			3=>self.w,
+			_=>panic!()
+		}
+	}
 }
 
 
@@ -658,43 +579,41 @@ impl Vec3f {
 */
 
 
-
-impl<T:Clone> Vec2<T> {
-	pub fn new(x:T,y:T)->Vec2<T>	{Vec2(x,y)}
-	pub fn vsplat(v:T)->Vec2<T> { Vec2(v.clone(),v)}
-	pub unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
-}
-impl<T:Clone> Vec2<T> {
-	pub fn clone_ref(a:&T,b:&T)->Vec2<T>	{Vec2(a.clone(),b.clone())}
-}
-impl<T:Clone> Vec1<T> {
-	pub fn clone_ref(a:&T)->Vec1<T>	{Vec1(a.clone())}
+pub trait VSplat<T>{
+	fn vsplat(v:T)->Self;
+	unsafe fn raw_ptr(&self)->*const T;
 }
 
-impl<T:Num> Vec2<T> {
+impl<T:VElem> VSplat<T> for Vec2<T> {
+//	pub fn new(x:T,y:T)->Vec2<T>	{Vec2(x,y)}
+	 fn vsplat(v:T)->Vec2<T> { Vec2(v.clone(),v)}
+	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
+}
+pub trait CrossZ<T>{
+	fn vcross_z(&self,other:&Self)->T;
+}
+impl<T:Num+VElem> CrossZ<T> for Vec2<T> {
 	// 'cross_z' computes the z component of a 3d cross product, i.e. uses x/y
-	pub fn vcross_z(&self,other:&Vec2<T>)->T {self.x*other.y-self.y*other.x}
+	 fn vcross_z(&self,other:&Vec2<T>)->T {self.x*other.y-self.y*other.x}
 }
-impl<T:Num> Vec3<T> {
-	pub fn new(vx:T,vy:T,vz:T)->Vec3<T>	{Vec3(vx,vy,vz)}
-	pub fn vsplat(v:T)->Vec3<T> { Vec3(v,v,v)}
-
-	pub fn fromake_vec2(xy:Vec2<T>,z:T)->Vec3<T> {Vec3(xy.x,xy.y,z)}
+impl<T:VElem> VSplat<T> for Vec3<T> {
+	 fn vsplat(v:T)->Vec3<T> { Vec3(v,v,v)}
+	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
 }
-impl<T:Clone> Vec3<T> {
-	pub fn clone_ref(a:&T,b:&T,c:&T)->Vec3<T>		{Vec3(a.clone(),b.clone(),c.clone())}
+impl<T:VElem> VSplat<T> for Vec4<T> {
+	 fn vsplat(v:T)->Vec4<T> { Vec4(v.clone(),v.clone(),v.clone(),v.clone())}	// todo -move to elsewhere
+	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
 }
+/*
 impl<T:Clone> Vec4<T> {
-	pub fn new(x:T,y:T,z:T,w:T)->Vec4<T>	{Vec4(x.clone(),y.clone(),z.clone(),w.clone())}
-	pub fn vsplat(v:T)->Vec4<T> { Vec4(v.clone(),v.clone(),v.clone(),v.clone())}	// todo -move to elsewhere
+	pub fn new(x:T,y:T,z:T,w:T)->Vec4<T> {Vec4(x.clone(),y.clone(),z.clone(),w.clone())}
 
 	pub fn vfromake_vec3(xyz:Vec3<T>,w:T)->Vec4<T> {Vec4(xyz.x.clone(),xyz.y.clone(),xyz.z.clone(),w.clone())}
 	pub fn vfromake_vec2(xy:Vec2<T>,z:T,w:T)->Vec4<T> {Vec4(xy.x.clone(),xy.y.clone(),z.clone(),w.clone())}
 	pub fn vfromake_vec2Vec2(xy:Vec2<T>,zw:Vec2<T>)->Vec4<T> {Vec4(xy.x.clone(),xy.y.clone(),zw.x.clone(),zw.y.clone())}
 }
-impl<T:Clone> Vec4<T> {
-	pub fn clone_ref(a:&T,b:&T,c:&T,d:&T)->Vec4<T>		{Vec4(a.clone(),b.clone(),c.clone(),d.clone())}
-}
+*/
+
 impl<T:Clone> Vec8<T> {
 	pub fn clone_ref(a:&T,b:&T,c:&T,d:&T,e:&T,f:&T,g:&T,h:&T)->Vec8<T>		{Vec8(a.clone(),b.clone(),c.clone(),d.clone(),e.clone(),f.clone(),g.clone(),h.clone())}
 }
@@ -730,13 +649,13 @@ pub trait VSelect<X>{
 }
 
 
-impl<B:Copy,T:BitSel<B>> VSelect<Vec4<B>> for Vec4<T> {
+impl<B:VElem,T:BitSel<B>+VElem> VSelect<Vec4<B>> for Vec4<T> {
 	fn vselect(&self,a:&Vec4<B>,b:&Vec4<B>)->Vec4<B>{ Vec4(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z), self.w.bitsel(&a.w,&b.w)) }
 }
 macro_rules! impl_vec_bit_ops{
 
 	(struct $VecN:ident<T>{$($elem:ident :T),*})=>{
-		impl<T:Copy+Sized+BitAnd<T,Output=T>+BitOr<T,Output=T>+Not<Output=T> +BitXor<T,Output=T>> VecBitOps for $VecN<T> {
+		impl<T:VElem+Sized+BitAnd<T,Output=T>+BitOr<T,Output=T>+Not<Output=T> +BitXor<T,Output=T>> VecBitOps for $VecN<T> {
 			fn vand(&self,b:&Self)->Self{ 
 				$VecN{ $( $elem:(self.$elem & b.$elem) ),* }
 			}
@@ -762,7 +681,7 @@ impl_vec_bit_ops!(struct Vec2<T>{x:T,y:T});
 impl_vec_bit_ops!(struct Vec3<T>{x:T,y:T,z:T});
 impl_vec_bit_ops!(struct Vec4<T>{x:T,y:T,z:T,w:T});
 
-impl<X:Copy,T:BitSel<X>> VSelect<Vec3<X>> for Vec3<T> {
+impl<X:VElem,T:BitSel<X>+VElem> VSelect<Vec3<X>> for Vec3<T> {
 	fn vselect(&self,a:&Vec3<X>,b:&Vec3<X>)->Vec3<X>{ Vec3(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z)) }
 }
 trait AllBitOps :ops::BitAnd+ops::BitOr+ops::Not+ops::BitXor+Sized{type Output;}
@@ -770,18 +689,40 @@ impl<T:ops::BitAnd<Output=T>+ops::BitOr<Output=T>+ops::BitXor<Output=T>+ops::Not
 	type Output=T;
 }
 
+pub trait ToVec3z<T:VElem>{
+	fn to_vec3_z(&self,z:T)->Vec3<T>;
+}
+pub trait ToVec4<T:VElem>{
+	fn to_vec4(&self)->Vec4<T>;
+}
+pub trait ToVec4w<T:VElem>{
+	fn to_vec4_w(&self,w:T)->Vec4<T>;
+}
+pub trait ToVec4zw<T:VElem>{
+	fn to_vec4_zw(&self,z:T,w:T)->Vec4<T>;
+}
+pub trait ToVec2w<T:VElem>{
+	fn to_vec2(&self)->Vec2<T>;
+}
 
-impl<T:Clone>  Vec3<T>{
-    pub fn to_vec4_w(&self, w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
-    pub fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
+impl<T:VElem> ToVec4w<T> for  Vec3<T>{
+     fn to_vec4_w(&self, w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
 }
-impl<T:Clone>  Vec4<T>{
-    pub fn to_vec3(&self)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),self.z.clone())}
-    pub fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
+impl<T:VElem> ToVec2<T> for Vec3<T>{
+
+     fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
 }
-impl<T:Clone> Vec2<T>{
-    pub fn to_vec3_z(&self, z:T)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),z)}
-    pub fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),z,w)}
+impl<T:VElem> ToVec3<T> for Vec4<T>{
+     fn to_vec3(&self)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),self.z.clone())}
+}
+impl<T:VElem> ToVec2<T> for Vec4<T>{
+     fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
+}
+impl<T:VElem> ToVec3z<T> for Vec2<T>{
+     fn to_vec3_z(&self, z:T)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),z)}
+}
+impl<T:VElem> ToVec4zw<T> for Vec2<T>{
+     fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),z,w)}
 }
 
 // float/int conversions 
@@ -837,72 +778,14 @@ impl_vec_conv!(usize);
 impl_vec_conv!(f64);
 impl_vec_conv!(isize);
 
-impl<X:Copy,T:BitSel<X>> VSelect<Vec2<X>> for Vec2<T> {
+impl<X:VElem,T:BitSel<X>+VElem> VSelect<Vec2<X>> for Vec2<T> {
 	fn vselect(&self,a:&Vec2<X>,b:&Vec2<X>)->Vec2<X>{ Vec2(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y)) }
 }
-
-macro_rules! impl_vecn_index{($index_t:ty)=>{
-impl<T:Sized> ::std::ops::Index<$index_t> for Vec3<T>{
-	type Output=T;
-	fn index(&self,i:$index_t)->&T{
-		match i{
-			0=>&self.x,
-			1=>&self.y,
-			2=>&self.z,
-			_=>panic!()
-		}
-	}
-}
-impl<T:Sized> ::std::ops::IndexMut<$index_t> for Vec3<T>{
-	fn index_mut(&mut self,i:$index_t)->&mut T{
-		match i{
-			0=>&mut self.x,
-			1=>&mut self.y,
-			2=>&mut self.z,
-			_=>panic!()
-		}
-	}
-}
-
-
-impl<T:Sized> ::std::ops::Index<$index_t> for Vec4<T>{
-	type Output=T;
-	fn index(&self,i:$index_t)->&T{
-		match i{
-			0=>&self.x,
-			1=>&self.y,
-			2=>&self.z,
-			3=>&self.w,
-			_=>panic!()
-		}
-	}
-}
-impl<T:Sized> ::std::ops::IndexMut<$index_t> for Vec4<T>{
-	fn index_mut(&mut self,i:$index_t)->&mut T{
-		match i{
-			0=>&mut self.x,
-			1=>&mut self.y,
-			2=>&mut self.z,
-			3=>&mut self.w,
-			_=>panic!()
-		}
-	}
-}
-}}
-impl_vecn_index!(usize);
-impl_vecn_index!(i32);
-impl_vecn_index!(u32);
-impl_vecn_index!(isize);
-impl_vecn_index!(i16);
-impl_vecn_index!(u16);
-impl_vecn_index!(i8);
-impl_vecn_index!(u8);
-
 
 pub trait BitSel<X>{
 	fn bitsel(&self,a:&X,b:&X)->X;
 }
-impl<X:Copy> BitSel<X> for bool {
+impl<X:VElem> BitSel<X> for bool {
 	fn bitsel(&self,a:&X,b:&X)->X{ if *self{*a}else{*b} }
 }
 impl BitSel<f32> for u32 {
@@ -924,20 +807,23 @@ pub trait Concat {
 	fn append(&self,&Self::Elem)->Self::Append;		// eg generic 'to homogeneous'
 	fn pop(&self)->(Self::Pop,Self::Elem);			// eg generic 'from homogeneous'
 }
-impl<T:Clone> Concat for Vec1<T>{
+impl<T:VElem> Concat for Vec1<T>{
 	type Elem=T;
 	type Output=Vec2<T>;
 	type Append=Vec2<T>;
 	type Pop=();			//'Vec0<T' to propogate typeinfo? might be silly.
 	type Split=();
 	fn concat(&self,rhs:&Self)->Self::Output{
-		Vec2::clone_ref(&self.x,&rhs.x)
+		unimplemented!()
+//		Vec2::clone_ref(&self.x,&rhs.x)
 	}
 	fn interleave(&self,rhs:&Self)->Self::Output{
-		Vec2::clone_ref(&self.x,&rhs.x)
+		unimplemented!()
+//		Vec2::clone_ref(&self.x,&rhs.x)
 	}
 	fn append(&self,v:&T)->Self::Append{
-		Vec2::clone_ref(&self.x, v)
+		unimplemented!()
+//		Vec2::clone_ref(&self.x, v)
 	}
 	fn pop(&self)->(Self::Pop,T){
 		((), self.x.clone())
@@ -947,29 +833,34 @@ impl<T:Clone> Concat for Vec1<T>{
 	}
 }
 
-impl<T:Clone> Concat for Vec2<T>{
+impl<T:VElem> Concat for Vec2<T>{
 	type Elem=T;
 	type Output=Vec4<T>;
 	type Append=Vec3<T>;
 	type Pop=Vec1<T>;
 	type Split=Vec1<T>;
 	fn concat(&self,rhs:&Self)->Self::Output{
-		Vec4::clone_ref(&self.x,&self.y, &rhs.x,&rhs.y)
+		unimplemented!()
+//		Vec4::clone_ref(&self.x,&self.y, &rhs.x,&rhs.y)
 	}
 	fn interleave(&self,rhs:&Self)->Self::Output{
-		Vec4::clone_ref(&self.x,&rhs.x, &self.y,&rhs.y)
+		unimplemented!()
+//		Vec4::clone_ref(&self.x,&rhs.x, &self.y,&rhs.y)
 	}
 	fn append(&self,v:&T)->Self::Append{
-		Vec3::clone_ref(&self.x,&self.y, v)
+		unimplemented!()
+//		Vec3::clone_ref(&self.x,&self.y, v)
 	}
 	fn pop(&self)->(Self::Pop,T){
-		(Vec1::clone_ref(&self.x), self.y.clone())
+		unimplemented!()
+//		(Vec1::clone_ref(&self.x), self.y.clone())
 	}
 	fn split(&self)->(Self::Split,Self::Split){
-		(Vec1::clone_ref(&self.x),Vec1::clone_ref(&self.y))
+		unimplemented!()
+//		(Vec1::clone_ref(&self.x),Vec1::clone_ref(&self.y))
 	}
 }
-impl<T:Clone> Concat for Vec4<T>{
+impl<T:VElem> Concat for Vec4<T>{
 	type Elem=T;
 	type Output=Vec8<T>;
 	type Append=Vec4<T>;
@@ -985,13 +876,15 @@ impl<T:Clone> Concat for Vec4<T>{
 		unimplemented!()
 	}
 	fn pop(&self)->(Self::Pop,T){
-		(Vec3::clone_ref(&self.x,&self.y,&self.z),self.w.clone())
+		unimplemented!()
+//		(Vec3::clone_ref(&self.x,&self.y,&self.z),self.w.clone())
 	}
 	fn split(&self)->(Self::Split,Self::Split){
-		(Vec2::clone_ref(&self.x,&self.y),Vec2::clone_ref(&self.z,&self.w))
+		unimplemented!()
+//		(Vec2::clone_ref(&self.x,&self.y),Vec2::clone_ref(&self.z,&self.w))
 	}
 }
-impl<T:Clone> Concat for Vec8<T>{
+impl<T:VElem> Concat for Vec8<T>{
 	type Elem=T;
 	type Output=Vec16<T>;
 	type Append=();
@@ -1024,10 +917,11 @@ impl<T:Clone> Concat for Vec8<T>{
 		unimplemented!()
 	}
 	fn split(&self)->(Self::Split,Self::Split){
-		(Vec4::clone_ref(
-			&self.0,&self.1,&self.2,&self.3),
-		Vec4::clone_ref(
-			&self.4,&self.5,&self.6,&self.7))
+		unimplemented!()
+//		(Vec4::clone_ref(
+//			&self.0,&self.1,&self.2,&self.3),
+//		Vec4::clone_ref(
+//			&self.4,&self.5,&self.6,&self.7))
 	}
 }
 
@@ -1054,7 +948,7 @@ impl<T:Clone> Concat for Vec16<T>{
 			&self.12,&self.13,&self.14,&self.15))
 	}
 }
-impl<T:Clone> Concat for Vec3<T>{
+impl<T:VElem> Concat for Vec3<T>{
 	type Elem=T;
 	type Output=Vec8<T>;
 	type Append=Vec4<T>;
@@ -1067,10 +961,12 @@ impl<T:Clone> Concat for Vec3<T>{
 		unimplemented!()
 	}
 	fn append(&self,v:&T)->Self::Append{
-		Vec4::clone_ref(&self.x, &self.y, &self.z, v)
+		unimplemented!()
+//		Vec4::clone_ref(&self.x, &self.y, &self.z, v)
 	}
 	fn pop(&self)->(Self::Pop,T){
-		(Vec2::clone_ref(&self.x, &self.y), self.z.clone())
+		unimplemented!()
+//		(Vec2::clone_ref(&self.x, &self.y), self.z.clone())
 	}
 	fn split(&self)->(Self::Split,Self::Split){
 		unimplemented!()
@@ -1174,18 +1070,18 @@ pub trait ConstructSiblings: Siblings+HasElem{
 }
 
 pub trait VecN : Siblings {}	//'VecN family'
-impl<T:Clone> VecN for Vec1<T>{}
-impl<T:Clone> VecN for Vec2<T>{}
-impl<T:Clone> VecN for Vec3<T>{}
-impl<T:Clone> VecN for Vec4<T>{}
+impl<T:VElem> VecN for Vec1<T>{}
+impl<T:VElem> VecN for Vec2<T>{}
+impl<T:VElem> VecN for Vec3<T>{}
+impl<T:VElem> VecN for Vec4<T>{}
 
 trait TupledVector {}	//'VecN family'
-impl<T:Clone> TupledVector for (T,){}
-impl<T:Clone> TupledVector for (T,T){}
-impl<T:Clone> TupledVector for (T,T,T){}
-impl<T:Clone> TupledVector for (T,T,T,T){}
+impl<T:VElem> TupledVector for (T,){}
+impl<T:VElem> TupledVector for (T,T){}
+impl<T:VElem> TupledVector for (T,T,T){}
+impl<T:VElem> TupledVector for (T,T,T,T){}
 
-impl<V:Clone,T:Clone> ConstructSiblings for V
+impl<V:VElem,T:VElem> ConstructSiblings for V
 where
 	V:HasElem<Elem=T>,
 	V:	HasElem+VecN
@@ -1213,7 +1109,7 @@ impl<V:VecSiblings+HasFloatElem+TupledVector> VecConstructSiblings for V{
 /// Implement VecPermute for default case with 'VecFLoatAccessors'
 /// note that permute interface should allow an impl WITHOUT use of a scalar type.
 /// TODO decouple from specifc 'V2,V3 ,V4 versions' to allow impl on tuples,[T;N]
-impl<T:Zero+One+Clone,V:VecAccessors+ConstructSiblings+HasElem<Elem=T>> Permute for V {
+impl<T:Zero+One+Clone+Copy,V:VecAccessors+ConstructSiblings+HasElem<Elem=T>> Permute for V {
 	// default implementation of permutes,
 	// can be over-ridden with platform-specific SIMD..
 	fn permute_x(&self)->Self::V1		{ Self::make_vec1(self.vx())}
@@ -1330,19 +1226,19 @@ pub trait VecCmpOps :Sized {
 trait Select<V>{
 	fn select(&self,iftrue:V,iffalse:V)->V;
 }
-impl<T> Select<Vec3<T>> for Vec3<bool> where bool:Select<T>{
+impl<T:VElem> Select<Vec3<T>> for Vec3<bool> where bool:Select<T>{
 	fn select(&self,a:Vec3<T>,b:Vec3<T>)->Vec3<T> {
 		Vec3( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) )
 	}
 }
 
-impl<T,BOOL> Select<Vec4<T>> for Vec4<BOOL> where BOOL:Select<T>{
+impl<T:VElem,BOOL:VElem> Select<Vec4<T>> for Vec4<BOOL> where BOOL:Select<T>{
 	fn select(&self,a:Vec4<T>,b:Vec4<T>)->Vec4<T> {
 		Vec4( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) , self.w .select(a.w,b.w) )
 	}
 }
 
-impl<T,BOOL> Select<Vec8<T>> for Vec8<BOOL> where BOOL:Select<T>{
+impl<T:VElem,BOOL:VElem> Select<Vec8<T>> for Vec8<BOOL> where BOOL:Select<T>{
 	fn select(&self,a:Vec8<T>,b:Vec8<T>)->Vec8<T> {
 		Vec8( self.0 .select(a.0,b.0), self.1 .select(a.1,b.1), self.2 .select(a.2,b.2) , self.3 .select(a.3,b.3) ,
 		self.4 .select(a.4,b.4), self.5 .select(a.5,b.5), self.6 .select(a.6,b.6) , self.7 .select(a.7,b.7) 
@@ -1376,6 +1272,9 @@ impl Select<f64> for bool {
 /// TODO clean up confusion - HasElem vs HasElemFloat vs Permute vs VecOps
 pub trait HasElem{
 	type Elem : Clone;
+	fn vget(&self,i:i32)->Self::Elem{
+		unimplemented!()
+	}
 }
 
 /// horizontal add = summing the elements, e.g. dot product can be = multiply elements and horizontal-add.
@@ -1400,15 +1299,15 @@ pub trait HorizAnd {
 macro_rules! impl_componentwise_reduction_vec_functions{
 	($FnTrait:ident::$fnname:ident using $TraitOp:ident::$op:ident)=> 
 	{
-		impl<T> $FnTrait for Vec2<T>  where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
+		impl<T:VElem> $FnTrait for Vec2<T>  where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
 			type Output=T;
 			fn $fnname(&self)->T{self.x.$op(&self.y)}
 		}
-		impl<T> $FnTrait for Vec3<T> where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
+		impl<T:VElem> $FnTrait for Vec3<T> where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
 			type Output=T;
 			fn $fnname(&self)->T{(&self.x).$op(&self.y).$op(&self.z)}
 		}
-		impl<T> $FnTrait for Vec4<T>  where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
+		impl<T:VElem> $FnTrait for Vec4<T>  where for<'a,'b> &'a T:$TraitOp<&'b T,Output=T> {
 			type Output=T;
 			fn $fnname(&self)->T{(self.x.$op(&self.y)).$op(&self.z.$op(&self.w))}
 		}
@@ -1473,7 +1372,7 @@ impl<T:Float,V:VMath<Elem=T>> Vector<V> {
 	pub fn vmax(&self,b:&Self)->Vector<V>{ Vector(self.0.vmax(&b.0)) }
 	pub fn vmin(&self,b:&Self)->Vector<V>{ Vector(self.0.vmin(&b.0)) }
 }
-
+//use super::vec_xyzw::conversions::IsNot;
 macro_rules! impl_conversion_vecn{
 	($Wrapper:ident<V>,$VecN:ident<$T:ident>)=>{
 		impl<V:IsNot<$VecN<$T>>> From<$Wrapper<$VecN<$T>>> for $Wrapper<V> where $VecN<$T>:Into<V>{
@@ -1511,16 +1410,10 @@ impl<T:IsNot<f64>> IsNot< Vec3<f64> >  for Vec3<T>{}
 impl<T:IsNot<f32>> IsNot< Vec4<f32> >  for Vec4<T>{}
 impl<T:IsNot<f64>> IsNot< Vec4<f64> >  for Vec4<T>{}
 */
-impl IsNot<Vec3<f32>> for Vec3<f64>{}
-impl IsNot<Vec3<f64>> for Vec3<f32>{}
-impl IsNot<Vec2<f32>> for Vec2<f64>{}
-impl IsNot<Vec2<f64>> for Vec2<f32>{}
-impl IsNot<Vec4<f32>> for Vec4<f64>{}
-impl IsNot<Vec4<f64>> for Vec4<f32>{}
 
-impl_conversion!(Vector<V>);
-impl_conversion!(Normal<V>);
-impl_conversion!(Point<V>);
+//impl_conversion!(Vector<V>);
+//impl_conversion!(Normal<V>);
+//impl_conversion!(Point<V>);
 
 
 /// vector type guaranteed to hold bool values, e.g. select-mask
@@ -1551,28 +1444,28 @@ pub trait IsWrappedV<V> {
 	fn as_vec(&self)->V;
 	fn wrap(x:&V)->Self;
 }
-impl<V:Copy> IsWrappedV<V> for Point<V>{
+impl<V:VElem> IsWrappedV<V> for Point<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { Point(*s)  }
 }
 
-impl<V:Copy> IsWrappedV<V> for Quaternion<V>{
+impl<V:VElem> IsWrappedV<V> for Quaternion<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { Quaternion(*s)  }
 }
-impl<V:Copy> IsWrappedV<V> for VScalar<V>{
+impl<V:VElem> IsWrappedV<V> for VScalar<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { VScalar(*s)  }
 }
-impl<V:Copy> IsWrappedV<V> for Vector<V>{
+impl<V:VElem> IsWrappedV<V> for Vector<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { Vector(*s) }
 }
-impl<V:Copy> IsWrappedV<V> for Normal<V>{
+impl<V:VElem> IsWrappedV<V> for Normal<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { Normal(*s)  }
 }
-impl<V:Copy> IsWrappedV<V> for VBool<V>{
+impl<V:VElem> IsWrappedV<V> for VBool<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { VBool(*s)  }
 }
@@ -1587,7 +1480,7 @@ impl<T:Float,V:VecOps<Elem=T>> Quaternion<V> {
 /// vector representing an ARGB color value
 #[derive(Clone,Debug)]
 pub struct RGBA<V=Vec4<f32>>(V);
-impl<V:Copy> IsWrappedV<V> for RGBA<V>{
+impl<V:VElem> IsWrappedV<V> for RGBA<V>{
 	fn as_vec(&self)->V { self.0 }
 	fn wrap(s:&V)->Self { RGBA(*s)  }
 }
@@ -1605,9 +1498,9 @@ pub type Normal2<T=f32>=Normal<Vec2<T>>;
 pub type Normal3<T=f32>=Normal<Vec3<T>>;
 pub type Normal4<T=f32>=Normal<Vec4<T>>;
 
-fn Point2<T:Copy>(x:T,y:T)->Point<Vec2<T>>{ Point(Vec2(x,y)) }
-fn Point3<T:Copy>(x:T,y:T,z:T)->Point<Vec3<T>>{ Point(Vec3(x,y,z)) }
-fn Point4<T:Copy>(x:T,y:T,z:T,w:T)->Point<Vec4<T>>{ Point(Vec4(x,y,z,w)) }
+fn Point2<T:VElem>(x:T,y:T)->Point<Vec2<T>>{ Point(Vec2(x,y)) }
+fn Point3<T:VElem>(x:T,y:T,z:T)->Point<Vec3<T>>{ Point(Vec3(x,y,z)) }
+fn Point4<T:VElem>(x:T,y:T,z:T,w:T)->Point<Vec4<T>>{ Point(Vec4(x,y,z,w)) }
 
 /// Trait for component multiply access, some platforms dont like moving from vec to scalar pipes..
 pub trait VecBroadcastOps:Sized {
@@ -1639,7 +1532,7 @@ pub trait VecBroadcastOps:Sized {
 
 /// implement vector operations for tuples, interface with plain tuple-based vecmaths
 
-impl<T:One+Zero+Default+Clone+PartialOrd+Num,V:HasXYZ<Elem=T>> VecConsts for V{
+impl<T:One+Zero+Clone+PartialOrd+Num,V:HasXYZ<Elem=T>> VecConsts for V{
 	fn vaxis(i:int)->Self{
 		match i{
 			0=> V::from_xyz(one::<T>(),zero::<T>(),zero::<T>()),
@@ -1672,7 +1565,7 @@ impl<F:Float> VecCmpOps for (F,F,F){
 	}
 }
 
-impl<F,V> Zero for V where V:HasXYZ<Elem=F>,F:Zero+Num+Default{
+impl<F,V> Zero for V where V:HasXYZ<Elem=F>,F:Zero+Num{
 	fn zero()->Self{ V::from_xyz(zero::<F>(),zero::<F>(),zero::<F>())}
 	fn is_zero(self)->bool {self.x() .is_zero() && self.y() .is_zero() && self.z() .is_zero()}
 }
@@ -1681,7 +1574,7 @@ impl<F,V> Zero for V where V:HasXYZ<Elem=F>,F:Zero+Num+Default{
 //todo - how?
 //impl<F:Float,V:HasXY<F>> VecOps for V{
 
-impl<F:Clone+Zero> VecAccessors for (F,F,F){
+impl<F:VElem+Zero> VecAccessors for (F,F,F){
 	fn vx(&self)->F{self.0.clone()}
 	fn vy(&self)->F{self.1.clone()}
 	fn vz(&self)->F{self.2.clone()}
@@ -1703,7 +1596,7 @@ impl<T:Clone> HasElem for (T,T,T,T){
 	type Elem=T;
 }
 
-impl<T,V> VecNumOps for V where V:HasXYZ<Elem=T>,T:Num+Default{
+impl<T,V> VecNumOps for V where V:HasXYZ<Elem=T>,T:Num{
     fn vadd(&self, b: &Self) -> Self { V::from_xyz(self.x() + b.x(), self.y() + b.y(), self.z() + b.z()) }
     fn vsub(&self, b: &Self) -> Self { V::from_xyz(self.x() - b.x(), self.y() - b.y(), self.z() - b.z()) }
 }
@@ -1802,6 +1695,7 @@ macro_rules! impl_vec_method_sametypes{
 macro_rules! impl_vec_operator{
 	($OpTrait:ident :: $op:ident)=>{
 		// Implement operators for values
+/* got it from vec_xyzw
 		impl<A:$OpTrait<B,Output=C>,B,C> $OpTrait<Vec2<B>> for Vec2<A> {
 			type Output=Vec2<C>;
 			fn $op(self,rhs:Vec2<B>)->Vec2<C> { 
@@ -1822,6 +1716,7 @@ macro_rules! impl_vec_operator{
 				Vec4(self.x.$op(rhs.x)   , self.y.$op(rhs.y), self.z.$op(rhs.z), self.w.$op(rhs.w))
 			}
 		}
+*/
 		impl<A,B,C> $OpTrait<Vec8<B>> for Vec8<A> where 
 			A:$OpTrait<B, Output= C>
 		{
@@ -1848,7 +1743,7 @@ macro_rules! impl_vec_operator{
 				)
 			}
 		}
-
+/*
 		// Implement operators for references
 		impl<'a, A,B,C> $OpTrait<&'a Vec2<B>> for &'a Vec2<A> where
 			&'a A:$OpTrait<&'a B, Output= C>
@@ -1876,7 +1771,7 @@ macro_rules! impl_vec_operator{
 				Vec4(self.x.$op(&rhs.x)   , self.y.$op(&rhs.y), self.z.$op(&rhs.z), self.w.$op(&rhs.w))
 			}
 		}
-
+*/
 		impl<'a, A,B,C> $OpTrait<&'a Vec8<B>> for &'a Vec8<A> where 
 			&'a A:$OpTrait<&'a B, Output= C>
 		{
@@ -1941,7 +1836,7 @@ impl<T:Min+Max> Clamp for T{}
 
 macro_rules! impl_vec_component_method{
 	($Trait:ident::$method:ident where T:$Bound:ident,  for VecN<T>)=>{
-		impl<T:$Trait+$Bound> $Trait for Vec2<T>{
+		impl<T:$Trait+$Bound+VElem> $Trait for Vec2<T>{
 			fn $method(self,rhs:Vec2<T>)->Vec2<T>{
 				Vec2(
 					self.x.$method(rhs.x),
@@ -1950,7 +1845,7 @@ macro_rules! impl_vec_component_method{
 			}
 		}
 
-		impl<T:$Trait+$Bound> $Trait for Vec3<T>{
+		impl<T:$Trait+$Bound+VElem> $Trait for Vec3<T>{
 			fn $method(self,rhs:Vec3<T>)->Vec3<T>{
 				Vec3(
 					self.x.$method(rhs.x),
@@ -1959,7 +1854,7 @@ macro_rules! impl_vec_component_method{
 				)
 			}
 		}
-		impl<T:$Trait+$Bound> $Trait for Vec4<T>{
+		impl<T:$Trait+$Bound+VElem> $Trait for Vec4<T>{
 			fn $method(self,rhs:Vec4<T>)->Vec4<T>{
 				Vec4::<T>{
 					x: self.x.$method(rhs.x),
@@ -2015,9 +1910,9 @@ impl_vec_component_method!(Max::max where T:PartialOrd, for VecN<T>);
 //impl<T:Float> Permute for Vec2<T> {}
 
 // todo-trait VecPrimOps
-impl<T:Clone+Num+Copy> VecNumOps for Vec2<T> {
-    fn vadd(&self, b: &Vec2<T>) -> Vec2<T> { Vec2::new(self.x + b.x, self.y + b.y) }
-    fn vsub(&self, b: &Vec2<T>) -> Vec2<T> { Vec2::new(self.x - b.x, self.y - b.y) }
+impl<T:VElem+Num> VecNumOps for Vec2<T> {
+    fn vadd(&self, b: &Vec2<T>) -> Vec2<T> { Vec2{x:self.x + b.x, y:self.y + b.y} }
+    fn vsub(&self, b: &Vec2<T>) -> Vec2<T> { Vec2{x:self.x - b.x, y:self.y - b.y} }
 }
 
 /// these are only really interesting where .vx,.vy,.vz are not available,
@@ -2036,11 +1931,16 @@ impl<T:Float,V:VecOps+VecAccessors+HasElem<Elem=T>> VecBroadcastOps for V where 
 
 /// master 'Vector' trait, handles the most common interfaces we expect to use.
 pub trait VMath : VecOps + VecCmpOps+VecConsts+ Permute + VecAccessors  where Self::Elem : Float{}
-impl<T:Float, V:VecOps+VecCmpOps+VecConsts+Permute+VecAccessors+HasElem<Elem=T>> VMath for V{
-}
+//impl<T:Float+VElem, V:VecOps+VecCmpOps+VecConsts+Permute+VecAccessors+HasElem<Elem=T>> VMath for V{
+//}
+
+impl<T:Float+VElem> VMath for Vec4<T>{}
+impl<T:Float+VElem> VMath for Vec3<T>{}
+impl<T:Float+VElem> VMath for Vec2<T>{}
+//impl<T:Float+VElem> VMath for Vec1<T>{}
 
 
-impl<T:Clone+Float+Copy> VecOps for Vec2<T> {
+impl<T:VElem+Float> VecOps for Vec2<T> {
 	fn vscale(&self,f:T)->Vec2<T>		{Vec2(self.x*f,self.y*f)}
 	fn vmul(&self,b:&Vec2<T>)->Vec2<T>	{Vec2(self.x*b.x,self.y*b.y)}
 	fn vsum_elems(&self)->T	{self.x+self.y}
@@ -2055,20 +1955,20 @@ impl<T:Clone+Float+Copy> VecOps for Vec2<T> {
 }
 
 
-impl<T:Num+Clone+PartialEq+Default> HasXY for Vec2<T>{
+impl<T:Num+VElem+PartialEq> HasXY for Vec2<T>{
     fn x(&self)->T{self.x.clone()}
     fn y(&self)->T{self.y.clone()}
     fn from_xy(x:T,y:T)->Self{ Vec2{x:x.clone(),y:y.clone()}}
 }
 
-impl<T:Num+Clone+PartialEq+Default> HasXYZ for Vec3<T>{
+impl<T:Num+VElem+PartialEq> HasXYZ for Vec3<T>{
 	type Appended=Vec4<T>;
     fn x(&self)->T{self.x.clone()}
     fn y(&self)->T{self.y.clone()}
     fn z(&self)->T{self.z.clone()}
     fn from_xyz(x:T,y:T,z:T)->Self{ Vec3{x:x.clone(),y:y.clone(),z:z.clone()}}
 }
-impl<T:Num+Clone+PartialEq+Default> HasXYZW for Vec4<T>{
+impl<T:Num+VElem+PartialEq> HasXYZW for Vec4<T>{
     fn x(&self)->T{self.x.clone()}
     fn y(&self)->T{self.y.clone()}
     fn z(&self)->T{self.z.clone()}
@@ -2093,7 +1993,7 @@ impl<T,V> VecConsts for V where V:HasXY<Elem=T>,T:Clone+Zero+One {
 macro_rules! impl_vecn_fmap{
 	// works for named elements
 	($vectype:ident{$($elem:ident),*})=>{
-		impl<A> $vectype<A>{
+		impl<A> VecFMap $vectype<A>{
 			// dont know which to pick :( lack of C++ references.
 			pub fn fmap<R,F:Fn(&A)->R>(&self,fnc:F)->$vectype<R>{
 				$vectype{ $( $elem:fnc(&self.$elem) ),* }
@@ -2109,13 +2009,13 @@ macro_rules! impl_vecn_fmap{
 		}
 	}
 }
-impl_vecn_fmap!{Vec2{x,y}}
-impl_vecn_fmap!{Vec3{x,y,z}}
-impl_vecn_fmap!{Vec4{x,y,z,w}}
+//impl_vecn_fmap!{Vec2{x,y}}
+//impl_vecn_fmap!{Vec3{x,y,z}}
+//impl_vecn_fmap!{Vec4{x,y,z,w}}
 
 macro_rules! impl_vec_cmp_ops{
 	($VecN:ident{$($elem:ident),*})=>{
-		impl<T:Clone+PartialOrd> VecCmpOps for $VecN<T> {
+		impl<T:VElem+PartialOrd> VecCmpOps for $VecN<T> {
 			type CmpOutput=$VecN<bool>;	// todo: figure out nesting, e.g. impl this for scalars to terminate
 			fn vmin(&self, b:&Self)->Self	{
 				$VecN($( min_ref(&self.$elem, &b.$elem) ),*)
@@ -2136,7 +2036,7 @@ impl_vec_cmp_ops!(Vec2{x,y});
 impl_vec_cmp_ops!(Vec3{x,y,z});
 impl_vec_cmp_ops!(Vec4{x,y,z,w});
 
-impl<T:Float+Default,V> VecOps for V where V:HasXYZ<Elem=T> {
+impl<T:Float+VElem,V> VecOps for V where V:HasXYZ<Elem=T> {
     // todo-trait VecPrimOps
     fn vscale(&self,f:T)->V		{V::from_xyz(self.x()*f, self.y()*f, self.z()*f)}
     fn vmul(&self,b:&V)->V	{V::from_xyz(self.x()*b.x(), self.y()*b.y(), self.z()*b.z())}
@@ -2155,25 +2055,25 @@ pub trait Siblings {
 	type V3:Clone;
 	type V4:Clone;
 }
-impl<T:Clone> Siblings for Vec1<T>{
+impl<T:VElem> Siblings for Vec1<T>{
 	type V1=Vec1<T>;
 	type V2=Vec2<T>;
 	type V3=Vec3<T>;
 	type V4=Vec4<T>;
 }
-impl<T:Clone> Siblings for Vec2<T>{
+impl<T:VElem> Siblings for Vec2<T>{
 	type V1=Vec1<T>;
 	type V2=Vec2<T>;
 	type V3=Vec3<T>;
 	type V4=Vec4<T>;
 }
-impl<T:Clone> Siblings for Vec3<T>{
+impl<T:VElem> Siblings for Vec3<T>{
 	type V1=Vec1<T>;
 	type V2=Vec2<T>;
 	type V3=Vec3<T>;
 	type V4=Vec4<T>;
 }
-impl<T:Clone> Siblings for Vec4<T>{
+impl<T:VElem> Siblings for Vec4<T>{
 	type V1=Vec1<T>;
 	type V2=Vec2<T>;
 	type V3=Vec3<T>;
@@ -2209,7 +2109,7 @@ impl<T:Clone> Siblings for (T,T,T,T){
 
 /// accessors for a contained type guaranteed to support floatmath
 /// we just simplified this to padding out.
-pub trait VecAccessors : HasElem+Sized+Clone {
+pub trait VecAccessors : HasElem+Sized+Copy {
 	fn vx(&self)->Self::Elem;
 	fn vy(&self)->Self::Elem;
 	fn vz(&self)->Self::Elem;
@@ -2221,7 +2121,7 @@ pub trait VecAccessors : HasElem+Sized+Clone {
 	fn splat_w(&self)->Self{ Self::splat(self.vw())}
 }
 
-impl<T:Zero+Clone> VecAccessors for Vec2<T>
+impl<T:Zero+VElem> VecAccessors for Vec2<T>
 {
 	fn vx(&self)->T	{ self.x.clone()}
 	fn vy(&self)->T	{ self.y.clone()}
@@ -2230,7 +2130,7 @@ impl<T:Zero+Clone> VecAccessors for Vec2<T>
 	fn splat(f:T)->Self{ Vec2(f.clone(),f.clone())}
 }
 
-impl<T:Zero+Clone> VecAccessors for Vec3<T> {
+impl<T:Zero+VElem> VecAccessors for Vec3<T> {
 	fn vx(&self)->T	{ self.x.clone()}
 	fn vy(&self)->T	{ self.y.clone()}
 	fn vz(&self)->T	{ self.z.clone()}
@@ -2238,7 +2138,7 @@ impl<T:Zero+Clone> VecAccessors for Vec3<T> {
 	fn splat(f:T)->Self{ Vec3(f.clone(),f.clone(),f.clone())}
 }
 
-impl<T:Zero+Clone> VecAccessors for Vec4<T>
+impl<T:Zero+VElem> VecAccessors for Vec4<T>
 {
 	fn vx(&self)->T	{ self.x.clone()}
 	fn vy(&self)->T	{ self.y.clone()}
@@ -2247,28 +2147,33 @@ impl<T:Zero+Clone> VecAccessors for Vec4<T>
 	fn splat(f:T)->Self{ Vec4(f.clone(),f.clone(),f.clone(),f.clone())}
 }
 
-impl<T:Zero> Zero for Vec4<T> {
+impl<T:Zero+VElem> Zero for Vec4<T> {
 	fn zero()->Vec4<T>{Vec4(zero::<T>(),zero::<T>(),zero::<T>(),zero::<T>())}
 	fn is_zero(self)->bool  {self.x.is_zero() && self.y.is_zero() && self.z.is_zero() && self.w.is_zero()}
 }
-impl<T:Zero> Zero for Vec2<T> {
+impl<T:Zero+VElem> Zero for Vec2<T> {
     fn zero()->Vec2<T>{Vec2(zero::<T>(),zero::<T>())}
     fn is_zero(self)->bool  {self.x.is_zero() && self.y.is_zero()}
 }
 
-impl<T:Float> Vec4<T>{
-    pub fn project_to_vec3(&self)->Vec3<T>{
+pub trait Project<T:VElem=f32>{
+    fn project_to_vec3(&self)->Vec3<T>;
+    fn project(&self)->Self;
+}
+
+impl<T:Float+VElem> Project<T> for Vec4<T>{
+    fn project_to_vec3(&self)->Vec3<T>{
         let inv=self.w.reciprocal();
         Vec3(self.x*inv,self.y*inv,self.z*inv)
     }
-    pub fn project(&self)->Vec4<T>{
+    fn project(&self)->Vec4<T>{
         let inv=self.w.reciprocal();
         Vec4(self.x*inv,self.y*inv,self.z*inv,one())
     }
 }
 
 
-impl<T:Zero+One> VecConsts for Vec2<T> {
+impl<T:Zero+One+VElem> VecConsts for Vec2<T> {
 
     fn one()->Vec2<T>	{Vec2(one::<T>(),one::<T>())}
     fn origin()->Vec2<T>	{Vec2(zero::<T>(),zero::<T>())}
@@ -2280,20 +2185,17 @@ impl<T:Zero+One> VecConsts for Vec2<T> {
     }
 }
 
-pub trait ToVec2<T> {
+pub trait ToVec2<T:VElem> {
     fn to_vec2(&self)->Vec2<T>;
 }
 
-pub trait ToVec3<T> {
+pub trait ToVec3<T:VElem> {
     fn to_vec3(&self)->Vec3<T>;
 }
-impl<T:Float,V:HasXYZ<Elem=T>> ToVec3<T> for V{
+impl<T:Float+VElem,V:HasXYZ<Elem=T>> ToVec3<T> for V{
 	fn to_vec3(&self)->Vec3<T>{Vec3(self.x(),self.y(),self.z())}
 }
-pub trait ToVec4<T> {
-    fn to_vec4(&self)->Vec4<T>;
-}
-impl<T:Float> ToVec2<T> for (T,T){
+impl<T:Float+Copy> ToVec2<T> for (T,T){
     fn to_vec2(&self)->Vec2<T>{Vec2(self.0,self.1)}
 }
 
@@ -2380,7 +2282,7 @@ impl<F:Float,V:HasXYZW<Elem=F>> From<V> for PackedS8x4 {
 */
 
 
-impl<T:Zero+One> VecConsts for Vec4<T> {
+impl<T:Zero+One+VElem> VecConsts for Vec4<T> {
 
 	fn one()->Vec4<T>	{Vec4(one::<T>(),one::<T>(),one::<T>(),one::<T>())}
 	fn origin()->Vec4<T>	{Vec4(zero::<T>(),zero::<T>(),zero::<T>(),one::<T>())}
@@ -2402,7 +2304,7 @@ impl<T:Float> VecPermute for Vec4<T> {
 }
 */
 
-impl<T:Num> VecNumOps for Vec4<T> {
+impl<T:Num+VElem> VecNumOps for Vec4<T> {
     fn vadd(&self, b: &Vec4<T>) -> Vec4<T> { Vec4(self.x + b.x, self.y + b.y, self.z + b.z, self.w + b.w) }
     fn vsub(&self, b: &Vec4<T>) -> Vec4<T> { Vec4(self.x - b.x, self.y - b.y, self.z - b.z, self.w - b.w) }
 
@@ -2449,10 +2351,12 @@ impl MinMax<Vec3>
 //	fn centre(&self)->V { self.min.vadd(&self.max).vscale(One::one::<T>()/(One::one::<T>()+One::one::<T>())) }
 //}
 
+pub trait UpdateExtents{
+	fn update_extents(&self, lo:&mut Self, hi:&mut Self);
+}
 
-
-impl<T:PartialOrd+Clone+Num>  Vec3<T>{
-	pub fn update_extents(&self, lo:&mut Self, hi:&mut Self){
+impl<T:PartialOrd+VElem+Num> UpdateExtents for  Vec3<T>{
+	fn update_extents(&self, lo:&mut Self, hi:&mut Self){
 		*lo=lo.min(*self);
 		*hi=hi.max(*self);
 	}

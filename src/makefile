@@ -19,7 +19,6 @@ SOURCES:=$(shell find . -name "*.rs")
 
 
 run_cargo: $(SOURCES) link_data
-	cargo update
 	RUST_BACKTRACE=1 cargo run
 	echo "ok; (also see targets asmjs shadertest)"
 

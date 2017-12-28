@@ -1,4 +1,4 @@
-pub mod vectypes;
+//pub mod vectypes;
 pub mod vector;
 pub mod matrix;
 pub mod quaternion;
@@ -24,9 +24,12 @@ pub mod scene;
 pub mod classes;
 pub mod bsp;
 pub use sdl::*;
-pub extern crate array3d;
+//pub extern crate array3d;
 pub extern crate vecgenericindex;
 pub extern crate half;
+pub extern crate vec_xyzw;
+pub use vec_xyzw::*;
+//pub use self::vec_xyzw::IsNot;
 pub use self::half::f16;
 pub use vecgenericindex::*;
 // Common standard library imports.. file, memory, operators..
@@ -62,7 +65,7 @@ pub use vector::*;
 
 pub struct Array3d<T>{pub shape:Vec3<i32>,pub data:Vec<T>}
 
-pub use array3d::*;
+//pub use array3d::*;
 pub use rawglbinding::*;
 pub use geom::*;
 pub use gl_constants::*;
@@ -186,9 +189,9 @@ pub struct PackedRGB565(pub u16);	// 'Color', most commonly packed 8888
 type Color = PackedARGB;        // ånother synonym
 type PackedARGB8888=PackedARGB;    // explicit
 							// other representations can be more specific.
-type Point3= vector::Vec3<f32>;
+type Point3= Vec3<f32>;
 // todo: f16
-type Normal= vector::Vec3<f32>;
+type Normal= Vec3<f32>;
 struct PackedXYZ(pub u32);
 
 fn to_u32(f:f32)->u32{
@@ -340,10 +343,10 @@ impl<T,X:TNum> From<FixedPt<T,X>> for f32 where T:Into<f32>{
 }
 
 
-impl From<PackedARGB8888> for vector::Vec4<f32> {
+impl From<PackedARGB8888> for Vec4<f32> {
 	fn from(src:PackedARGB)->Self{
 		let scale=1.0f32/255.0f32;		
-		vector::Vec4(
+		Vec4(
 			(src.0 & 0xff)as f32 * scale,
 			((src.0>>8) & 0xff)as f32 * scale,
 			((src.0>>16) & 0xff)as f32 * scale,
@@ -351,18 +354,18 @@ impl From<PackedARGB8888> for vector::Vec4<f32> {
 		)
 	}
 }
-impl From<vector::Vec4<f32>> for PackedARGB {
-	fn from(src: vector::Vec4<f32>) ->Self {
+impl From<Vec4<f32>> for PackedARGB {
+	fn from(src:Vec4<f32>) ->Self {
 		PackedARGB(to_u32(src.x)|(to_u32(src.y)<<8)|(to_u32(src.z)<<16)|(to_u32(src.w)<<24))
 	}
 }
-impl From<PackedXYZ> for vector::Vec3<f32> {
+impl From<PackedXYZ> for Vec3<f32> {
 	fn from(src:PackedXYZ)->Self{
 		let centre = (1<<9) as i32;
 		let scale=1.0f32/511.0f32;		
 		let mask=(1i32<<10)-1;
 		let val=src.0 as i32;
-		vector::Vec3(
+		Vec3(
 			(((val) & mask)-centre)as f32 * scale,
 			(((val>>10) & mask)-centre)as f32 * scale,
 			(((val>>20) & mask)-centre)as f32 * scale
@@ -370,8 +373,8 @@ impl From<PackedXYZ> for vector::Vec3<f32> {
 	}
 }
 
-impl From<vector::Vec3<f32>> for PackedXYZ {
-	fn from(src: vector::Vec3<f32>) ->Self {
+impl From<Vec3<f32>> for PackedXYZ {
+	fn from(src: Vec3<f32>) ->Self {
 		let ix=((src.x*511.0f32)+512.0f32) as u32;
 		let iy=((src.y*511.0f32)+512.0f32) as u32;
 		let iz=((src.z*511.0f32)+512.0f32) as u32;
@@ -562,7 +565,7 @@ impl<'a> Zero for &'a f64 {
 
 /// TODO - figure out which parts of this live in 'vector
 /// we have better traits for this with dimensionable output
-pub trait Float : Num+Half+Clone+Default {
+pub trait Float : Num+Half+VElem {
 	fn sin(self)->Self;
 	fn cos(self)->Self;
 	fn sin_cos(self)->(Self,Self){(self.sin(),self.cos())}
@@ -718,7 +721,7 @@ pub struct Camera{
 	pub camera_object:Mat44f,	// inverse of 'view' - where to draw a camera.
 }
 impl Camera{
-	pub fn look_along(f:&Frustum, pos:&Vec3,dir:&Vec3,up:&Vec3)->Camera{
+	pub fn look_along(f:&Frustum, pos:&Vec3f,dir:&Vec3f,up:&Vec3f)->Camera{
 		let cam_obj=matrix::Matrix4::look_along(pos,dir,up).to_mat44();
 
 		Camera{
@@ -864,10 +867,12 @@ impl InvLerp<f32> for f32{
 	type Diff=f32;
 	type Prod=f32;
 }
+/*
 impl Lerpable<f32> for Vec3<f32>{
 	type Diff=Vec3<f32>;
 	type Prod=Vec3<f32>;
 }
+*/
 pub enum Axes {
 	XY,XZ,YZ
 }
@@ -988,7 +993,7 @@ pub trait ComponentOps4 : HasXYZW
 	}
 }
 
-impl<T:Num+Clone+Default> ComponentOps3 for Vec3<T>{
+impl<T:Num+VElem> ComponentOps3 for Vec3<T>{
 	fn vadd_x(&self,f:Self::Elem)->Self {
 		Self::from_xyz(self.x()+f,self.y(),self.z())
 	}
@@ -1001,7 +1006,7 @@ impl<T:Num+Clone+Default> ComponentOps3 for Vec3<T>{
 		Self::from_xyz(self.x(),self.y(),self.z()+f)
 	}
 }
-impl<T:Num+Clone+Default> ComponentOps4 for Vec4<T>{
+impl<T:Num+VElem> ComponentOps4 for Vec4<T>{
 	fn vadd_x(&self,f:Self::Elem)->Self {
 		Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w)
 	}
@@ -1047,13 +1052,13 @@ pub trait HasXYZW :Sized+Clone+HasElem{
 	}
 */
 }
-impl<T:Float+Default> HasXY for (T,T){
+impl<T:Float+VElem> HasXY for (T,T){
 //    type HasElem::Elem=T;
     fn x(&self)->T{self.0}
     fn y(&self)->T{self.1}
     fn from_xy(x:T,y:T)->Self{(x,y)}
 }
-impl<T:Float+Default> HasXYZ for (T,T,T){
+impl<T:Float+VElem> HasXYZ for (T,T,T){
 //    type HasElem=T;
 	type Appended=(T,T,T,T);
     fn x(&self)->T{self.0}
@@ -1061,7 +1066,7 @@ impl<T:Float+Default> HasXYZ for (T,T,T){
     fn z(&self)->T{self.2}
     fn from_xyz(x:T,y:T,z:T)->Self{(x,y,z)}
 }
-impl<T:Float+Default> HasXYZW for (T,T,T,T){
+impl<T:Float+VElem> HasXYZW for (T,T,T,T){
 //    type Elem=T;
     fn x(&self)->T{self.0}
     fn y(&self)->T{self.1}
@@ -1088,7 +1093,7 @@ pub fn v3madd<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V,f:V::Elem)->V 	{ v3add(v0,&v
 pub fn v3lerp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V,f:V::Elem)->V	{ v3add(v0,&v3scale(&v3sub(v1,v0),f))}
 pub fn v3dot<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V::Elem			{	a.x()*b.x()+a.y()*b.y()+a.z()*b.z() }
 pub fn v3cross<T:Num,V:HasXYZ<Elem=T>>(a:&V,b:&V)->V			{ panic!("cross product untested");V::from_xyz((a.y()*b.z()-a.z()*b.y()),(a.z()*b.x()-a.x()*b.z()),(a.x()*b.y()-a.y()*b.x())) }
-pub fn v3norm<T:Float+Default,V:HasXYZ<Elem=T>>(v0:&V)->V { v3scale(v0,one::<T>()/(v3dot(v0,v0).sqrt())) }
+pub fn v3norm<T:Float+VElem,V:HasXYZ<Elem=T>>(v0:&V)->V { v3scale(v0,one::<T>()/(v3dot(v0,v0).sqrt())) }
 pub fn v3sub_norm<T:Float,V:HasXYZ<Elem=T>>(v0:&V,v1:&V)->V	 where V::Elem:Float{ v3norm(&v3sub(v0,v1))}
 pub fn v3perp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,axis:&V)->V		{ v3madd(v0, axis, -v3dot(v0,axis))}
 pub fn v3para_perp<T:Float,V:HasXYZ<Elem=T>>(v0:&V,axis:&V)->(V,V){ let para=v3scale(axis, v3dot(v0,axis));let perp=v3sub(v0,&para); (para, perp) }
@@ -1122,9 +1127,9 @@ pub fn v2madd<T:Num,V:HasXY<Elem=T>>(a:&V,b:&V,f:V::Elem)->V{
 pub fn v2scale<T:Num,V:HasXY<Elem=T>>(a:&V,f:V::Elem)->V{
     V::from_xy(a.x()*f, a.y()*f)
 }
-pub fn v2min<T:PartialOrd+Clone,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy(min(a.x(),b.x()),min(a.y(),b.y())) }
-pub fn v2max<T:PartialOrd+Clone,V:HasXY<Elem=T>>(a:&V,b:&V)->V{ V::from_xy(max(a.x(),b.x()),max(a.y(),b.y())) }
-pub fn v2avr<T:Float+Default,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy((a.x()+b.x())*half(), (a.y()+b.y())*half()) }
+pub fn v2min<T:PartialOrd+VElem,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy(min(a.x(),b.x()),min(a.y(),b.y())) }
+pub fn v2max<T:PartialOrd+VElem,V:HasXY<Elem=T>>(a:&V,b:&V)->V{ V::from_xy(max(a.x(),b.x()),max(a.y(),b.y())) }
+pub fn v2avr<T:Float+VElem,V:HasXY<Elem=T>>(a:&V,b:&V)->V { V::from_xy((a.x()+b.x())*half(), (a.y()+b.y())*half()) }
 pub fn v2is_inside<T:PartialOrd+Clone,V:HasXY<Elem=T>>(v:&V, (minv,maxv):(&V,&V))->bool{
 	inrange(v.x(), (minv.x(), maxv.x()))&&
 	inrange(v.y(), (minv.y(), maxv.y()))
@@ -1141,8 +1146,8 @@ trait Intersect<T>{
 /// seperation distance is negative if in contact
 struct Collision {
     distance:f32,
-    normal:Vec3,
-    point:Vec3,
+    normal:Vec3f,
+    point:Vec3f,
 }
 
 // lift common

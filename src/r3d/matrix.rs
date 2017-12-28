@@ -90,14 +90,17 @@ mod experimental {
 			self.pos.look_along(fwd, &self.dir)
 		}
 	}
+	pub trait PosDirTo<T:Float+Copy+Sized> :Sized{
+		fn pos_dir_to(self, at: Self) -> PosDir<Self, Self>;
+	}
 
-	impl<T: Float + Copy> Vec4<T> {
+	impl<T:Float+Copy+Sized> PosDirTo<T> for Vec4<T> {
 		fn pos_dir_to(self, at: Vec4<T>) -> PosDir<Self, Self> {
-			PosDir(self, at.sub(self))
+			PosDir(self, at.vsub(&self))
 		}
 	}
 
-	impl<T: Float> Vec3<T> {
+	impl<T: Float> PosDirTo<T> for Vec3<T> {
 		fn pos_dir_to(self, at: Vec3<T>) -> PosDir<Self, Self> {
 			PosDir(self, at.sub(self))
 		}
@@ -116,10 +119,10 @@ pub fn Matrix3<V:Clone>(ax:&V,ay:&V,az:&V)->Matrix3<V>{
 
 pub struct Scaling<T>(T,T,T);
 
-struct SRT<T=f32>{
+struct SRT<T:VElem=f32>{
 	scaling:Vec3<T>,rotation:Vec3<T>,translation:Vec3<T>
 }
-struct SQT<T=f32>{
+struct SQT<T:VElem=f32>{
 	scaling:Vec3<T>,rotation:Quaternion<T>,translation:Vec3<T>
 }
 
@@ -612,7 +615,7 @@ pub trait Transpose {
 	fn transpose(&self)->Self::Output;
 }
 
-impl<T:Copy> Transpose for Matrix4<Vec3<T>> {
+impl<T:VElem> Transpose for Matrix4<Vec3<T>> {
 	type Output = Matrix3<Vec4<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix3(
@@ -623,7 +626,7 @@ impl<T:Copy> Transpose for Matrix4<Vec3<T>> {
 	}
 }
 
-impl<T:Copy,> Transpose for Matrix4<Vec4<T>> {
+impl<T:VElem,> Transpose for Matrix4<Vec4<T>> {
 	type Output = Matrix4<Vec4<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix4(
@@ -635,7 +638,7 @@ impl<T:Copy,> Transpose for Matrix4<Vec4<T>> {
 	}
 }
 
-impl<T:Copy> Transpose for Matrix3<Vec4<T>> {
+impl<T:VElem> Transpose for Matrix3<Vec4<T>> {
 	type Output = Matrix4<Vec3<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix4(
@@ -647,7 +650,7 @@ impl<T:Copy> Transpose for Matrix3<Vec4<T>> {
 	}
 }
 
-impl<T:Copy> Transpose for Matrix3<Vec3<T>> {
+impl<T:VElem> Transpose for Matrix3<Vec3<T>> {
 	type Output = Matrix3<Vec3<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix3(
@@ -672,10 +675,10 @@ pub type Mat3_<ColV> = Matrix<Vec3<ColV>>;
 pub type Mat2_<ColV> = Matrix<Vec2<ColV>>;
 pub type Mat1_<ColV> = Matrix<Vec1<ColV>>;
 
-fn Mat4_<V:Clone>(ax:&V,ay:&V,az:&V,pos:&V)->Mat4_<V>{
+fn Mat4_<V:VElem>(ax:&V,ay:&V,az:&V,pos:&V)->Mat4_<V>{
 	Matrix(Vec4(ax.clone(),ay.clone(),az.clone(),pos.clone()))
 }
-fn Mat3_<V:Clone>(ax:&V,ay:&V,az:&V)->Mat3_<V>{
+fn Mat3_<V:VElem>(ax:&V,ay:&V,az:&V)->Mat3_<V>{
 	Matrix(Vec3(ax.clone(),ay.clone(),az.clone()))
 }
 
@@ -689,9 +692,9 @@ pub type Mat33<T=f32> = Matrix3<Vec3<T>>;
 pub type Mat34<T=f32> = Matrix3<Vec4<T>>;
 pub type Mat43<T=f32> = Matrix4<Vec3<T>>;
 pub type Mat44<T=f32> = Matrix4<Vec4<T>>;
-
+/*
 /// example of how the 'wrapped vector of vectors', see would work.
-pub fn rotate_x_ng<F:Float>(a:F)->Matrix<Vec4<Vec4<F>>> {
+pub fn rotate_x_ng<F:Float+VElem>(a:F)->Matrix<Vec4<Vec4<F>>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Mat4_(
 		&Vec4(one,	zero,	zero,	zero),
@@ -699,6 +702,6 @@ pub fn rotate_x_ng<F:Float>(a:F)->Matrix<Vec4<Vec4<F>>> {
 		&Vec4(zero,	-s,		c,	zero),
 		&Vec4(zero,	zero,	zero,	one))
 }
-
+*/
 
 

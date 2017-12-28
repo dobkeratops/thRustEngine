@@ -74,9 +74,9 @@ type Idx=usize;		// TODO how to use i32 index without fighting rust
 type PositionId=Idx;	
 
 
-type Position=Vec3;
-type Normal=Vec3;
-type Texcoord=Vec2;
+type Position=Vec3f;
+type Normal=Vec3f;
+type Texcoord=Vec2f;
 
 // channels: tex0, color, ..?
 // TODO - channelmesh.

@@ -301,7 +301,7 @@ fn safe_set_uniform1i(loc:GLint, value:GLint) {
 //		glUniform1i(loc, value);
 	}
 }
-fn safe_set_uniform(loc:GLint, pvalue:&Vec4) {
+fn safe_set_uniform(loc:GLint, pvalue:&Vec4f) {
 	// to do - validate
 	unsafe {	
 		glUniform4fv(loc, 1, &pvalue.x as *const GLfloat);
@@ -309,7 +309,7 @@ fn safe_set_uniform(loc:GLint, pvalue:&Vec4) {
 }
 
 //Vec4 g_FogColor=Vec4::<f32>::new(0.25,0.5,0.5,1.0);
-static g_fog_color:Vec4 =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
+static g_fog_color:Vec4f =Vec4{x:0.25,y:0.5,z:0.5,w:1.0};
 type RenderMode_t=usize;
 impl GlMesh {
 
@@ -319,9 +319,9 @@ impl GlMesh {
 		let baseVertex=0 as *const MyVertex; // for computing offsets
 
 			use minimal_shader::*;
-			let mapos=glGetAttribLocation(g_sp,c_str("position\0"));
-			let mp= glGetUniformLocation(	g_sp,c_str("uMatProj\0"));
-			let mmv= glGetUniformLocation(	g_sp,c_str("uMatModelView\0"));
+			let mapos=glGetAttribLocation( g_sp,c_str("position\0"));
+			let mp= glGetUniformLocation( g_sp,c_str("uMatProj\0"));
+			let mmv= glGetUniformLocation( g_sp,c_str("uMatModelView\0"));
 			glUseProgram(g_sp);
 			glVertexAttribPointer(mapos as u32,	3,GL_FLOAT, GL_FALSE, self.vertex_size, as_void_ptr(&(*baseVertex).pos));
 			glDrawElements(GL_LINE_STRIP, self.num_indices as GLsizei, GL_UNSIGNED_INT,0 as *const c_void);
@@ -330,7 +330,7 @@ impl GlMesh {
 		gl_verify!{glUniformMatrix4fv(mmv, 1, GL_FALSE, &rot_trans.ax.x);      }
 		}
 
-	unsafe fn render_mesh_shader(&self, matP:&Mat44,rot_trans:&Mat44,modei:RenderMode_t,tex0i:TextureIndex,tex1i:TextureIndex)  {
+	unsafe fn render_mesh_shader(&self, matP:&Mat44, rot_trans:&Mat44, modei:RenderMode_t, tex0i:TextureIndex, tex1i:TextureIndex)  {
 		let shu=&g_shader_uniforms[modei];
 		let prg=g_shader_program[modei];
 		if prg==0{
@@ -341,7 +341,7 @@ impl GlMesh {
 		gl_verify!{glUniformMatrix4fv(shu.mat_proj, 1,  GL_FALSE, &matP.ax.x);}
 		gl_verify!{glUniformMatrix4fv(shu.mat_model_view, 1, GL_FALSE, &rot_trans.ax.x);}
 		
-		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY,GL_COLOR_ARRAY,GL_TEXTURE_COORD_ARRAY];
+		let clientState:[GLenum;3]=[GL_VERTEX_ARRAY, GL_COLOR_ARRAY, GL_TEXTURE_COORD_ARRAY];
 
 		gl_verify!{glBindBuffer(GL_ARRAY_BUFFER, self.vbo);}
 		gl_verify!{glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ibo);}
@@ -573,7 +573,7 @@ pub fn	render_no_swap(debug:u32)
 }
 
 struct Actor {
-	pos:Vec3, vec:Vec3, color:Vec4
+	pos:Vec3f, vec:Vec3f, color:Vec4f
 }
 
 struct WorldState {
@@ -593,7 +593,7 @@ pub fn create_landscape()->GlMesh{
 	let tm=trimesh::TriMesh::<VertexP>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
-pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3)->GlMesh{
+pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3f)->GlMesh{
 	trace!();
 	// raw noise,
 	let lsz=5;
@@ -609,8 +609,6 @@ pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3)->GlMesh{
 		}
 	);
 
-
-	dump!(vox[2]);
 	let tm=trimesh::TriMesh::<VertexNFCT>::from_voxels(&vox,0.25f32);
 	GlMesh::from(&tm)
 }

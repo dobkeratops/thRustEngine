@@ -54,7 +54,7 @@ impl<A:'static> window::Window<A> for FlyMode {
 
     fn render(&self, a:&A, wc:&window::WinCursor) {
 
-        let eye: Vec3 = self.pos.into();
+        let eye: Vec3f = self.pos.to_vec3();//into();
         let (ax, ay) = (sin(self.hdg), cos(self.hdg));
         let at = Vec3(eye.x + ax, eye.y + ay, eye.z);
         let cam = Camera::look_along(
