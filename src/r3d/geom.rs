@@ -1,6 +1,5 @@
 use super::*;
 
-
 /// newtype for an 'offset vector' - difference of points, could be 2d,3d,4d
 /// Ofs(Vec3) should coerce to 'Vec4' with W=0'
 /// another way to implement these may be a version of Vec2/3/4 which take a different type
@@ -126,6 +125,7 @@ impl Extents<Vec3<f32>>{
 		m
 	}
 }
+
 pub fn Extents<V:VecCmpOps+Clone>(a:&V,b:&V)->Extents<V>{ Extents{min:a.vmin(b),max:a.vmax(b)}}
 pub type Rect=Extents<Vec2>;
 pub type Cuboid=Extents<Vec3>;
@@ -214,7 +214,8 @@ impl<P,N:Copy> Normal for PlaneThruPoint<P,N> { type Output=N; fn normal(&self)-
 struct NormalHit{
 }
 
-pub struct Capsule<V:Copy>(pub Line<V>,pub f32);
+type Radius=f32;
+pub struct Capsule<V:Copy>(pub Line<V>,pub Radius);
 
 pub trait Intersection<B> {
 	type Output;
@@ -227,7 +228,7 @@ pub trait GetClosestFeatures<B> {
 }
 
 /// result of get_closest_features; contains the two points on the objects having been tested, their seperation and the normal
-pub struct ClosestFeatures<V,S>{
+pub struct ClosestFeatures<V=Vec3,S=f32>{
 	pub points:[V;2],	//
 	pub normal:V,
 	pub seperation:S			// >0 means no collision, <0 means the objects intersect

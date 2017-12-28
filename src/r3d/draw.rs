@@ -297,7 +297,6 @@ struct Quad<V,A=()> {
 	attr:A
 }
 
-
 pub trait RenderVertex{
 	fn render_vertex(&self);
 }
@@ -873,32 +872,6 @@ pub trait MatrixStack{
 	fn depth(&self)->usize;
 }
 
-/// thin wrapper for opengl calls
-pub trait Renderer :Sized {
-
-	fn set_matrix(&mut self,index:i32,m:&Mat44f);
-	fn begin(&mut self, Prim);
-	fn vertex(&mut self, p:&V3);
-	fn color(&mut self, c:u32);
-	fn vertexc(&mut self, p:&V3, c:u32) {self.color(c);self.vertex(p);}
-	fn end(&mut self);
-	fn draw<T:Render>(&mut self, a:&T){a.draw_into(self);}
-}
-
-pub trait Render :Sized{
-	fn draw_into<R:Renderer>(&self,&mut R);
-}
-
-struct GlRenderer {
-}
-
-struct SceneCapture{
-
-    lines:Vec<[(V3,V3,Color);2]>,
-}
-
-//impl Renderer for GlRenderer {
-//}
 
 
 

@@ -1,19 +1,25 @@
 use super::*;
 
 // N normal
-// C color(packed), todo
+// C packed-color
+//  FC=Float Color.
 // T texcoord
 // P position
 // D DiffuseColor
 // W weights
 // B bones
 // S specularColor
+// FC=FloatColor, the unusual attribute
 
 // packed color vs float color
 // blend weights
 
+// Todo .. 
+// would we make Vertex<POS,Color=Vec4f, Tex=Vec2f, ()> 
+// .. and typedef it to each?
+
 #[derive(Clone,Debug)]
-pub struct	VertexNCT
+pub struct	VertexNFCT
 {
 	pub pos:Vec3<f32>,
 	pub norm:Vec3<f32>,
@@ -23,23 +29,23 @@ pub struct	VertexNCT
 
 /// simple vertex, position without attributes,but semantically distinct from 'vector'
 #[derive(Clone,Debug)]
-pub struct	Vertex
+pub struct	VertexP
 {
 	pub pos:Vec3<f32>,
 }
 
-impl Pos<Vec3> for Vertex {
+impl Pos<Vec3> for VertexP {
 	type Output=Vec3;
 	fn pos(&self)->Vec3{self.pos}
 }
 
-impl Pos<Vec3> for VertexNCT{	
+impl Pos<Vec3> for VertexNFCT{	
 	type Output=Vec3;
 	fn pos(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
 	fn set_pos(&mut self,v:&Vec3) {self.pos=v.clone();}
 }
 
-impl Norm<Vec3> for VertexNCT{	
+impl Norm<Vec3> for VertexNFCT{	
 	type Output=Vec3;
 	fn norm(&self)->Vec3 {Vec3(self.pos.x,self.pos.y,self.pos.z)}
 	fn set_norm(&mut self,v:&Vec3) {self.pos=v.clone();}

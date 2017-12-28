@@ -137,7 +137,7 @@ impl<V:Pos,ATTR:Clone> TriMesh<V,ATTR>{
 	}
 }
 
-impl TriMesh<Vertex,()> {
+impl TriMesh<VertexP,()> {
 	// generates xy-plane heightfield z is up. 
 	// must rotate it after if you want something else
 	pub fn from_heightfield(ht:&Array<Array<f32>>,size:f32)->Self{
@@ -147,14 +147,14 @@ impl TriMesh<Vertex,()> {
 		for col in ht.iter(){
 			assert!(col.len()==width);
 		}
-		let mut vertices:Array<Vertex> = Array::new();
+		let mut vertices:Array<VertexP> = Array::new();
 		let cellxsize=size/(width as f32);
 		let cellysize=size/(height as f32);
 		let mut fy=-0.5f32*cellysize;
 		for y in 0..height{
 			let mut fx=-0.5f32*cellxsize;
 			for x in 0..width{
-				vertices.push(Vertex{pos:Vec3(fx,fy,ht[y][x])});
+				vertices.push(VertexP{pos:Vec3(fx,fy,ht[y][x])});
 				fx+=cellxsize;
 			}
 			fy+=cellysize;
@@ -217,7 +217,7 @@ impl<V:Debug+Pos> TriMesh<V,()>{
 	}
 }
 
-impl TriMesh<VertexNCT,()>{
+impl TriMesh<VertexNFCT,()>{
 
 	//todo - customize with lambdas
 	pub fn from_voxels(voltex:&Array<Array<Array<f32>>>, size:f32)->Self{
@@ -234,7 +234,7 @@ impl TriMesh<VertexNCT,()>{
 				let fz:f32=ipos[2] as f32 *cell_size;
 				let pv:Vec3<f32>=Vec3(fx,fy,fz);
 				// todo - confusion about centreing ,0.0 or 0.05?
-				VertexNCT{
+				VertexNFCT{
 					pos:pv.vmadd(&norm,clip*cell_size),
 					color:Vec4(s,s,s,1.0),
 					norm:norm,
