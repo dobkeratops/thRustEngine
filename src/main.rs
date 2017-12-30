@@ -800,7 +800,7 @@ pub fn main(){
  	#[cfg(shadertest)]
 	{
 		println!("shadertest");	
-		window::run_loop(vec![Box::new(ShaderTest{time:3000000})],&mut ());
+		window::run_loop(vec![Box::new(ShaderTest{time:3000})],&mut ());
 		return;
 	}
 

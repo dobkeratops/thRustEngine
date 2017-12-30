@@ -290,7 +290,7 @@ impl Tool<Scene> for DrawTool {
     fn tool_drag_end(&mut self, d:&ToolDrag, (s, e):ViewCursorScene<Scene>)->optbox<Operation<Scene>>{
         if !e.drag_start.is_some(){return None;}
         let screen_delta=v2sub(&e.pos, &e.drag_start.unwrap());
-        let world_delta=e.screen_to_world.mul_vec3_vec(&Vec3(screen_delta.x, screen_delta.y,0.0f32)).to_vec3();
+        let world_delta=e.screen_to_world.mul_vec3w0(&Vec3(screen_delta.x, screen_delta.y,0.0f32)).to_vec3();
 //        let s=e.scene;
         match d {
             &ToolDrag::MovePoint(ref vti)=>Some(Box::new(

@@ -294,7 +294,7 @@ impl<T:Editable> SpatialViewPane<T> {
             world_to_screen: mat_w_to_s.clone(),
             screen_to_world: self.matrix_viewport_to_world(ed,&w.rect),
             interest_point: ed.interest_point,
-            screen_interest_point: mat_w_to_s.mul_vec3_point(&ed.interest_point).project_to_vec3()
+            screen_interest_point: mat_w_to_s.mul_vec3w1(&ed.interest_point).project_to_vec3()
         }
     }
 

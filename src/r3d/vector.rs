@@ -1622,10 +1622,14 @@ pub trait VecOps: Clone+
 	fn vassign_scale(&mut self,f: Self::Elem)->&mut Self	{*self=self.vscale(f);self}
 	fn vmul(&self,b:&Self)->Self			{unimplemented!()}
 	fn vsum_elems(&self)-> Self::Elem		{unimplemented!()}
+	fn vmul_elems(&self)-> Self::Elem		{unimplemented!()}
 	fn vcross(&self,b:&Self)->Self			{unimplemented!()}
 	fn vdot(&self,b:&Self)-> Self::Elem	{self.vmul(b).vsum_elems()}
-    // 'multiply-add' a+b*c operation. receiver, the asymetrical one, is the add operand
+    // 'multiply-add' a+b*c operation. receiver, the asymetrical one, is the add operand .. scalar operand
+	// todo .. the naming pattern here is a little unusual,
+	// unfortunately the default is .. what?
 	fn vmadd(&self,b:&Self,f: Self::Elem)->Self	{self.vadd(&b.vscale(f))}
+	fn vmadd7v(&self,b:&Self,c:&Self)->Self	{self.vadd(&b.vmul(&c))}
     fn vmsub(&self,b:&Self,f: Self::Elem)->Self	{self.vsub(&b.vscale(f))}
     // 'multiply-accumulate' - mutates in place, the receiver is an accumulator
     fn vmacc(&mut self, src1:&Self, src2:&Self)->&mut Self {self.vassign_add(&src1.vmul(src2)); self}
@@ -2041,6 +2045,7 @@ impl<T:Float+VElem,V> VecOps for V where V:HasXYZ<Elem=T> {
     fn vscale(&self,f:T)->V		{V::from_xyz(self.x()*f, self.y()*f, self.z()*f)}
     fn vmul(&self,b:&V)->V	{V::from_xyz(self.x()*b.x(), self.y()*b.y(), self.z()*b.z())}
     fn vsum_elems(&self)->T	{self.x()+self.y()+self.z()}
+    fn vmul_elems(&self)->T	{self.x()*self.y()*self.z()}
     fn vcross(&self,b:&V)->V	{V::from_xyz(self.y()*b.z()-self.z()*b.y(), self.z()*b.x()-self.x()*b.z(), self.x()*b.y()-self.y()*b.x())}
 
     fn vcross_to_vec3(&self,b:&V)->Vec3<T>	{let v=self.vcross(b); Vec3(v.x(),v.y(),v.z())}
@@ -2324,6 +2329,7 @@ impl<T:Float> VecOps for Vec4<T> {
 	fn vscale(&self,f:T)->Vec4<T>		{Vec4(self.x*f,self.y*f,self.z*f,self.w*f)}
 	fn vmul(&self,b:&Vec4<T>)->Vec4<T>	{Vec4(self.x*b.x,self.y*b.y,self.z*b.z,self.w*b.w)}
 	fn vsum_elems(&self)->T	{self.x+self.y+self.z+self.w}
+	fn vmul_elems(&self)->T	{self.x*self.y*self.z*self.w}
 
 	fn vcross(&self,b:&Vec4<T>)->Vec4<T>	{Vec4(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x,zero::<T>())}
 

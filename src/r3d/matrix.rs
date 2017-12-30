@@ -302,21 +302,27 @@ impl<T:Float,V:VMath<Elem=T>> Matrix4<V> where
 		let ofs=pt.vsub(&self.aw);
 		VecOps::vfrom_xyz_f(ofs.vdot(&self.ax),ofs.vdot(&self.ay),ofs.vdot(&self.az))
 	}
-	pub fn mul_vec3_vec(&self,pt:&Vec3<V::Elem>)->V{
+	pub fn mul_vec3w0(&self,pt:&Vec3<V::Elem>)->V{
 		self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z)
 	}
-    pub fn mul_vec3_point(&self,pt:&Vec3<V::Elem>)->V{
+    pub fn mul_vec3w1(&self,pt:&Vec3<V::Elem>)->V{
         self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z).vadd(&self.aw)
     }
-	pub fn mul_vec4(&self,pt:&V)->V{
+	pub fn mul_vec3_point(&self,pt:&Vec3<V::Elem>)->V{
+		self.mul_vec3w1(pt)
+	}
+	pub fn mul_vec(&self,pt:&V)->V{
 		self.ax.vmul_x(pt).vmadd_y(&self.ay,pt).vmadd_z(&self.az,pt).vmadd_w(&self.aw,pt)
+	}
+	pub fn mul_vec4(&self,pt:&Vec4<V::Elem>)->V{
+		self.ax.vscale(pt.x).vmadd(&self.ay,pt.y).vmadd(&self.az,pt.z).vmadd(&self.aw,pt.w)
 	}
 	pub fn mul_matrix(&self,other:&Matrix4<V>)->Matrix4<V> {
 		Matrix4(
-			&self.mul_vec4(&other.ax),
-			&self.mul_vec4(&other.ay),
-			&self.mul_vec4(&other.az),
-			&self.mul_vec4(&other.aw))
+			&self.mul_vec(&other.ax),
+			&self.mul_vec(&other.ay),
+			&self.mul_vec(&other.az),
+			&self.mul_vec(&other.aw))
 	}
     // reverse order useful for composing transformation reading from left to right
     pub fn pre_mul_matrix(&self,other:&Matrix4<V>)->Matrix4<V>{
@@ -443,7 +449,7 @@ impl<'l, T:Float> Mul<&'l Vec4<T> > for &'l Matrix4<Vec4<T>> {
 impl<'l, T:Float> Mul<&'l Vec3<T> > for &'l Matrix4<Vec3<T>> {
 	type Output=Vec3<T>;
 	fn mul(self,rhs:&'l Vec3<T>) -> Vec3<T>{
-		self.mul_vec3_vec(rhs)
+		self.mul_vec3w0(rhs)
 	}
 }
 
