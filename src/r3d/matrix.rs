@@ -528,6 +528,7 @@ impl<T:VElem> Transpose for Matrix4<Vec3<T>> {
 impl<T:VElem,> Transpose for Matrix4<Vec4<T>> {
 	type Output = Matrix4<Vec4<T>>;
 	fn transpose(&self)->Self::Output{
+        // TODO - SIMD impl in 4x4x32bit case
 		Matrix4::new(
 			&Vec4::new(self.ax.x,	self.ay.x, self.az.x, self.aw.x),
 			&Vec4::new(self.ax.y,	self.ay.y, self.az.y, self.aw.y),

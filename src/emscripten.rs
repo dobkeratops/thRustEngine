@@ -34,7 +34,12 @@ extern {
 	pub fn emscripten_fetch(fetch_attr:&mut fetch_attr_t, url:*const c_char)->*mut fetch_t;
 	pub fn emscripten_fetch_wait(fetch:&mut fetch_t, timeoutMSecs:f64)->EMSCRIPTEN_RESULT ;
 	pub fn  emscripten_fetch_close(fetch:&mut fetch_t)->EMSCRIPTEN_RESULT;
-	pub fn emscripten_set_main_loop(func:*const u8, fps:i32, simulate_infinite_loop:i32);
+}
+#[cfg(target_os="emscripten")]
+extern
+{
+    pub fn emscripten_set_main_loop(func:*const u8, fps:i32, simulate_infinite_loop:i32);
+
 }
 type em_callback_func=&'static extern  fn();
 type em_arg_callback_func=&'static extern fn(*mut c_void);
@@ -119,6 +124,7 @@ const EMSCRIPTEN_FETCH_SYNCHRONOUS:EMuint= 64;
 const EMSCRIPTEN_FETCH_WAITABLE:EMuint= 128;
 
 //struct emscripten_fetch_t;
+
 
 // Specifies the parameters for a newly initiated fetch operation.
 #[repr(C)]
@@ -247,6 +253,10 @@ pub struct fetch_t
 	pub __attributes:fetch_attr_t,
 }
 
+#[cfg(not(target_os="emscripten"))]
+pub fn emscripten_set_main_loop(func:*const u8, fps:i32, simulate_infinite_loop:i32){
+    println!("emscripten main loop ");
+}
 
 
 

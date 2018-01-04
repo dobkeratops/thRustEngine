@@ -59,7 +59,7 @@ impl Norm<Vec3f> for VertexNFCT{
 /// TODO - how to make vertex index generic? gen 'to_usize'/'from_usize'
 /// for the moment,just throw hardcoded i32 around as a universal vertex index.
 
-type VTI=i32;
+pub type VTI=i32;
 pub trait HasVertices<V:Pos>{
 	fn num_vertices(&self )->VTI;
 	fn vertex<'a>(&'a self,i:VTI)->&'a V;
@@ -67,7 +67,7 @@ pub trait HasVertices<V:Pos>{
 	/// compute object's local extents of position vectors
 	fn bounding_box(&self)->Extents<Vec3f>{
 		let mut e=Extents::new();	
-		for i in 0..self.num_vertices() as i32{
+		for i in 0..self.num_vertices() as VTI{
 			e.include(&self.vertex(i).pos());
 		}
 		e

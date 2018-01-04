@@ -1,4 +1,5 @@
 use super::*;
+use super::Clamp;
 /*
 // Vec3*scalar
 impl<A,B,C> Mul<B> for Vec3<A> 
@@ -97,7 +98,34 @@ impl<T:VElem> HasElem for Vec1<T>{
 			_=>panic!()
 		}
 	}
+}
 
+impl Vec3<f32>{
+    pub fn to_vec3i(&self)->Vec3<i32>{
+        Vec3::new(self.x as i32, self.y as i32, self.z as i32)
+    }
+}
+/// map integers to vector with given 0-1 range
+impl Vec3<i32>{
+    pub fn to_vec3f(&self, zero_val:i32,one_val:i32)->Vec3<f32> {
+        let diff=(one_val-zero_val) as f32;
+        let conv = |x|((x-zero_val) as f32)/diff;
+        Vec3::new(conv(self.x), conv(self.y), conv(self.z))
+    }
+}
+
+impl Vec4<f32>{
+    pub fn to_vec4i(&self)->Vec4<i32>{
+        Vec4::new(self.x as i32, self.y as i32, self.z as i32,self.w as i32)
+    }
+}
+/// map integers to vector with given 0-1 range
+impl Vec4<i32>{
+    pub fn to_vec4f(&self, zero_val:i32,one_val:i32)->Vec4<f32> {
+        let diff=(one_val-zero_val) as f32;
+        let conv = |x|((x-zero_val) as f32)/diff;
+        Vec4::new(conv(self.x), conv(self.y), conv(self.z), conv(self.w))
+    }
 }
 
 impl<T:VElem> HasElem for Vec2<T>{
@@ -785,7 +813,7 @@ pub trait VecNumOps :Sized
     fn vsub(&self, b: &Self) -> Self;
 }
 
-pub trait VecCmpOps :Sized {
+pub trait VecCmpOps :Sized+HasElem {
 	type CmpOutput;
     fn vassign_min(&mut self,b:&Self){*self=self.vmin(b);}
     fn vassign_max(&mut self,b:&Self){*self=self.vmax(b);}
@@ -793,7 +821,21 @@ pub trait VecCmpOps :Sized {
 	fn vmax(&self,b:&Self)->Self;
 	fn gt(&self,b:&Self)->Self::CmpOutput;
 	fn lt(&self,b:&Self)->Self::CmpOutput;
+    fn vclamp(&self,a:&Self,b:&Self)->Self{
+        self.vmin(b).vmax(a)
+    }
+    //fn vclamp_s(&self,a:&Self)->Self{
+    //    self.vclamp(a.vneg(),a)
+   // }
+//    fn vclamp_scalar(&self, a:Self::Elem)->Self{
+    //       self.vclamp(Self::splat(-a),Self::splat(a))
+//    }
+    fn vclamp_scalar_range(&self, smin:Self::Elem,smax:Self::Elem)->Self{unimplemented!()}
+    fn vclamp_scalar(&self, s:Self::Elem)->Self{unimplemented!()}
 }
+
+
+
 // select masks.
 trait Select<V>{
 	fn select(&self,iftrue:V,iffalse:V)->V;
@@ -1151,7 +1193,7 @@ impl<F:VElem+Zero> VecAccessors for (F,F,F){
 	fn vy(&self)->F{self.1.clone()}
 	fn vz(&self)->F{self.2.clone()}
 	fn vw(&self)->F{zero::<F>()}
-	fn splat(f:F)->Self {(f.clone(), f.clone(), f.clone())}
+	fn splat_ref(f:&F)->Self {(f.clone(), f.clone(), f.clone())}
 }
 
 impl<T:Clone> HasElem for (T,){
@@ -1387,26 +1429,6 @@ impl<V:VecNumOps> Sub<V> for V{
 }
 */
 
-pub trait Min :Sized+Clone{
-	fn min(self,other:Self)->Self;
-}
-///scalar implemenantation
-impl<T:PartialOrd+Sized+Clone+Num> Min for T{
-	fn min(self,other:Self)->Self{if self< other{self.clone()}else{other.clone()}}
-}
-
-pub  trait Max :Sized+Clone{
-	fn max(self,other:Self)->Self;
-}
-/// scalar implementation .. vector version would be componentwise
-impl<T:PartialOrd+Sized+Clone+Num> Max for T{
-	fn max(self,other:Self)->Self{if self>other{self.clone()}else{other.clone()}}
-}
-
-pub trait Clamp :Min+Max{
-	fn clamp(self,lo:Self,hi:Self)->Self{ self.max(lo).min(hi) }
-}
-impl<T:Min+Max> Clamp for T{}
 
 
 
@@ -1594,7 +1616,7 @@ macro_rules! impl_vecn_fmap{
 
 macro_rules! impl_vec_cmp_ops{
 	($VecN:ident{$($elem:ident),*})=>{
-		impl<T:VElem+PartialOrd> VecCmpOps for $VecN<T> {
+		impl<T:VElem+PartialOrd+Neg<Output=T>> VecCmpOps for $VecN<T> {
 			type CmpOutput=$VecN<bool>;	// todo: figure out nesting, e.g. impl this for scalars to terminate
 			fn vmin(&self, b:&Self)->Self	{
 				$VecN{$( $elem : min_ref(&self.$elem, &b.$elem) ),*}
@@ -1608,7 +1630,13 @@ macro_rules! impl_vec_cmp_ops{
 			fn gt(&self, b:&Self)->$VecN<bool>{
 				$VecN{$( $elem : self.$elem > b.$elem ),*}
 			}
-		}
+			fn vclamp_scalar_range(&self,a:T,b:T)->Self{
+			    $VecN{$( $elem : self.$elem.clamp(a,b) ),*}
+			}
+			fn vclamp_scalar(&self,a:T)->Self{
+			    $VecN{$( $elem : self.$elem.clamp(-a,a) ),*}
+			}
+   		}
 	}
 }
 impl_vec_cmp_ops!(Vec2{x,y});
@@ -1694,12 +1722,40 @@ pub trait VecAccessors : HasElem+Sized {
 	fn vy(&self)->Self::Elem;
 	fn vz(&self)->Self::Elem;
 	fn vw(&self)->Self::Elem;
-	fn splat(Self::Elem)->Self;
+	fn splat(s:Self::Elem)->Self{Self::splat_ref(&s)}
+    fn splat_ref(&Self::Elem)->Self;
 	fn splat_x(&self)->Self{ Self::splat(self.vx())}	// can't say which type, so no default.
 	fn splat_y(&self)->Self{ Self::splat(self.vy())}
 	fn splat_z(&self)->Self{ Self::splat(self.vz())}
 	fn splat_w(&self)->Self{ Self::splat(self.vw())}
 }
+pub trait SplatToVec :VElem{
+    fn splat2(&self)->Vec2<Self>;
+    fn splat3(&self)->Vec3<Self>;
+    fn splat4(&self)->Vec4<Self>;
+}
+impl<T:VElem> SplatToVec for T{
+    fn splat2(&self)->Vec2<T>{Vec2::new(self.clone(),self.clone())}
+    fn splat3(&self)->Vec3<T>{Vec3::new(self.clone(),self.clone(),self.clone())}
+    fn splat4(&self)->Vec4<T>{Vec4::new(self.clone(),self.clone(),self.clone(),self.clone())}
+}
+pub trait Splat<V:HasElem<Elem=Self>> :VElem {
+    fn splat_to_vec(&self) -> V;
+}
+
+macro_rules! impl_splat{
+    ($vec:ident{$($elem:ident),*})=>
+    {   impl<T: VElem> Splat<$vec<T>> for T {
+            fn splat_to_vec(&self) -> $vec<T> {
+                $vec{$($elem:self.clone()),*}
+            }
+        }
+    }
+}
+impl_splat!{Vec2{x,y}}
+impl_splat!{Vec3{x,y,z}}
+impl_splat!{Vec4{x,y,z,w}}
+
 
 pub fn normal(x:f32,y:f32,z:f32)->Vec3<f32>{Vec3::new(x,y,z).vnormalize()}
 
@@ -1710,6 +1766,7 @@ impl<T:Zero+VElem> VecAccessors for Vec2<T>
 	fn vz(&self)->T	{ zero::<T>()}
 	fn vw(&self)->T	{ zero::<T>()}
 	fn splat(f:T)->Self{ vec2(f.clone(),f.clone())}
+	fn splat_ref(f:&T)->Self{ vec2(f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> VecAccessors for Vec3<T> {
@@ -1718,6 +1775,7 @@ impl<T:Zero+VElem> VecAccessors for Vec3<T> {
 	fn vz(&self)->T	{ self.z.clone()}
 	fn vw(&self)->T	{ zero::<T>()}
 	fn splat(f:T)->Self{ vec3(f.clone(),f.clone(),f.clone())}
+    fn splat_ref(f:&T)->Self{ vec3(f.clone(),f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> VecAccessors for Vec4<T>
@@ -1727,6 +1785,7 @@ impl<T:Zero+VElem> VecAccessors for Vec4<T>
 	fn vz(&self)->T	{ self.z.clone()}
 	fn vw(&self)->T	{ self.w.clone()}
 	fn splat(f:T)->Self{ vec4(f.clone(),f.clone(),f.clone(),f.clone())}
+    fn splat_ref(f:&T)->Self{ vec4(f.clone(),f.clone(),f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> Zero for Vec4<T> {
@@ -1824,6 +1883,15 @@ impl<T:Float> ToVec2<T> for Vec2<T>{
 impl<T:Float> ToVec4<T> for Vec4<T>{
     fn to_vec4(&self)->Vec4<T>{ self.clone()}
 }
+
+impl<'a,T:VElem> From<&'a [T;3]> for Vec3<T> {
+    fn from(src:&'a [T;3])->Vec3<T>{ Vec3::new(src[0].clone(),src[1].clone(),src[2].clone()) }
+}
+impl<'a,T:VElem> From<&'a [T;4]> for Vec4<T> {
+    fn from(src:&'a [T;4])->Vec4<T>{ Vec4::new(src[0].clone(),src[1].clone(),src[2].clone(),src[3].clone()) }
+}
+
+
 
 /*
 fn unpack_sub<F:Float,V:HasXYZW<Elem=F>>(src:u32, centre:u32, scale:F )->V{

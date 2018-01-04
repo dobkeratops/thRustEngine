@@ -62,7 +62,7 @@ extern crate itertools;
 pub use itertools::Itertools;
 
 #[cfg(target_os="macos")]
-#[link_args="-framework OpenGL -framework glut -L/usr/local/lib -F/Library/Frameworks -framework SDL2 -framework Cocoa"]
+#[link_args="-framework OpenGL -framework glut -L/usr/local/lib -F/Library/Frameworks -framework SDL -framework SDL2 -framework Cocoa"]
 extern{}
 
 #[cfg(target_os="linux")]
@@ -595,8 +595,9 @@ fn idle()
 }
 
 pub fn create_landscape()->GlMesh{
+
 	let ht=landscape::generate2d(4,0.125,1.1f32,1.0,0x787412ab);
-	let tm=trimesh::TriMesh::<VertexP>::from_heightfield(&ht,0.25f32);
+	let tm=trimesh::TriMesh::<VertexP,()>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
 pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3f)->GlMesh{
@@ -615,13 +616,14 @@ pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3f)->GlMesh{
 		}
 	);
 
-	let tm=trimesh::TriMesh::<VertexNFCT>::from_voxels(&vox,0.25f32);
+	let tm=trimesh::TriMesh::<VertexNFCT,()>::from_voxels(&vox,0.25f32);
 	GlMesh::from(&tm)
 }
 
+
 use trimesh::TriMesh;
-impl<'a> From<&'a TriMesh<VertexP>> for GlMesh{
-	fn from(src:&TriMesh<VertexP>)->Self {
+impl<'a> From<&'a TriMesh<VertexP,()>> for GlMesh{
+	fn from(src:&TriMesh<VertexP,()>)->Self {
 		let mut vts:Vec<VertexNFCT>=Vec::new();
 		let normals=src.vertex_normals();
 		for (i,v) in src.vertices.iter().enumerate(){
@@ -634,7 +636,7 @@ impl<'a> From<&'a TriMesh<VertexP>> for GlMesh{
 		}
 		let mut concati:Vec<i32> = Vec::new();
 		//todo: tri normals, and what are you doing for UVs,colors ?
-		for t in src.indices.iter(){ concati.push(t[0]);concati.push(t[1]);concati.push(t[2]);}
+		for t in src.indices.iter(){ concati.push(t[0] as i32);concati.push(t[1] as i32);concati.push(t[2]as i32);}
 		unsafe{
 			GlMesh{
 				num_vertices:src.vertices.len() as u32,
@@ -648,13 +650,13 @@ impl<'a> From<&'a TriMesh<VertexP>> for GlMesh{
 	}
 }
 // when it's a renderable vertex already, pull it in directly
-impl<'a> From<&'a TriMesh<VertexNFCT>> for GlMesh{
-	fn from(src:&TriMesh<VertexNFCT>)->Self {
+impl<'a> From<&'a TriMesh<VertexNFCT,()>> for GlMesh{
+	fn from(src:&TriMesh<VertexNFCT,()>)->Self {
 		let mut concati:Array<i32> = Array::new();
 		dump!(src.vertices.len(),src.indices.len());
 		let refvts=&src.vertices;
 		//todo: tri normals, and what are you doing for UVs,colors ?
-		for t in src.indices.iter(){ concati.push(t[0]);concati.push(t[1]);concati.push(t[2]);}
+		for t in src.indices.iter(){ concati.push(t[0]as i32);concati.push(t[1] as i32);concati.push(t[2] as i32);}
 		unsafe{
 			GlMesh{
 				num_vertices:src.vertices.len() as u32,
@@ -785,37 +787,52 @@ pub fn test_seq(){
 	println!("{:?}", seq![1,2,3]);
 	println!("{:?}", seq![1=>10,2=>3,3=>5]);
 }
-
-pub fn main(){
-	let mut ar:Array<i32,i32>=Array::new();
-	ar.push(0);ar.push(10);ar.push(20);ar.push(30);
-	let i:i32=1;
-	dump!(ar[i]);
-	for (i,x) in ar.iter().enumerate(){
-		dump!(i,x)
-	}
-    //let m1=Matrix43(Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32));
-    //let m2:Matrix43f;
-    //let m3:Mat43f;
-
+// messing around to see what IntellijIDEA autocomplete finds
+pub fn try_autocomplete() {
     let msh:r3d::mesh::Mesh;
     let m:Matrix4<Vec4<f32>>;
     let mmm:Matrix4<Vec4<f32>>;
     let cm:Camera;
 
 
-    let v:Vec3f;
+    let v:Vec3<f32>=Vec3::new(0.0,0.0,0.0);
+    let xx:[f32;3]=v.to_array();
+    let xxx:Vec3<f32>=v.x.splat_to_vec();
+
     let vfoo:Vec4f;
     let a:Array3d<f32>;
     let vv:Vec3<f32>;
-
-
     let m:Mat44f = matrix::identity();
+
     let v:Vec3f=zero();
+
     let v1=m.mul_vec3w0(&v);
     let mm:Matrix4<Vec3<f32>>;
+    let c=PackedARGB(0xff00ff80);
+    let d:Vec4f=c.into();
+    dump!(d);
 
-	voxels::test_array3d();
+    let ar:r3d::array3d::Array3d<f32>;
+    //let m1=Matrix43(Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32));
+    //let m2:Matrix43f;
+    //let m3:Mat43f;
+
+}
+pub fn test_array(){
+    let mut ar:Array<i32,i32>=Array::new();
+    ar.push(0);ar.push(10);ar.push(20);ar.push(30);
+    let i:i32=1;
+    dump!(ar[i]);
+    for (i,x) in ar.iter().enumerate(){
+        dump!(i,x)
+    }
+}
+
+pub fn main(){
+    #[cfg(minimal_shader)]
+    minimal_shader::mainr();
+
+    voxels::test_array3d();
  	#[cfg(all(shadertest,target_os="emscripten"))]
 	{
 //		minimal_shader::mainr();

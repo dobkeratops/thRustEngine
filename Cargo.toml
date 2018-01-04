@@ -3,6 +3,7 @@ name = "rustv"
 version = "0.1.0"
 authors = ["dobkeratops <dobkeratopsgit@gmail.com>"]
 
+
 [dependencies]
 vec_xyzw = { git = "https://github.com/dobkeratops/vec_xyzw-rs.git"}
 lininterp = { git = "https://github.com/dobkeratops/lininterp.git"}

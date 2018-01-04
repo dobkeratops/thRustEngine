@@ -2,7 +2,7 @@
 pub mod vector;
 pub mod matrix;
 pub mod quaternion;
-//pub mod array3d;
+pub mod array3d;
 pub mod geom;
 pub mod voxels;
 pub mod vertex;
@@ -25,9 +25,9 @@ pub mod classes;
 pub mod bsp;
 pub use sdl::*;
 pub use matrix::*;
-//pub extern crate array3d;
 pub extern crate vecgenericindex;
 pub extern crate half;
+pub use array3d::*;
 //pub extern crate vec_xyzw;
 //pub use vec_xyzw::*;
 
@@ -47,7 +47,10 @@ impl<T:VElem> Vec2<T>{pub fn new(x:T,y:T)->Self{Vec2{x:x,y:y}}}
 #[repr(C)]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec3<X:VElem=f32,Y=X,Z=Y>{pub x:X,pub y:Y, pub z:Z}
-impl<T:VElem> Vec3<T>{pub fn new(x:T,y:T,z:T)->Self{Vec3{x:x,y:y,z:z}}}
+impl<T:VElem> Vec3<T>{
+    pub fn new(x:T,y:T,z:T)->Self{Vec3{x:x,y:y,z:z}}
+    pub fn to_array(&self)->[T;3]{[self.x.clone(),self.y.clone(),self.z.clone()]}
+}
 
 #[cfg(not(vec_xyzw_crate))]
 #[repr(C)]
@@ -98,18 +101,18 @@ pub struct Matrix4<VEC,VPOS=VEC> {
     pub ax:VEC,pub ay:VEC,pub az:VEC,pub aw:VPOS
 }
 
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug)]
 #[repr(C)]
 pub struct Matrix3<AXIS=Vec3<f32>> {
     pub ax:AXIS,pub ay:AXIS,pub az:AXIS
 }
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug)]
 #[repr(C)]
 pub struct Matrix2<AXIS=Vec2<f32>> {
     pub ax:AXIS,pub ay:AXIS
 }
 /// '1xN' matrix, useles but might have utility for generic code e.g. 1x4 <-transpose-> 4x1
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug)]
 #[repr(C)]
 pub struct Matrix1<AXIS=Vec1<f32>> {
     pub ax:AXIS
@@ -297,6 +300,34 @@ pub unsafe fn as_void_ptr<T>(ptr:&T)->*const c_void {
 	ptr as *const T as *const c_void
 }
 
+pub trait Min :Sized+Clone{
+    fn min(self,other:Self)->Self;
+}
+///scalar implemenantation
+impl<T:PartialOrd+Sized+Clone+Num> Min for T{
+    fn min(self,other:Self)->Self{if self< other{self.clone()}else{other.clone()}}
+}
+pub  trait Max :Sized+Clone{
+    fn max(self,other:Self)->Self;
+}
+/// scalar implementation .. vector version would be componentwise
+impl<T:PartialOrd+Sized+Clone+Num> Max for T{
+    fn max(self,other:Self)->Self{if self>other{self.clone()}else{other.clone()}}
+}
+//pub trait Clamp :Min+Max{
+//    fn clamp(self,lo:Self,hi:Self)->Self{ self.max(lo).min(hi) }
+//}
+//impl<T:Min+Max> Clamp for T{}
+
+pub trait Clamp : PartialOrd {
+    fn clamp(&self,lo:Self,hi:Self)->Self;
+}
+impl<T:PartialOrd+Copy> Clamp for T {
+    fn clamp(&self,minv:T,maxv:T)->Self{
+        if *self<minv {minv} else if *self>maxv{maxv} else{*self}
+    }
+}
+
 
 
 #[derive(Debug,Clone,Copy)]
@@ -307,8 +338,8 @@ pub struct PackedS8x4(pub u32);	// packed vector in -1 to 1 range
 pub struct PackedARGB1555(pub u16);	// 'Color', most commonly packed 8888
 #[derive(Debug,Clone,Copy)]
 pub struct PackedRGB565(pub u16);	// 'Color', most commonly packed 8888
-type Color = PackedARGB;        // ånother synonym
-type PackedARGB8888=PackedARGB;    // explicit
+pub type Color = PackedARGB;        // ånother synonym
+pub type PackedARGB8888=PackedARGB;    // explicit
 							// other representations can be more specific.
 type Point3= Vec3<f32>;
 // todo: f16
@@ -521,6 +552,14 @@ impl From<Vec3<f32>> for PackedXYZ {
 	}
 }
 
+struct PackedNormal32(i32);
+impl From<Vec3<f32>> for PackedNormal32{
+    fn from(src:Vec3<f32>)->Self{
+        let ixyz=src.vscale(511.0f32).vclamp_scalar_range(-511.0f32,511.0f32).to_vec3i();
+        PackedNormal32((ixyz.x&1023)|((ixyz.y&1023)<<10)|((ixyz.z&1023)<<20))
+    }
+}
+
 
 /// simple wrapper around GL, aimed at debug graphics
 pub trait DrawingWrapper {
@@ -648,11 +687,16 @@ impl FwdTrig for f64 {
     fn tan(&self) -> Self::Output{(*self as f64).tan()}
 }
 
+/// fractional types, e.g. float,fixed-point,quotient
+pub trait Frac  : Half {
+}
 
+impl Frac for f32{}
+impl Frac for f64{}
 /// TODO - figure out which parts of this live in 'vector
 /// we have better traits for this with dimensionable output
 
-pub trait Float : Num+Half+VElem+FwdTrig<Output=Self>{
+pub trait Float : Num+Frac+VElem+FwdTrig<Output=Self>{
     fn sqrt(&self)->Self;
     fn rsqrt(&self)->Self{ self.sqrt().recip()}
     fn exp(&self)->Self;

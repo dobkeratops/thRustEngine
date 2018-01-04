@@ -324,8 +324,6 @@ pub trait Tool<T:Editable>{
     fn tool_cancel(&mut self){println!("cancel")}
     //fn try_drag(&self, e:SceneView, mbpos:(MouseButtons,ScreenPos))->DragMode{DragMode::Rect }
 }
-
-
 // operations that any 'Editable' must have
 #[derive(Debug,Clone)]
 pub struct OpCut<T:Editable>{at:ScreenPos, phantom:PhantomData<T>}

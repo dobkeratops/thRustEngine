@@ -99,7 +99,7 @@ unsafe fn subr(){
 	emscripten::emscripten_set_main_loop(mainloop as *const u8, 0,1);	
 }
 
-fn mainloop(){
+pub  fn mainloop(){
 	unsafe{
 		glClearColor(0.5,0.4,0.6,0.0);
 		glEnable(GL_DEPTH_TEST);

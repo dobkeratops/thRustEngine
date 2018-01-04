@@ -1,24 +1,58 @@
 use super::*;
 use std::collections::HashMap;
 
-// todo: generalize primitive type
-// e.g. edgemesh, trimesh, quadmesh, polymesh.
-// 
+/// Genric Mesh primitive, e.g. tris,quads,fans,strips
+/// each must know how to triangulate; use specialization to get actual TriMesh
+pub trait Prim<'v,V> {
+    type Output;
+    fn num_tris(&self)->VtIdx;
+    fn num_edges(&self)->VtIdx;
+    fn tri(&self,i:VtIdx)->TriIndices;
+    fn lookup<F:Fn(VtIdx)->&'v V> (&'v self,F)->Self::Output where V:'v
+    {unimplemented!()}
+}
+impl<'v ,V:'v> Prim<'v,V> for Array3<VtIdx> {
+    type Output=Array3<&'v V>;
+    fn num_tris(&self)->VtIdx{1}
+    fn num_edges(&self)->VtIdx{3}
+    fn tri(&self,i:VtIdx)->TriIndices{self.clone()}
+    fn lookup<F:Fn(VtIdx)->&'v V>(&self,lookup_v:F)->Self::Output
+    where V:'v
+    {
+        Array3(lookup_v(self[0]),lookup_v(self[1]),lookup_v(self[2]))
+    }
+}
+/*
+impl<V> Prim<V> for Array4<VtIdx>{
+    fn num_tris(&self)->VtIdx{2}
+    fn num_edges(&self)->VtIdx{4}
+    fn tri(&self,i:VtIdx)->TriIndices{
+        match i{
+            0=>Array3(self[0],self[1],self[2]),
+            1=>Array3(self[0],self[2],self[3]),
+            _=>panic!()
+        }
+    }
+}
+*/
+// todo - arbitrary polys Vec<VtInd>, and tristrips
+
 
 type VtIdx=i32;
+type TriIndices=Array3<VtIdx>;
+
 /// all attributes on the vertex.
 /// triangle mesh; 'vertex' doesn't need an attr, you'd just extend 'V' itself.
 #[derive(Clone,Debug)]
-pub struct TriMesh<V:Pos,ATTR=()> {
-	pub vertices:Array<V>,
-	pub indices:Array<Array3<VtIdx>>,
-	pub attr:Array<ATTR>,
+pub struct TriMesh<V:Pos,ATTR,PRIM=TriIndices> {
+	pub vertices:Array<V,VtIdx>,
+	pub indices:Array<PRIM,VtIdx>,
+	pub attr:Array<ATTR,VtIdx>,
 }
 
-impl<V:Pos,ATTR> HasVertices<V> for TriMesh<V,ATTR>{
+impl<'v,V:Pos,ATTR,P:Prim<'v,V>> HasVertices<V> for TriMesh<V,ATTR,P>{
 	fn num_vertices(&self)->VtIdx{self.vertices.len()}
-	fn vertex(&self,i:i32)->&V{&self.vertices[i]}
-	
+	fn vertex(&self,i:super::VTI)->&V{&self.vertices[i]}
 }
 
 
@@ -83,33 +117,59 @@ impl<V:Pos> TriMesh<V,()>{
 		TriMesh{vertices:vts, indices:tris, attr:Array::from_val_n((),len)}
 	}
 }
-
-impl<V:Pos+Sized,ATTR> TriMesh<V,ATTR>{
-	pub fn foreach_triangle(&self, f:&mut FnMut([&V;3],&ATTR)->() ){
-		for (i,t) in self.indices.iter().enumerate(){
-			f([&self.vertices[t[0]],
-				&self.vertices[t[1]],
-				&self.vertices[t[2]]],
-			&self.attr[i as i32]);
+impl<'v,V:Pos+Sized,ATTR,PRIM:Prim<'v,V>> TriMesh<V,ATTR,PRIM>{
+	pub fn foreach_triangle(&'v self, f:&mut FnMut([&'v V;3],&ATTR)->() ){
+		for (i,prim) in self.indices.iter().enumerate(){
+            for j in 0..prim.num_tris(){
+                let tri=prim.tri(j);
+			    f([&self.vertices[tri[0]],
+				    &self.vertices[tri[1]],
+				    &self.vertices[tri[2]]],
+			    &self.attr[i as i32]);
+            }
 		}
 	}
 
 	pub fn map_triangles<B>(&self, f:&Fn([&V;3],&ATTR)->B )->Array<B>{
-		let mut out=Array::new(); out.reserve(self.indices.len() as i32);
-		for (i,t) in self.indices.iter().enumerate(){
-			out.push(
-				f([&self.vertices[t[0]],
-					&self.vertices[t[1]],
-					&self.vertices[t[2]]],
-				&self.attr[i as i32]));
+		let mut out=Array::new(); out.reserve(self.indices.len() as VtIdx);
+		for (i,prim) in self.indices.iter().enumerate(){
+            for j in 0..prim.num_tris() {
+                let tri=prim.tri(j);
+                out.push(
+                    f([&self.vertices[tri[0]],
+                          &self.vertices[tri[1]],
+                          &self.vertices[tri[2]]],
+                      &self.attr[i as i32]));
+            }
 		}
 		out
 	}
 
+    pub fn map_prims<B>(&self,f:&Fn(&PRIM,&ATTR)->B)->Array<B>{
+        let mut out=Array::new(); out.reserve(self.indices.len() as VtIdx)  ;
+        for (i,ref prim) in self.indices.iter().enumerate(){
+            out.push(f(prim, &self.attr[i]));
+        }
+        out
+    }
+
+    pub fn tri_indices(&self)->Array<TriIndices,VtIdx>{
+        let mut new_indices=Array::new();
+        new_indices.reserve((self.indices.len()));
+        for p in self.indices.iter(){
+            for ti in 0..p.num_tris(){
+                let tri=p.tri(ti);
+                new_indices.push(tri);
+            }
+        }
+        new_indices.shrink_to_fit();
+        new_indices
+    }
 	//  consume recomputing triangle attributes, make a new mesh.
-	pub fn map_attr<NEW_ATTR>(self,mapper:&Fn([&V;3],&ATTR)->NEW_ATTR)->TriMesh<V,NEW_ATTR>{
-		let new_attr=self.map_triangles(mapper);
-		TriMesh{vertices:self.vertices, indices:self.indices, attr:new_attr}
+	pub fn map_attr<NEW_ATTR>(self,mapper:&Fn(&PRIM,&ATTR)->NEW_ATTR)->TriMesh<V,NEW_ATTR,PRIM>{
+		let new_attrs=self.map_prims(mapper);
+
+        TriMesh{vertices:self.vertices, indices:self.indices, attr:new_attrs}
 	}
 
 	// consume, filtering the triangle list.

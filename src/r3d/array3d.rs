@@ -1,29 +1,30 @@
-//use super::*;
+use super::*;
 pub type Idx=i32;
 use std::ops::Range;
 use std::ops::{Add,Sub,Mul,Div,Rem,BitOr,BitAnd,BitXor,Index,IndexMut};
 extern crate lininterp;
-use lininterp::{Lerp,avr};
+use self::lininterp::{Lerp,avr};
 
 // local mini maths decouples
 // TODO - make another crate declaring our style of Vec<T>
-#[derive(Copy,Debug,Clone)]
-pub struct Vec2<X,Y=X>{pub x:X,pub y:Y} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
-#[derive(Copy,Debug,Clone)]
-pub struct Vec3<X,Y=X,Z=Y>{pub x:X,pub y:Y,pub z:Z} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
-#[derive(Copy,Debug,Clone)]
-pub struct Vec4<X,Y=X,Z=Y,W=Z>{pub x:X,pub y:Y,pub z:Z,pub w:WT} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+//#[derive(Copy,Debug,Clone)]
+//pub struct Vec2<X,Y=X>{pub x:X,pub y:Y} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+//#[derive(Copy,Debug,Clone)]
+//pub struct Vec3<X,Y=X,Z=Y>{pub x:X,pub y:Y,pub z:Z} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
+//#[derive(Copy,Debug,Clone)]
+//pub struct Vec4<X,Y=X,Z=Y,W=Z>{pub x:X,pub y:Y,pub z:Z,pub w:W} // array3d::Vec3 should 'into()' into vector::Vec3 , etc.
 pub type V2i=Vec2<Idx>;
 pub type V3i=Vec3<Idx>;
 pub type V4i=Vec4<Idx>;//TODO
 type Axis_t=i32;
 const XAxis:Axis_t=0; const YAxis:Axis_t=1; const ZAxis:Axis_t=2;
-
-impl<T> Index<i32> for Vec3<T>{
+#[derive(Debug,Clone)]
+pub struct Vec3nc<T:Clone>{pub x:T,pub y:T,pub z:T}
+impl<T:VElem> Index<i32> for Vec3<T>{
 	type Output=T;
 	fn index(&self,i:Axis_t)->&T{match i{ XAxis=>&self.x,YAxis=>&self.y,ZAxis=>&self.z,_=>panic!("Vec3 index out of range")}}
 }
-impl<T> IndexMut<i32> for Vec3<T>{
+impl<T:VElem> IndexMut<i32> for Vec3<T>{
 	fn index_mut(&mut self,i:Axis_t)->&mut T{match i{ XAxis=>&mut self.x,YAxis=>&mut self.y,ZAxis=>&mut self.z,_=>panic!("Vec3 index out of range")}}
 }
 
@@ -32,10 +33,11 @@ pub fn v3i(x:i32,y:i32,z:i32)->V3i{Vec3{x:x,y:y,z:z}}
 pub fn v3izero()->V3i{v3i(0,0,0)}
 pub fn v3ione()->V3i{v3i(1,1,1)}
 pub fn v3iadd_axis(a:V3i,axis:i32, value:i32)->V3i{let mut r=a; r[axis]+=value; r}
-pub struct Neighbours<T>{pub prev:T,pub next:T}
-type Neighbours2d<T>=Vec2<Neighbours<T>>;
-type Neighbours3d<T>=Vec3<Neighbours<T>>;
-type Neighbours4d<T>=Vec4<Neighbours<T>>;
+#[derive(Copy,Debug,Clone)]
+pub struct Neighbours<'a,T:'a>{pub prev:&'a T,pub next:&'a T}
+//type Neighbours2d<'a,T>=Vec2nc<Neighbours<'a,T>>;
+type Neighbours3d<'a,T>=Vec3nc<Neighbours<'a,T>>;
+//type Neighbours4d<'a,T>=Vec4<Neighbours<'a,T>>;
 
 macro_rules! v3i_operators{[$(($fname:ident=>$op:ident)),*]=>{
 	$(pub fn $fname(a:V3i,b:V3i)->V3i{v3i(a.x.$op(b.x),a.y.$op(b.y),a.z.$op(b.z))})*
@@ -105,8 +107,7 @@ impl<T:Clone> IndexMut<V2i> for Array2d<T>{
 		&mut self.data[i]
 	}
 }
-dont compile this, dont
-impl<T:Clone> Array3d<T>{	
+impl<T:Clone> Array3d<T>{
 	pub fn from_fn<F:Fn(V3i)->T> (s:V3i,f:F) -> Array3d<T> {
 		let mut a=Array3d{shape:s, data:Vec::new()};
 		a.data.reserve(v3i_hmul_usize(s));
@@ -366,12 +367,12 @@ impl<T:Clone> Array3d<T>{
 	/// XOX		passing each cell and it's
 	/// _X_		immiediate neighbours on each axis
 	pub fn convolute_neighbours<F,B>(&self,f:F)->Array3d<B>
-		where F:Fn(&T,Vec3<Neighbours<&T>>)->B ,B:Clone
+		where F:Fn(&T,Vec3nc<Neighbours<T>>)->B ,B:Clone
 	{
 		self.map_region(v3ione()..v3isub(self.shape,v3ione()),
 			|pos:V3i,current_cell:&T|{
 				f(	current_cell,
-					self::Vec3{
+					self::Vec3nc{
 						x:Neighbours{
 							prev:self.index(v3i(pos.x-1,pos.y,pos.z)),
 							next:self.index(v3i(pos.x+1,pos.y,pos.z))},
@@ -391,7 +392,7 @@ impl<T:Clone> Array3d<T>{
 		self.get_wrap(v3iadd(pos, v3i(dx,dy,dz)))
 	}
 	pub fn convolute_neighbours_wrap<F,B>(&self,f:F)->Array3d<B>
-		where F:Fn(&T,Vec3<Neighbours<&T>>)->B,B:Clone 
+		where F:Fn(&T,Vec3nc<Neighbours<T>>)->B,B:Clone
 	{
 		// TODO - efficiently, i.e. share the offset addresses internally
 		// and compute the edges explicitely
@@ -399,7 +400,7 @@ impl<T:Clone> Array3d<T>{
 		self.map_region(v3izero()..self.shape,
 			|pos:V3i,current_cell:&T|{
 				f(	current_cell,
-					Vec3{
+					Vec3nc{
 						x:Neighbours{
 							prev:self.get_wrap(v3i(pos.x-1,pos.y,pos.z)),
 							next:self.get_wrap(v3i(pos.x+1,pos.y,pos.z))},
