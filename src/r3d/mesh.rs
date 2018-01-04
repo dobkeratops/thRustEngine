@@ -103,6 +103,22 @@ pub struct Mesh {
     materials:Vec<Material>
 }
 
+impl Mesh {
+    fn new()->Mesh{
+        Mesh{
+            positions:vec![],
+            normals:vec![],
+            texcoords:vec![],
+            colors:vec![],
+            vertex:vec![],
+            polygons:vec![],
+            weightmaps:vec![],
+            materials:vec![],
+        }
+    }
+}
+
+
 
 /// TODO - steps of mesh optimization
 /// weightmap sorting, tristrips, ...

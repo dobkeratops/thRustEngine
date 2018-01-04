@@ -24,11 +24,128 @@ pub mod scene;
 pub mod classes;
 pub mod bsp;
 pub use sdl::*;
+pub use matrix::*;
 //pub extern crate array3d;
 pub extern crate vecgenericindex;
 pub extern crate half;
-pub extern crate vec_xyzw;
-pub use vec_xyzw::*;
+
+//pub extern crate vec_xyzw;
+//pub use vec_xyzw::*;
+
+#[cfg(not(vec_xyzw_crate))]
+#[derive(Clone,Copy,Debug)]
+pub struct Vec1<T:VElem=f32>{pub x:T}
+
+#[cfg(not(vec_xyzw_crate))]
+#[derive(Clone,Copy,Debug)]
+pub struct Vec2<X:VElem=f32,Y=X>{pub x:X,pub y:Y}
+
+#[cfg(not(vec_xyzw_crate))]
+#[derive(Clone,Copy,Debug)]
+pub struct Vec3<X:VElem=f32,Y=X,Z=Y>{pub x:X,pub y:Y, pub z:Z}
+impl<T:Copy> Vec3<T>{pub fn new(x:T,y:T,z:T)->Self{Vec3{x:x,y:y,z:z}}}
+
+#[cfg(not(vec_xyzw_crate))]
+#[derive(Clone,Copy,Debug)]
+pub struct Vec4<X:VElem=f32,Y=X,Z=Y,W=Z>{pub x:X,pub y:Y, pub z:Z,pub w:W}
+impl<T:Copy> Vec4<T>{pub fn new(x:T,y:T,z:T,w:T)->Self{Vec4{x:x,y:y,z:z,w:w}}}
+
+pub type Vec1f = Vec1<f32>;
+pub type Vec2f = Vec2<f32>;
+pub type Vec3f = Vec3<f32>;
+pub type Vec4f = Vec4<f32>;
+
+pub type Vec1h = Vec1<f16>;
+pub type Vec2h = Vec2<f16>;
+pub type Vec3h = Vec3<f16>;
+pub type Vec4h = Vec4<f16>;
+
+pub type Vec2s = Vec2<i16>;
+pub type Vec3s = Vec3<i16>;
+pub type Vec4s = Vec4<i16>;
+
+pub type Vec2i = Vec2<i32>;
+pub type Vec3i = Vec3<i32>;
+pub type Vec4i = Vec4<i32>;
+
+pub type Vec2l = Vec2<i64>;
+pub type Vec3l = Vec3<i64>;
+pub type Vec4l = Vec4<i64>;
+
+pub type Vec2d = Vec2<f64>;
+pub type Vec3d = Vec3<f64>;
+pub type Vec4d = Vec4<f64>;
+
+pub type Vec2u = Vec2<u32>;
+pub type Vec3u = Vec3<u32>;
+pub type Vec4u = Vec4<u32>;
+
+
+#[cfg(not(vec_xyzw_crate))]
+pub trait VElem :Clone+Copy{}
+#[cfg(not(vec_xyzw_crate))]
+impl<T:Copy+Clone> VElem for T{}
+
+/// Matrix types are defined here to work better with Intellij IDEA autocomplete
+#[derive(Clone,Debug)]
+#[repr(C)]
+pub struct Matrix4<VEC,VPOS=VEC> {
+    pub ax:VEC,pub ay:VEC,pub az:VEC,pub aw:VPOS
+}
+
+#[derive(Clone,Debug,Copy)]
+#[repr(C)]
+pub struct Matrix3<AXIS=Vec3<f32>> {
+    pub ax:AXIS,pub ay:AXIS,pub az:AXIS
+}
+#[derive(Clone,Debug,Copy)]
+#[repr(C)]
+pub struct Matrix2<AXIS=Vec2<f32>> {
+    pub ax:AXIS,pub ay:AXIS
+}
+/// '1xN' matrix, useles but might have utility for generic code e.g. 1x4 <-transpose-> 4x1
+#[derive(Clone,Debug,Copy)]
+#[repr(C)]
+pub struct Matrix1<AXIS=Vec1<f32>> {
+    pub ax:AXIS
+}
+pub type Mat33f = Matrix3<Vec3<f32>>;
+pub type Mat34f = Matrix3<Vec4<f32>>;
+pub type Mat43f = Matrix4<Vec3<f32>>;
+pub type Mat44f = Matrix4<Vec4<f32>>;
+// default type is the 'f32' of course.
+pub type Mat33<T=f32> = Matrix3<Vec3<T>>;
+pub type Mat34<T=f32> = Matrix3<Vec4<T>>;
+pub type Mat43<T=f32> = Matrix4<Vec3<T>>;
+pub type Mat44<T=f32> = Matrix4<Vec4<T>>;
+
+impl<V:Clone> Matrix4<V>{
+    pub fn new(ax:&V,ay:&V,az:&V,aw:&V)->Self{
+        Matrix4{ax:ax.clone(),ay:ay.clone(),az:az.clone(),aw:aw.clone()}
+    }
+}
+impl<T:Float,V:VMath<Elem=T>> Matrix4<V>{
+    /// 'vec' = whatever vector is the matrix column,
+    /// e.g. 4x4 matrices work with 4d vectors.
+    pub fn mul_vec(&self,pt:&V)->V{
+        self.ax.vmul_x(pt).vmadd_y(&self.ay,pt).vmadd_z(&self.az,pt).vmadd_w(&self.aw,pt)
+    }
+
+    pub fn mul_matrix(&self,other:&Matrix4<V>)->Matrix4<V> {
+        Matrix4{
+            ax:self.mul_vec(&other.ax),
+            ay:self.mul_vec(&other.ay),
+            az:self.mul_vec(&other.az),
+            aw:self.mul_vec(&other.aw)}
+    }
+}
+impl<V:Clone> Matrix3<V>{
+    pub fn new(ax:&V,ay:&V,az:&V)->Self{
+        Matrix3{ax:ax.clone(),ay:ay.clone(),az:az.clone()}
+    }
+}
+
+
 //pub use self::vec_xyzw::IsNot;
 pub use self::half::f16;
 pub use vecgenericindex::*;
@@ -47,7 +164,6 @@ pub use os::raw;
 pub use raw::{c_int,c_uint,c_void,c_char};
 
 pub use collections::{HashSet,HashMap};
-
 
 pub use fs::File;
 pub use path::Path;
@@ -71,10 +187,10 @@ pub use geom::*;
 pub use gl_constants::*;
 pub use gl_h_consts::*;
 pub use glut_h_consts::*;
-pub use vector::{Vec3f,Vec2f,Vec4f, Vec1,Vec3,Vec4,Vec2};
-pub use matrix::{Mat33f,Mat34f,Mat43f,Mat44f,Mat34,Mat44,Mat33,Mat43};
+//pub use vector::{Vec3f,Vec2f,Vec4f, Vec1,Vec3,Vec4,Vec2};
+//pub use matrix::{Mat33f,Mat34f,Mat43f,Mat44f,Mat34,Mat44,Mat33,Mat43};
 //pub use dimensionval;
-
+pub use matrix::*;
 // -1 % 5
 // => 1%5= 1
 // desired point = '4' = 5-1
@@ -365,7 +481,7 @@ impl From<PackedXYZ> for Vec3<f32> {
 		let scale=1.0f32/511.0f32;		
 		let mask=(1i32<<10)-1;
 		let val=src.0 as i32;
-		Vec3(
+		Vec3::new(
 			(((val) & mask)-centre)as f32 * scale,
 			(((val>>10) & mask)-centre)as f32 * scale,
 			(((val>>20) & mask)-centre)as f32 * scale
@@ -386,7 +502,7 @@ impl From<Vec3<f32>> for PackedXYZ {
 /// simple wrapper around GL, aimed at debug graphics
 pub trait DrawingWrapper {
 	// todo - propper..textures/VBOs, bone matrices, shaders..
-	fn push_matrix(&mut self, matrix::Mat44f);
+	fn push_matrix(&mut self, Mat44f);
 	fn pop_matrix(&mut self);
 	fn begin(&mut self,v_per_prim: i32); //tristrips=-1, 1=points,2=lines,3=tris,4=quads
 	fn vertex(&mut self, a: Vec3f, u32);
@@ -657,6 +773,8 @@ impl<'a> Float for &'a f64{
 */
 
 
+
+
 pub fn sqrt(f:f32)->f32 { f.sqrt()}
 pub fn sqr<A,R>(f:A)->R where A:Copy+Mul<A,Output=R> {f*f}
 pub fn rcp<A,R>(f:A)->R where A:Copy+One+Div<A,Output=R> {one::<A>()/f}
@@ -722,7 +840,7 @@ pub struct Camera{
 }
 impl Camera{
 	pub fn look_along(f:&Frustum, pos:&Vec3f,dir:&Vec3f,up:&Vec3f)->Camera{
-		let cam_obj=matrix::Matrix4::look_along(pos,dir,up).to_mat44();
+		let cam_obj=Matrix4::look_along(pos,dir,up).to_mat44();
 
 		Camera{
 			frustum:f.clone(),

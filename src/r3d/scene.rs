@@ -8,7 +8,7 @@ type Angvel=f32;
 
 struct SceneNode{
 	name:String,
-	matrix: matrix::Mat44f
+	matrix: Mat44f
 }
 
 enum ConstraintType {
@@ -33,7 +33,7 @@ struct Constraint{
 
 pub struct Scene {
 	nodes:Vec<SceneNode>,
-	matrix:Vec<matrix::Mat44f>,
+	matrix:Vec<Mat44f>,
 	constraints:Vec<Constraint>
 }
 

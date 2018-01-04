@@ -845,7 +845,7 @@ unsafe fn render_drag_overlay(){
             draw::rect_outline(&sv, &ev);
         },
         DragMode::Circle=>{
-            draw::circle_xy(&sv, (ev-sv).vmagnitude() );
+            draw::circle_xy(&sv, (ev.vsub(&sv)).vmagnitude() );
         },
         _=>{},
     }

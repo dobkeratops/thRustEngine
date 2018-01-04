@@ -35,10 +35,10 @@
 
 #[macro_use]
 pub mod r3d;
+pub use r3d::*;
 pub mod window;
 use window::Flow;
 mod world;
-pub use r3d::*;
 pub mod editor;
 pub mod landscape;
 pub mod texture;
@@ -52,6 +52,7 @@ pub use window::sto;
 pub use window::Window;
 pub use emscripten::*;
 pub use std::fs::File;
+pub mod particle;
 
 #[cfg(not(target_os="emscripten"))]
 extern crate image;
@@ -504,8 +505,10 @@ pub fn	render_no_swap(debug:u32)
 //		glDrawBuffer(GL_BACK);
 		//glClearColor(g_fog_color.x+sin(g_angle*2.0),g_fog_color.y,g_fog_color.z,g_fog_color.w);
 		//glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-		let matI=matrix::identity::<f32>();
+		let matI:Mat44f=matrix::identity();
 		let matP = matrix::projection_frustum(-0.5f32,0.5f32,-0.5f32,0.5f32, 90.0f32, 1.0f32, 0.5f32,5.0f32);
+
+        let e:Extents;
 
 		let pi=3.14159265f32;
 		let tau=pi*2.0f32;
@@ -537,7 +540,7 @@ pub fn	render_no_swap(debug:u32)
 			let rot_y = matrix::rotate_x(a1*0.245f32);
 			let rot_xy=rot_x.mul_matrix(&rot_y);
 			let rot_trans = matT.mul_matrix(&rot_xy);
-	
+
 			let matMV = matT;	// toodo - combine rotation...
 			//io::println(format!("{:?}", g_shader_program));
 
@@ -780,7 +783,6 @@ pub fn test_seq(){
 	println!("{:?}", seq![1=>10,2=>3,3=>5]);
 }
 
-
 pub fn main(){
 	let mut ar:Array<i32,i32>=Array::new();
 	ar.push(0);ar.push(10);ar.push(20);ar.push(30);
@@ -789,7 +791,27 @@ pub fn main(){
 	for (i,x) in ar.iter().enumerate(){
 		dump!(i,x)
 	}
-	
+    //let m1=Matrix43(Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32));
+    //let m2:Matrix43f;
+    //let m3:Mat43f;
+
+    let msh:r3d::mesh::Mesh;
+    let m:Matrix4<Vec4<f32>>;
+    let mmm:Matrix4<Vec4<f32>>;
+    let cm:Camera;
+
+
+    let v:Vec3f;
+    let vfoo:Vec4f;
+    let a:Array3d<f32>;
+    let vv:Vec3<f32>;
+
+
+    let m:Mat44f = matrix::identity();
+    let v=Vec3::zero();
+    let v1=m.mul_vec3w0(&v);
+    let mm:Matrix4<Vec3<f32>>;
+
 
 	voxels::test_array3d();
  	#[cfg(all(shadertest,target_os="emscripten"))]
@@ -800,12 +822,12 @@ pub fn main(){
  	#[cfg(shadertest)]
 	{
 		println!("shadertest");	
-		window::run_loop(vec![Box::new(ShaderTest{time:3000})],&mut ());
+		window::run_loop(vec![Box::new(ShaderTest{time:30})],&mut ());
 		return;
 	}
 
 	#[cfg(not(target_os = "emscripten"))]
-	window::run_loop(vec![world::new(),Box::new(ShaderTest{time:3000})],&mut ());
+	window::run_loop(vec![world::new(),Box::new(ShaderTest{time:30})],&mut ());
 
 	#[cfg(any(target_os = "emscripten",editor))]
 	{

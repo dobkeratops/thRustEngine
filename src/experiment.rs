@@ -161,7 +161,7 @@ fn try_math(){
     let c=lerp((a,b),0.5f32);
     let d=a*b;
     let e=a/b;
-    let v = (&a - &b).normalize();
+    let v = a.sub(&b).normalize();
     let a32= Vec3(1.0f32,1.0f32,1.0f32);
     //	let a64:Vec3<f64> = a32.into();
 
@@ -181,7 +181,6 @@ fn try_math(){
     let (norm,len)=a.normal_and_length();
     let n=a.triangle_normal(b,bb);
     let (para,perp)=a.para_perp_of(&b);
-
 
     let v0: vector::Point<Vec3<f32>> = vector::Point(Vec3(0.1f32, 0.2f32, 0.3f32));
     let v1: vector::Point<Vec3<f64>> = v0.into();

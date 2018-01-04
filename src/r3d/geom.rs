@@ -77,7 +77,7 @@ pub struct NormalCone<T:VElem+Float>(Vec3<T>,T);
 
 #[derive(Clone,Debug)]
 pub struct OOBB<T:VElem> {
-	pub matrix:matrix::Matrix4<Vec3<T>>,
+	pub matrix:Matrix4<Vec3<T>>,
 	pub size:Vec3<T>
 }
 #[derive(Clone,Debug)]

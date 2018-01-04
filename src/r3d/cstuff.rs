@@ -1,4 +1,4 @@
-pub use r3d::vector::*;
+pub use r3d::*;
 extern "C" {
 	pub fn glVertexVec3f(pos:Vec3f);
 	pub fn glNormalVec3f(n:Vec3f);
