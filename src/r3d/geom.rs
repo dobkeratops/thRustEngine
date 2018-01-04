@@ -168,49 +168,6 @@ pub trait Polygon<V:Copy>
 	fn edge(i:Idx)->Line<V>;
 	fn aabb(&self)->Extents<V>;
 }
-
-/// triangle normal trait. gives method for calculating and bound for normal from a point
-/// e.g. TriangleNormal<Point>::Output
-pub trait TriangleNormal :Copy{
-	type Output;
-	type Edge:Cross<Self::Edge>;
-	type EdgeCrossEdge;
-	fn triangle_normal(self,b:Self,c:Self)->Self::Output;
-}
-impl<Point,Normal,E,C> TriangleNormal for Point where
-	Point:Sub<Point,Output=E>+Copy,
-	E:Cross<E,Output=C>+Copy,
-	C:Normalize<Output=Normal>+Copy,
-{
-	type Output=Normal;
-	type Edge=E;
-	type EdgeCrossEdge=C;
-	/// (self,b,c) form a triangle. calcualte the normal from the cross of both edge vectors eminating from 'self'
-	fn triangle_normal(self,b:Point,c:Point)->Normal {
-		(b-self).cross(c-self).normalize()
-	}
-}
-
-/// free-function wrapper for triangle normal
-fn triangle_normal<P:TriangleNormal<Output=N>,N>(a:P,b:P,c:P)->N{
-	a.triangle_normal(b,c)
-}
-
-//fn Triangle<V:Copy>(a:V,b:V,c:V)->Triangle<V>{ Tri{pos:[a,b,c]} }
-pub trait Normal {
-	type Output;
-	fn normal(&self)->Self::Output;
-}
-
-impl<V:TriangleNormal<Output=N>,N> Normal for Triangle<V> {
-	type Output=N;
-	fn normal(&self)->N { self.vertex[0].triangle_normal(self.vertex[1],self.vertex[2]) }
-}
-
-/// plane at a vertex, for precision
-pub struct PlaneThruPoint<P,N>(P,N);
-impl<P,N:Copy> Normal for PlaneThruPoint<P,N> { type Output=N; fn normal(&self)->N{ self.1 }}
-
 struct NormalHit{
 }
 

@@ -365,7 +365,7 @@ impl Tool<Scene> for DrawTool {
 impl Editable for Scene {
     fn default_tool()->Box<Tool<Scene>>{ Box::new(DrawTool::default()) }
 
-    fn edscn_key(&self, ed:&Editor<Scene>, k:KeyAt)->Action<Scene>{
+    fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Action<Scene>{
         match (k.0, k.1, k.2) {
             (WinKey::KeyCode('d'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
 

@@ -4,11 +4,13 @@
 #![allow(unused_parens)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
+#![allow(improper_ctypes)]
 #![allow(unreachable_code)]
 #![allow(unused_unsafe)]
 #![allow(unused_mut)]
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
+#![allow(unused_comparisons)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)] 
 #![allow(unused_variables)]
@@ -593,7 +595,7 @@ fn idle()
 }
 
 pub fn create_landscape()->GlMesh{
-	let ht=landscape::generate2d(4,0.125,1.1f32,1.0,0x987412ab);
+	let ht=landscape::generate2d(4,0.125,1.1f32,1.0,0x787412ab);
 	let tm=trimesh::TriMesh::<VertexP>::from_heightfield(&ht,0.25f32);
 	GlMesh::from(&tm)
 }
@@ -601,7 +603,7 @@ pub fn create_voxel_landscape(amp:f32, sphere:f32,gradient:&Vec3f)->GlMesh{
 	trace!();
 	// raw noise,
 	let lsz=5;
-	let mut vox=landscape::generate3d(lsz,1,amp,1.1f32,1.0,0x987412ab);
+	let mut vox=landscape::generate3d(lsz,1,amp,1.1f32,1.0,0x787412ab);
 	// add a centre blob
 	landscape::array3d_foreach(&mut vox,
 		&|pos,v:&mut _|{
@@ -624,9 +626,9 @@ impl<'a> From<&'a TriMesh<VertexP>> for GlMesh{
 		let normals=src.vertex_normals();
 		for (i,v) in src.vertices.iter().enumerate(){
 			vts.push(VertexNFCT{
-				pos:v.pos,
+				pos:v.pos.clone(),
 				color:vec4(1.0,1.0,1.0,1.0),
-				norm:normals[i as i32],
+				norm:normals[i as i32].clone(),
 				tex0:vec2(0.0,0.0),
 			});
 		}

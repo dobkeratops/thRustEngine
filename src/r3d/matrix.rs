@@ -8,77 +8,6 @@ use super::*;
 // todo - i think when it comes to inverting such a thing more thought is needed.
 
 
-mod experimental {
-	use super::*;
-	#[derive(Clone, Debug)]
-	#[repr(C)]
-	pub struct PosDir<VP, VA> {
-		pub pos: VP,
-		dir: VA
-	}
-
-	fn PosDir<VP: Copy, VA: Copy>(p: VP, d: VA) -> PosDir<VP, VA> { PosDir { pos: p, dir: d } }
-
-	pub trait LookAtAble<'l, Diff, Axis>: Copy
-	//	Self:Sub<Self>,
-	//	<Self as Sub<Self>>::Output : Normalize<Output=Axis>,
-	//	Axis:Normalize<Output=Axis>,
-	//	Axis:Cross<Output=Axis>
-	{
-		fn look_along(&'l self, fwd: &'l Axis, up: &'l Axis) -> Matrix4<Axis, Self>;
-		fn look_at(&'l self, at: &'l Self, up: &'l Axis) -> Matrix4<Axis, Self>;
-	}
-
-	impl<'l, Point, Axis, Diff> LookAtAble<'l, Diff, Axis> for Point where
-		Point: Copy,
-		&'l Point: Sub<Point, Output=Diff> + Copy,
-		Point: Sub<Point, Output=Diff> + Copy,
-		Diff: Normalize<Output=Axis> + Copy,
-		Axis: Cross<Axis, Output=Axis> + Copy,
-		Axis: Normalize<Output=Axis>,
-		Point: 'l,
-	{
-		fn look_along(&'l self, fwd: &Axis, up: &Axis) -> Matrix4<Axis, Self> {
-			look_along(self, fwd, up)
-		}
-		fn look_at(&'l self, at: &'l Self, up: &'l Axis) -> Matrix4<Axis, Self> {
-			look_at(self, at, up)
-		}
-	}
-
-	//impl<'l,TA:Float+Copy,TP:Float,VP:VecOps<TP>+HasElem<Elem=TP,VA:VecOps<TA>+HasElem<Elem=TA>> Po//sDir<VP,VA> where
-	//	VP:LookAtAble<'l,VA,VA>
-
-	impl<'l, VP: VecOps, VA: VecOps> PosDir<VP, VA> where
-		VP: LookAtAble<'l, VA, VA>,
-		<VA as HasElem>::Elem: Float,
-		<VP as HasElem>::Elem: Float
-
-	{
-		fn to_matrix_with_up(&'l self, up: &'l VA) -> Matrix4<VA, VP> {
-			self.pos.look_along(&self.dir, up)
-		}
-		fn to_matrix_with_fwd(&'l self, fwd: &'l VA) -> Matrix4<VA, VP> {
-			self.pos.look_along(fwd, &self.dir)
-		}
-	}
-	pub trait PosDirTo<T:Float+Copy+Sized> :Sized{
-		fn pos_dir_to(self, at: Self) -> PosDir<Self, Self>;
-	}
-
-	impl<T:Float+Copy+Sized> PosDirTo<T> for Vec4<T> {
-		fn pos_dir_to(self, at: Vec4<T>) -> PosDir<Self, Self> {
-			PosDir(self, at.vsub(&self))
-		}
-	}
-
-	impl<T: Float> PosDirTo<T> for Vec3<T> {
-		fn pos_dir_to(self, at: Vec3<T>) -> PosDir<Self, Self> {
-			PosDir(self, at.vsub(&self))
-		}
-	}
-}
-
 
 
 pub struct Scaling<T>(T,T,T);
@@ -182,29 +111,6 @@ impl<V:Clone> AxisW<V> for Matrix4<V>{
 //impl<T:Float=f32,V:VecOps<T> =Vec4<T> > Matrix4<V> {
 //impl<V:VecOps<T> =Vec4<f32>,T:Float+Clone=f32 > Matrix4<V> 
 
-pub fn look_along<VA,VP>(pos:&VP,fwd:&VA,up:&VA)->Matrix4<VA,VP> where
-	VP:Copy,
-	VA:Cross<VA,Output=VA>+Copy,
-	VA:Normalize<Output=VA>,
-{
-	let az:VA=fwd.normalize();
-	let ax:VA=az.cross(*up).normalize();
-	let ay:VA=az.cross(ax);
-	Matrix4{ax:ax,ay:ay,az:az,aw:pos.clone()}
-}
-pub fn look_at<'l,VA,VP,VPO>(pos:&'l VP,at:&'l VP,up:&'l VA)->Matrix4<VA,VP> where
-	VPO:Normalize<Output=VA>+Copy,
-	&'l VP:Sub<VP,Output=VPO>+Copy,
-	VPO:Normalize<Output=VA>+Copy,
-	VA:Normalize<Output=VA>,
-	VA:Cross<VA,Output=VA>+Copy,
-	VP:'l,
-	VP:Copy,
-
-{
-	let fwd:VA= at.sub(*pos).normalize();
-	look_along(pos, &fwd, up)
-}
 
 impl<F:Float> Matrix4<Vec4<F>> where
 {

@@ -28,29 +28,32 @@ pub use matrix::*;
 //pub extern crate array3d;
 pub extern crate vecgenericindex;
 pub extern crate half;
-
 //pub extern crate vec_xyzw;
 //pub use vec_xyzw::*;
 
 #[cfg(not(vec_xyzw_crate))]
+#[repr(C)]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec1<T:VElem=f32>{pub x:T}
-impl<T:Copy> Vec1<T>{pub fn new(x:T)->Self{Vec1{x:x}}}
+impl<T:VElem> Vec1<T>{pub fn new(x:T)->Self{Vec1{x:x}}}
 
 #[cfg(not(vec_xyzw_crate))]
+#[repr(C)]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec2<X:VElem=f32,Y=X>{pub x:X,pub y:Y}
-impl<T:Copy> Vec2<T>{pub fn new(x:T,y:T)->Self{Vec2{x:x,y:y}}}
+impl<T:VElem> Vec2<T>{pub fn new(x:T,y:T)->Self{Vec2{x:x,y:y}}}
 
 #[cfg(not(vec_xyzw_crate))]
+#[repr(C)]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec3<X:VElem=f32,Y=X,Z=Y>{pub x:X,pub y:Y, pub z:Z}
-impl<T:Copy> Vec3<T>{pub fn new(x:T,y:T,z:T)->Self{Vec3{x:x,y:y,z:z}}}
+impl<T:VElem> Vec3<T>{pub fn new(x:T,y:T,z:T)->Self{Vec3{x:x,y:y,z:z}}}
 
 #[cfg(not(vec_xyzw_crate))]
+#[repr(C)]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec4<X:VElem=f32,Y=X,Z=Y,W=Z>{pub x:X,pub y:Y, pub z:Z,pub w:W}
-impl<T:Copy> Vec4<T>{pub fn new(x:T,y:T,z:T,w:T)->Self{Vec4{x:x,y:y,z:z,w:w}}}
+impl<T:VElem> Vec4<T>{pub fn new(x:T,y:T,z:T,w:T)->Self{Vec4{x:x,y:y,z:z,w:w}}}
 
 pub type Vec1f = Vec1<f32>;
 pub type Vec2f = Vec2<f32>;
@@ -86,7 +89,7 @@ pub type Vec4u = Vec4<u32>;
 #[cfg(not(vec_xyzw_crate))]
 pub trait VElem :Clone+Copy{}
 #[cfg(not(vec_xyzw_crate))]
-impl<T:Copy+Clone> VElem for T{}
+impl<T:Clone+Copy> VElem for T{}
 
 /// Matrix types are defined here to work better with Intellij IDEA autocomplete
 #[derive(Clone,Debug)]
@@ -173,7 +176,7 @@ pub use mem::size_of;
 
 pub use num::*;
 pub use cmp::{Ord,PartialOrd,PartialEq};
-pub use ops::{Add,Sub,Mul,Div,Rem,Neg,BitOr,BitAnd,Not,BitXor,Deref,Index,IndexMut};
+pub use ops::{Add,Sub,Mul,Div,Rem,Neg,BitOr,BitAnd,Not,BitXor,Shl,Shr,Deref,Index,IndexMut};
 
 pub type int=i32;
 pub type uint=u32;
@@ -378,21 +381,32 @@ impl FMul for f32{
 
 }
 
+/// type is a rotation of some sort , output is a dimensionless fraction.
+pub trait FwdTrig{
+    type Output;
+    fn sin(&self) -> Self::Output { unimplemented!() }
+    fn cos(&self) -> Self::Output { unimplemented!() }
+    fn tan(&self) -> Self::Output { unimplemented!() }
+    fn sin_cos(&self) -> (Self::Output, Self::Output) { (self.sin(), self.cos()) }
+}
+/// type is a fraction, output is an angle
+pub trait InvTrig {
+    type Output;
+    fn atan(&self)->Self::Output;
+    fn acos(&self)->Self::Output;
+    fn asin(&self)->Self::Output;
 
-
+}
 
 type Radians=f32;	// the most natural mathematical angle gets the raw type.
 // anything which can be an angle..
 
-pub trait Angle :Sized {
+
+pub trait Angle :Sized +FwdTrig{
 	fn to_radians(&self)->Radians{unimplemented!()}
 	fn to_degrees(&self)->Degrees{unimplemented!()}
 	fn from_fraction(&self,num:isize,denom:isize )->Self{unimplemented!()}
 	fn to_fraction_num(&self,denom:isize)->isize{unimplemented!()}
-	fn sin(&self)->f32{unimplemented!()}
-	fn cos(&self)->f32{unimplemented!()}
-	fn tan(&self)->f32{unimplemented!()}
-	fn sin_cos(&self)->(f32,f32){(self.sin(),self.cos())}
 }
 impl Angle for Radians{
 	fn to_fraction_num(&self,denom:isize)->isize{
@@ -402,6 +416,13 @@ impl Angle for Radians{
 }
 
 pub struct Degrees(f32);
+
+impl FwdTrig for Degrees{
+    type Output=f32;
+    fn sin(&self)->Self::Output{self.0.sin()}
+    fn cos(&self)->Self::Output{self.0.cos()}
+    fn tan(&self)->Self::Output{self.0.tan()}
+}
 
 impl Angle for Degrees{
 	fn to_radians(&self)->Radians{self.0*(PI*2.0f32/360.0f32)}
@@ -603,127 +624,67 @@ impl<T> RefNum for T where
 }
 */
 
-
-
-pub trait Num :
-Copy+Neg<Output=Self> +
-Add<Self,Output=Self>+
-Sub<Self,Output=Self>+
-Mul<Self,Output=Self>+
-Div<Self,Output=Self> +
-PartialOrd +
-PartialEq +
-Sqrt<Output=Self>+
-RSqrt<Output=Self>+
-Sized +
-One+
-Zero+
-//where for <'a, 'b> &'a Self:Sub<&'b Self, Output=Self>
-//where for<'a,'b> &'a Self : Sub<&'b Self,Output=Self>+
-
+/// Num types support closed arithmetic
+pub trait Num : Neg<Output=Self>+ Add<Output=Self>+Sub<Output=Self>+Mul<Output=Self>+Div<Output=Self>+One+Zero+PartialEq+PartialOrd+VElem
 {
+
+}
+impl<T:Neg<Output=T>+Add<Output=T>+Sub<Output=T>+Mul<Output=T>+Div<Output=T>+One+Zero+PartialEq+PartialOrd+VElem> Num for T{}
+
+pub trait Int : Num + Rem + BitAnd+BitOr+BitXor+Shl<i32>+Shr<i32>{}
+impl< T:Num + Rem + BitAnd+BitOr+BitXor+Shl<i32>+Shr<i32>> Int for T{}
+
+impl FwdTrig for f32 {
+    type Output=f32;
+    fn sin(&self) -> Self::Output{(*self as f32).sin()}
+    fn cos(&self) -> Self::Output{(*self as f32).cos()}
+    fn tan(&self) -> Self::Output{(*self as f32).tan()}
 }
 
-
-impl<T> Num for T where T:
-Copy+
-Neg<Output=T>+
-Add<T,Output=T>+
-Sub<T,Output=T>+
-Mul<T,Output=T>+
-Div<T,Output=T>+
-Sqrt<Output=T>+
-RSqrt<Output=T>+
-PartialOrd+PartialEq+
-Clone+
-One+
-Zero,
-//for<'a,'b> &'a T : Sub<&'b T,Output=T>
-{
-}
-/*
-impl<'t, T> Num for &'t T where for<'a,'b> &'a T:
-Copy+
-Neg<Output=T>+
-Add<&'b T,Output=T>+
-Sub<&'b T,Output=T>+
-Mul<&'b T,Output=T>+
-Div<&'b T,Output=T>+
-Sqrt<Output=T>+
-RSqrt<Output=T>+
-PartialOrd+PartialEq+
-Clone+
-One+
-Zero,
-{
-}
-*/
-
-/*
-impl<'a> One for &'a f32{
-	fn one()->f32{1.0f32}
-	fn is_one(&'a self)->bool{*self == Self::one()}
+impl FwdTrig for f64 {
+    type Output=f64;
+    fn sin(&self) -> Self::Output{(*self as f64).sin()}
+    fn cos(&self) -> Self::Output{(*self as f64).cos()}
+    fn tan(&self) -> Self::Output{(*self as f64).tan()}
 }
 
-impl<'a> One for &'a f64{
-	fn one()->f64{1.0f64}
-	fn is_one(&'a self)->bool{*self == Self::one()}
-}
-
-impl<'a > Zero for &'a f32 {
-	fn zero()->f32{return 0.0f32}
-	fn is_zero(&'a self)->bool { if self==Self::zero(){true}else{false}}
-}
-
-impl<'a> Zero for &'a f64 {
-	fn zero()->f64{return 0.0f64}
-	fn is_zero(&'a self)->bool { if self==Self::zero(){true}else{false}}
-}
-*/
 
 /// TODO - figure out which parts of this live in 'vector
 /// we have better traits for this with dimensionable output
-pub trait Float : Num+Half+VElem {
-	fn sin(self)->Self;
-	fn cos(self)->Self;
-	fn sin_cos(self)->(Self,Self){(self.sin(),self.cos())}
-	fn tan(self)->Self;
-    fn exp(self)->Self;
-    fn ln(self)->Self;
-    fn log(self,Self)->Self;
-    fn powf(self,s:Self)->Self;
-    fn acos(self)->Self;
-    fn asin(self)->Self;
-    fn atan(self)->Self;
-    fn recip(self)->Self;
+
+pub trait Float : Num+Half+VElem+FwdTrig<Output=Self>{
+    fn sqrt(&self)->Self;
+    fn rsqrt(&self)->Self{ self.sqrt().recip()}
+    fn exp(&self)->Self;
+    fn ln(&self)->Self;
+    fn log(&self,Self)->Self;
+    fn powf(&self,s:Self)->Self;
+    fn acos(&self)->Self;
+    fn asin(&self)->Self;
+    fn atan(&self)->Self;
+    fn recip(&self)->Self;
 }
 impl Float for f32{
-	fn tan(self)->Self { self.tan()}
-    fn atan(self)->Self { self.atan()}
-    fn powf(self,s:Self)->Self{self.powf(s)}
-    fn exp(self)->Self{self.exp()}
-    fn ln(self)->Self{self.ln()}
-    fn log(self,base:Self)->Self{self.log(base)}
-    fn asin(self)->Self { self.asin()}
-    fn acos(self)->Self { self.acos()}
-	fn sin(self)->Self { self.sin()}
-	fn cos(self)->Self { self.cos()}
-	fn sin_cos(self)->(Self,Self){self.sin_cos()}
-    fn recip(self)->Self { self.recip()}
+    fn atan(&self)->Self { (*self as f32).atan()}
+    fn powf(&self,s:Self)->Self{(*self as f32).powf(s)}
+    fn exp(&self)->Self{(*self as f32).exp()}
+    fn ln(&self)->Self{(*self as f32).ln()}
+    fn log(&self,base:Self)->Self{(*self as f32).log(base)}
+    fn asin(&self)->Self { (*self as f32).asin()}
+    fn acos(&self)->Self { (*self as f32).acos()}
+    fn recip(&self)->Self { (*self as f32).recip()}
+    fn sqrt(&self)->Self{ (*self as f32).sqrt() }
 }
 impl Float for f64{
-	fn tan(self)->Self {self.tan()}
-    fn atan(self)->Self {self.atan()}
-    fn powf(self,s:Self)->Self{self.powf(s)}
-    fn exp(self)->Self{self.exp()}
-    fn ln(self)->Self{self.ln()}
-    fn log(self,base:Self)->Self{self.log(base)}
-    fn acos(self)->Self {self.acos()}
-    fn asin(self)->Self {self.asin()}
-	fn sin(self)->Self {self.sin()}
-	fn cos(self)->Self {self.cos()}
-	fn sin_cos(self)->(Self,Self){self.sin_cos()}
-    fn recip(self)->Self { self.recip()}
+    fn atan(&self)->Self {(*self as f64).atan()}
+    fn powf(&self,s:Self)->Self{(*self as f64).powf(s)}
+    fn exp(&self)->Self{(*self as f64).exp()}
+    fn ln(&self)->Self{(*self as f64).ln()}
+    fn log(&self,base:Self)->Self{(*self as f64).log(base)}
+    fn acos(&self)->Self {(*self as f64).acos()}
+    fn asin(&self)->Self {(*self as f64).asin()}
+    fn recip(&self)->Self { (*self as f64).recip()}
+    fn sqrt(&self)->Self{ (*self as f64).sqrt() }
 }
 impl Half for f32{
 	fn half()->f32{0.5f32}
@@ -735,7 +696,7 @@ impl Half for f64{
 pub fn randp(seed:i32)->i32{
 	use std::num::Wrapping;
 	let s0=Wrapping(seed);
-	let tbl=[Wrapping(0xabcd1234i32),Wrapping(0x55555555i32),Wrapping(0x87f92afei32),Wrapping(0xf0f0f0f0i32)];
+	let tbl=[Wrapping(0x5bcd1234i32),Wrapping(0x55555555i32),Wrapping(-0x07f92afei32),Wrapping(-0x70f0f0f0i32)];
 	let s1=s0 ^ (s0>>13)^tbl[(s0&Wrapping(3)).0 as usize]^(s0>>19)+(s0>>3);
 	let s2=s1 + (s1>>9) +tbl[((s1>>16)&Wrapping(3)).0 as usize]^(s1>>5)+(s1<<15);
 	return s2.0;
@@ -863,136 +824,6 @@ impl Camera{
 struct ScalarOne{}
 struct ScalarZero{}
 
-pub fn lerp_ref<'la,'lf,T,Ratio,Diff,Prod>(start:&'la T, end:&'la T, fraction:&'lf Ratio)->T
-	where
-		&'la T:Sub<&'la T,Output=Diff>,
-		Diff:Mul<&'lf Ratio,Output=Prod>,
-		Diff:'la,
-		&'la T:Add<&'la Diff,Output=T>,
-		Prod:Add<&'la T,Output=T>
-{
-	let diff=end-start;
-	diff*fraction+start
-}
-
-pub fn inv_lerp_ref<'lx,T,F, Diff,Ratio>(x0:&'lx T, x1:&'lx T, x:&'lx T)->Ratio
-	where
-		&'lx T:Sub<&'lx T,Output=Diff>,
-		Diff:Div<Diff,Output=Ratio>,
-		Diff:'lx,
-{
-	//	let diff=x1-x0;
-	//	let offset=x-x0;
-	//	offset/&diff
-	(x-x0)/(x1-x0)
-}
-
-
-/// e.g. implement NumericInteracton<Point,Fraction>
-
-
-trait HasMulResult<B,R> : Mul<B,Output=R>{
-}
-trait HasSubResult<B,R> : Sub<B,Output=R>{
-}
-trait HasAddResult<B,R> : Add<B,Output=R>{
-}
-
-/// multiply-add, Multiply-Accumulate
-/// component of linear interpolation, extrapolation etc
-pub trait Madd<OFS,FACTOR> :
-Copy+
-Add< <OFS as Mul<FACTOR>>::Output, Output=Self >
-	where OFS:Mul<FACTOR>
-{
-	type Offset:Mul<FACTOR,Output= <Self as Madd<OFS,FACTOR>>::OfsScaled >;
-	type OfsScaled: Add<Self, Output=Self>;
-	fn madd(self,d:OFS,f:FACTOR)-> Self{
-		self+d*f
-	}
-}
-
-
-impl<A,B,Factor,Prod> Madd<B,Factor> for A where
-	B:Mul<Factor,Output=Prod>+Copy,A:Copy,
-	Prod:Add<A,Output=A>,
-	A:Add<Prod,Output=A>+Copy
-{
-	type Offset = B;
-	type OfsScaled=Prod;
-}
-
-pub fn lerp<F,T:Lerpable<F>>((start,end):(T,T), fraction:F)->T
-{
-	start.madd(end-start,fraction)
-}
-
-
-// INTENT: output of operators contain no references to inputs
-// the final output contains no borrows
-
-pub trait MulRef<B> {
-	type Output;
-	fn mul_ref(&self,&B)->Self::Output;
-}
-pub trait AddRef<B> {
-	type Output;
-	fn add_ref(&self,&B)->Self::Output;
-}
-
-pub fn madd_r1<A,B,C,P>(a:&A,b:&B,c:&C)->A where
-	B:MulRef<C,Output=P>,
-	A:AddRef<P,Output=A>,
-{
-	let p=b.mul_ref(c);
-	a.add_ref(&p)
-}
-
-/*
-pub fn lerp_r1<'a,'b,'f,'d,'p,F,T,D,P>((a,b):(&'a T,&'b T), f:&'f F)->T where
-	&'b T:Sub<&'a T,Output=D>,
-	&'f F:Mul<&'d D,Output=P>,
-	&'a T:Add<&'p P, Output=T>,
-	D:'d,
-	P:'p
-{
-	a + &(f * &(b-a))
-}
-*/
-
-pub fn lerp_r<F,T,D,P>((a,b):(&T,&T), f:&F)->T where
-		for<'x,'y> &'x T:Sub<&'y T,Output=D>,
-		for<'x,'y> &'x F:Mul<&'y D,Output=P>,
-		for<'x,'y> &'x T:Add<&'y P, Output=T>,
-{
-	a + &(f * &(b-a))
-}
-
-
-
-pub fn inv_lerp<F,T:InvLerp<F>>((x0,x1):(T,T),x:T)->F {
-	(x-x0)/(x1-x0)
-}
-pub fn interp<X,Y,F>(x:X,(x0,y0):(X,Y), (x1,y1):(X,Y))->Y
-	where Y:Lerpable<F>,X:InvLerp<F>
-{
-	lerp((y1,y0),inv_lerp((x1,x0),x))
-}
-
-impl Lerpable<f32> for f32{
-	type Diff=f32;
-	type Prod=f32;
-}
-impl InvLerp<f32> for f32{
-	type Diff=f32;
-	type Prod=f32;
-}
-/*
-impl Lerpable<f32> for Vec3<f32>{
-	type Diff=Vec3<f32>;
-	type Prod=Vec3<f32>;
-}
-*/
 pub enum Axes {
 	XY,XZ,YZ
 }
@@ -1128,18 +959,18 @@ impl<T:Num+VElem> ComponentOps3 for Vec3<T>{
 }
 impl<T:Num+VElem> ComponentOps4 for Vec4<T>{
 	fn vadd_x(&self,f:Self::Elem)->Self {
-		Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w)
+		Self::from_xyzw(self.x()+f,self.y(),self.z(),self.w())
 	}
 
 	fn vadd_y(&self,f:Self::Elem)->Self {
-		Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w)
+		Self::from_xyzw(self.x(),self.y()+f,self.z(),self.w())
 	}
 
 	fn vadd_z(&self,f:Self::Elem)->Self {
-		Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w)
+		Self::from_xyzw(self.x(),self.y(),self.z()+f,self.w())
 	}
 	fn vadd_w(&self,f:Self::Elem)->Self {
-		Self::from_xyzw(self.x(),self.y(),self.z(),self.w+f)
+		Self::from_xyzw(self.x(),self.y(),self.z(),self.w()+f)
 	}
 }
 
@@ -1174,24 +1005,24 @@ pub trait HasXYZW :Sized+Clone+HasElem{
 }
 impl<T:Float+VElem> HasXY for (T,T){
 //    type HasElem::Elem=T;
-    fn x(&self)->T{self.0}
-    fn y(&self)->T{self.1}
+    fn x(&self)->T{self.0.clone()}
+    fn y(&self)->T{self.1.clone()}
     fn from_xy(x:T,y:T)->Self{(x,y)}
 }
 impl<T:Float+VElem> HasXYZ for (T,T,T){
 //    type HasElem=T;
 	type Appended=(T,T,T,T);
-    fn x(&self)->T{self.0}
-    fn y(&self)->T{self.1}
-    fn z(&self)->T{self.2}
+    fn x(&self)->T{self.0.clone()}
+    fn y(&self)->T{self.1.clone()}
+    fn z(&self)->T{self.2.clone()}
     fn from_xyz(x:T,y:T,z:T)->Self{(x,y,z)}
 }
 impl<T:Float+VElem> HasXYZW for (T,T,T,T){
 //    type Elem=T;
-    fn x(&self)->T{self.0}
-    fn y(&self)->T{self.1}
-    fn z(&self)->T{self.2}
-    fn w(&self)->T{self.3}
+    fn x(&self)->T{self.0.clone()}
+    fn y(&self)->T{self.1.clone()}
+    fn z(&self)->T{self.2.clone()}
+    fn w(&self)->T{self.3.clone()}
     fn from_xyzw(x:T,y:T,z:T,w:T)->Self{(x,y,z,w)}
 }
 
@@ -1200,7 +1031,7 @@ type VF2<F>=(F,F,F);
 /// minimal tuple vmath.. vecmath capability without dependancies.
 pub type V2=(f32,f32);		pub type V3=(f32,f32,f32);	pub type V4=(f32,f32,f32,f32);
 pub type M33<V=V3>=(V,V,V);	pub type M43<V/*:HasXYZ*/=V3>=(V,V,V,V);	pub type M44<V/*:HasXYZW*/=V4>=(V,V,V,V);
-pub fn v3neg<F:Float>(&(x,y,z):&VF3<F>)->VF3<F>			{ (-x,-y,-z)}
+pub fn v3neg<F:Float>(&(ref x,ref y,ref z):&VF3<F>)->VF3<F>			{ (x.neg(),y.neg(),z.neg())}
 pub fn v3scale<T:Float,V:FloatXYZ<Elem=T>>(v:&V,s:T)->V 		{ V::from_xyz(v.x()*s,v.y()*s,v.z()*s)}
 pub fn v3sub<T:Float,V:FloatXYZ<Elem=T>>(a:&V,b:&V)->V	{	V::from_xyz(a.x()-b.x(),a.y()-b.y(),a.z()-b.z())}
 pub fn v3add<T:Num,V:NumXYZ<Elem=T>>(a:&V,b:&V)->V	{	V::from_xyz(a.x()+b.x(),a.y()+b.y(),a.z()+b.z())}

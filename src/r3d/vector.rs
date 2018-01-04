@@ -11,73 +11,6 @@ impl<A,B,C> Mul<B> for Vec3<A>
 	}
 }
 */
-/// Helper trait expresses constraints that allow 'lerp' to work for general intermedaite types.
-pub trait Lerpable<Ratio> :
-	Sized
-	+Copy
-	+Madd< <Self as Sub<Self>>::Output , Ratio>
-	+Sub<Self, Output=<Self as Lerpable<Ratio>>::Diff> 
-//	+Add<<Self as Lerpable<Ratio>>::Prod,Output=Self>
-{
-	type Prod; 
-	type Diff:Mul< Ratio, Output= <Self as Lerpable<Ratio>>::Prod>;
-}
-
-pub trait InvLerp<Ratio> :
-	Sized
-	+Copy
-	+Sub<Self, Output=<Self as InvLerp<Ratio>>::Diff> 
-	+Add<<Self as InvLerp<Ratio>>::Prod,Output=Self>
-{
-	type Prod; 
-	type Diff:Mul< Ratio, Output= <Self as InvLerp<Ratio>>::Prod>
-			+Div< <Self as InvLerp<Ratio>>::Diff, Output = Ratio > ;	
-}
-
-
-
-trait LerpBetween<T> {
-	type Output;
-	fn lerp_between(self,a:T,b:T)->Self::Output;
-}
-
-impl<F,T:Lerpable<F>> LerpBetween<T> for F where
-{
-	type Output=T;
-	fn lerp_between(self,a:T,b:T)->Self::Output{
-		lerp((a,b),self)
-	}
-}
-
-pub trait InvLerpBetween {
-	type Output;
-	fn inv_lerp_between(self,a:Self,b:Self)->Self::Output;
-}
-impl<F,T:InvLerp<F>+Div<T,Output=F>> InvLerpBetween for T
-{
-	type Output=F;
-	fn inv_lerp_between(self,a:T,b:T)->Self::Output {
-		inv_lerp((a,b),self)
-	}
-}
-pub trait LerpBy<Ratio> {
-	type Output;
-	fn lerp_by(self,r:Ratio)->Self::Output;
-}
-impl<T,Ratio> LerpBy<Ratio> for (T,T) where
-	T:Lerpable<Ratio>
-{
-	type Output=T;
-	fn lerp_by(self,r:Ratio)->T{
-		lerp((self.0,self.1),r)
-	}
-}
-pub trait PairWith<T> :Sized {
-	fn pair_with(self,T)->(Self,T);
-}
-impl<X,T> PairWith<T> for X where X:Sized+Copy,T:Sized+Copy{
-	fn pair_with(self,other:T)->(X,T){(self,other)}
-}
 
 pub trait NumElements {
 	fn num_elements(&self)->usize;
@@ -104,338 +37,6 @@ impl ArrayDimensions for f64{
 impl<T:VElem> ArrayDimensions for Vec3<T> {
 	fn array_dimensions(&self)->usize{1}
 }
-
-/// dot product needs different LHS,RHS types
-/// e.g. position-offset with normalized axis -> length, etc
-///      length dot length -> length squared
-pub trait Dot<RHS=Self> {
-	type Output;
-	fn dot(self,other:RHS)->Self::Output;
-}
-impl<T,RHS,Prod,R> Dot<RHS> for T where 
-	T:Mul<RHS,Output=Prod> + Copy, 
-	RHS:Copy,
-	Prod:HorizAdd<Output=R>
-	//asumption is vector multiply=componentwise		
-{
-	type Output=R;
-	fn dot(self,other:RHS)-> R {
-		(self*other) .horiz_add()
-	}
-}
-
-//template<typename T>
-//auto normalize(const T& x){ return x * rsqrt(dot(x,x));}
-
-pub trait Reciprocal :Copy+One { // actually this is 'recip
-	type Output;
-	fn reciprocal(self)-><Self as Reciprocal>::Output;
-}
-impl<T,RCP> Reciprocal for T where T:One + RDiv<T,Output=RCP>
-//	T:Copy + One + Div<T,Output=RCP>, //T.div(&T) ->R
-{
-	type Output=RCP;
-	fn reciprocal(self)->RCP {
-		self.rdiv(<T as One>::one())
-	}
-}
-
-/// reverse division, a.rdiv(b) == b/a 'reciprocal' == .rdiv(1)
-pub trait RDiv<B> :Copy {
-	type Output;
-	fn rdiv(self,b:B)->Self::Output;
-}
-impl<A,B,C> RDiv<B> for A where B:Div<A,Output=C>+Copy,A:Copy{
-	type Output=C;
-	fn rdiv(self,b:B)->C{ b/self }
-}
-pub trait RSub<B> :Copy where B:Sub<Self>{
-	type Output;
-	fn rsub(self,b:B)->Self::Output;
-}
-impl<A,B,C> RSub<B> for A where B:Sub<A,Output=C>+Copy,A:Copy{
-	type Output=C;
-	fn rsub(self,b:B)->C{ b-self }
-}
-
-// square root
-pub trait Sqrt:Copy {
-	type Output;
-	fn sqrt(self)-><Self as Sqrt>::Output;
-}
-/// reciprocal square-root, which may use a fast aproximation where available.
-pub trait RSqrt : Sqrt
-{
-	type Output;
-	fn rsqrt(self)-><Self as RSqrt>::Output ;
-}
-impl<T,SQRT,RSQRT> RSqrt for T where T:One+Div<T>+Sqrt<Output=SQRT>+Copy,SQRT:Reciprocal<Output=RSQRT>
-{
-	type Output=RSQRT;
-	fn rsqrt(self)->RSQRT{
-		self.sqrt().reciprocal()
-	}
-}
-
-/// multiplies a value with itself. for vectors, this is componentwise. see MagnitudeSquared for dot with self.
-pub trait Sqr{
-	type Output;
-	fn sqr(self)-><Self as Sqr>::Output;
-}
-impl<T,SQR> Sqr for T where T:Mul<T,Output=SQR>+Copy{
-	type Output=SQR;
-	fn sqr(self)->SQR{ self*self }
-}
-pub trait MagnitudeSquared{
-	type Output;
-	fn magnitude_squared(self)-><Self as MagnitudeSquared>::Output;
-}
-impl<T,MSQR> MagnitudeSquared for T where 
-	T:Copy+Dot<T,Output=MSQR>
-{
-	type Output=MSQR;
-	fn magnitude_squared(self)-><Self as MagnitudeSquared>::Output{
-		self.dot(self)
-	}
-}
-pub trait Magnitude {
-	type Output;
-	fn magnitude(self)-><Self as Magnitude>::Output;
-}
-impl<T,M2,M> Magnitude for T where T:Copy+Dot<T,Output=M2>, M2:Sqrt<Output=M>+Copy{
-	type Output=M;
-	fn magnitude(self)->M{self.magnitude_squared().sqrt()}
-}
-/// euclidian distance between two entities, e.g. point-point distance
-pub trait Distance<B=Self> :
-		Sub<Self>+Copy
-{
-	type Output;
-	fn distance(&self,other:&B)-><Self as Distance<B>>::Output;
-}
-
-/// Implementation of distance for trivial points- anything with 
-/// TODO - negative trait bound; only applicable if no area or volume
-/// TODO (2) .. maybe not 'copy', use references 
-
-impl<V,Ofs,D> Distance for V where 
-	V:Copy,
-	V:Sub<V,Output=Ofs>,
-	Ofs:Magnitude<Output=D>
-{
-	type Output=D;
-	fn distance(&self,other:&Self)->D{
-		self.sub(*other).magnitude()
-	}
-}
-
-/// Reciprocal of magnitude, scaling factor for normalization - uses reciprocal sqrt
-pub trait InvMagnitude {	// potentially map to rsqrt intrinsic
-	type Output;
-	fn inv_magnitude(self)-><Self as InvMagnitude>::Output;
-}
-impl<T,MSQR,INVMAG> InvMagnitude for T where
-	T:Copy,
-	T:MagnitudeSquared<Output=MSQR>,
-	MSQR:RSqrt<Output=INVMAG>+Copy,
-	INVMAG:Copy+One
-{
-	type Output=INVMAG;
-	fn inv_magnitude(self)->INVMAG{
-		self.magnitude_squared().rsqrt()
-	}
-}
-
-/// normalize, i.e. return value has magnitude=1
-pub trait Normalize :Sized + Mul<Self>{
-	type Output;
-	fn normalize(self)-><Self as Normalize>::Output;
-}
-
-impl<V,INVMAG,NORMAL,LEN> Normalize for V where
-	V:Copy,							//bounds for 'normalize'
-	V:InvMagnitude<Output=INVMAG>, 
-	V:Mul<V>,
-	V:Mul<INVMAG,Output=NORMAL>,
-	V:Magnitude<Output=LEN>,		//bounds for 'normal_and_length
-	LEN:Copy,
-//	NORMAL:Mul<LEN,Output=V>,
-	LEN:Reciprocal<Output=INVMAG>,
-{
-	type Output=NORMAL;
-	fn normalize(self)->NORMAL{ 
-		self * self.inv_magnitude()
-	}
-}
-
-pub trait NormalAndLength :Sized+Copy+Magnitude{
-	type Length;
-	type Output:Mul< <Self as Magnitude>::Output, Output=Self>;
-	fn normal_and_length(self)->(<Self as NormalAndLength>::Output,<Self as NormalAndLength>::Length);
-}
-impl<V,INVMAG,NORMAL,LEN> NormalAndLength for V where
-	V:Dot<V>,
-	V:Copy,							//bounds for 'normalize'
-	V:Mul<INVMAG,Output=NORMAL>,
-	V:Magnitude<Output=LEN>,		//bounds for 'normal_and_length
-	LEN:Copy,
-	NORMAL:Mul<LEN,Output=V>,
-	LEN:Reciprocal<Output=INVMAG>,
-	NORMAL:Mul<LEN,Output=V>
-{
-	type Output=NORMAL;
-	type Length=LEN;
-	fn normal_and_length(self)->(NORMAL,LEN){
-		let len=self.magnitude();
-		(self*len.reciprocal(),len)
-	}
-}
-/// self=axis ; rhs = vector; makes trait bounds easier.
-/// multiplication by dot-product result must be original type, which implies
-/// either of the types is dimensionless.
-pub trait ParaPerpOf<V,DP> :Dot<V,Output=DP> + Mul<DP, Output=V> +Sized where V:Sub<Self,Output=V>  {
-	fn para_perp_of(&self,a:&V)->(V,V);
-}
-impl<VA,VB,DP> ParaPerpOf<VB,DP> for VA where
-	VA:Copy,VB:Copy, 
-	VA:Mul<DP,Output=VB>,
-	VB:Sub<VA,Output=VB>,
-	VB:Sub<VB,Output=VB>,
-	VA:Dot<VB,Output=DP>
-{
-	fn para_perp_of(&self,b:&VB)->(VB,VB){
-		let f=self.dot(*b);
-		let para:VB=*self * f;
-		let perp:VB= *b-para;
-		(para, perp )
-		
-	}
-}
-
-// NewVecOps<Point,Normal,Offset,Dist,Ratio>
-//  requires
-//     PointTrait:PointT<Normal,Offset,Dist,Ratio>
-//     OffsetTrait:PointT<Normal,Offset,Dist,Ratio>
-//     
-
-/// combined vector operations trait,
-/// for a 'point', it defines associated types for offsets, normals, scalar factors, distance
-/// etc.
-/*
-pub trait PointTrait<N,Offset,Ratio,L> :Copy+
-	NormalAndLength<Output= N ,Length=L>+
-	Sub<Self,Output= Offset>+
-	Add<Offset,Output= Self>
-	where
-		L:Mul< N, Output=Self>,
-		N:Mul< <Self as NormalAndLength>::Length ,Output=Self>
-{
-}
-pub trait NormalTrait<Point,Offset,Dist,Ratio> {
-}
-pub trait OffsetTrait<Point,Offset,Dist,Ratio> {
-}
-*/
-
-/*
-impl NewVecOps<V> for V
-	where
-{
-}
-*/
-
-pub trait NormalAndDist {
-	type Output;
-	fn normal_and_dist(self)->Self::Output;
-}
-
-
-impl Sqrt for f32 {
-	type Output=f32;
-	fn sqrt(self)->f32{f32::sqrt(self)}
-}
-impl Sqrt for f64 {
-	type Output=f64;
-	fn sqrt(self)->f64{f64::sqrt(self)}
-}
-/*
-impl<'a> Sqrt for &'a f32 {
-	type Output=f32;
-	fn sqrt(self)->f32{f32::sqrt(self)}
-}
-impl<'a> Sqrt for &'a f64 {
-	type Output=f64;
-	fn sqrt(self)->f64{f64::sqrt(self)}
-}
-*/
-/*
-impl Reciprocal for f32 {
-	type Output=f32;
-	fn reciprocal(&self)-><Self as Reciprocal>::Output{1.0f32/self}
-}
-
-impl Reciprocal for f64 {
-	type Output=f64;
-	fn reciprocal(&self)-><Self as Reciprocal>::Output{1.0f64/self}
-}
-*/
-
-// cross product requires dot product but not vica versa.
-// output types for cross product .. ambiguous Vec3 cross Vec3 -> Vec3
-//  Vec2 cross Vec2 -> Vec3?
-pub trait Cross<VB>:Sized+Copy{
-	type Output;
-	fn cross(self,rhs:VB)->Self::Output;
-}
-impl<A,B,O,P> Cross<Vec3<B>> for Vec3<A> where
-	A:VElem+Float,
-	B:VElem+Float,
-	A:Mul<B,Output=P>+VElem,
-	P:Add<P,Output=O>+VElem,
-	P:Sub<P,Output=O>+VElem,
-	O:VElem,
-{
-	type Output=Vec3<O>;
-	fn cross(self,b:Vec3<B>)->Self::Output{
-		vec3(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x)
-	}
-}
-// vec4 cross just uses (x,y,z) and emits (x',y',z',0)
-impl<A,B,O,P> Cross<Vec4<B>> for Vec4<A> where
-	B:VElem+Float,
-	A:Mul<B,Output=P>+VElem+Float,
-	P:Add<P,Output=O>+VElem,
-	P:Sub<P,Output=O>+VElem,
-	O:Zero+VElem
-{
-	type Output=Vec4<O>;
-	fn cross(self,b:Vec4<B>)->Self::Output{
-		vec4(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x, zero::<O>())
-	}
-}
-/// useful for finding a normal from a point to a target
-pub trait SubNorm : Sub<Self>+Sized+Copy where <Self as Sub<Self>>::Output : Normalize {
-//	type Output=<<Self as Sub<Self>>::Output as Normalize>::Output;
-	type Diff:Normalize;
-	fn sub_norm(self,other:Self)-> <<Self as Sub<Self>>::Output as Normalize>::Output  {
-		(self-other).normalize()
-	}
-	fn rsub_norm(self,other:Self)-><<Self as Sub<Self>>::Output as Normalize>::Output {
-		other.sub_norm(self)
-	}
-}
-
-impl<V,D,N> SubNorm for V where 
-	V:Sub<V,Output=D>+Copy,
-	D:Normalize<Output=N>,
-{
-	type Diff=D;
-}
-
-//other vec helper functions follow
-//once you have dot, cross. (para, perp, ...)
-
-
 
 
 // Generic maths classes
@@ -1080,7 +681,7 @@ impl<V:VecSiblings+HasFloatElem+TupledVector> VecConstructSiblings for V{
 /// Implement VecPermute for default case with 'VecFLoatAccessors'
 /// note that permute interface should allow an impl WITHOUT use of a scalar type.
 /// TODO decouple from specifc 'V2,V3 ,V4 versions' to allow impl on tuples,[T;N]
-impl<T:Zero+One+Clone+Copy,V:VecAccessors+ConstructSiblings+HasElem<Elem=T>> Permute for V {
+impl<T:Zero+One+Clone,V:VecAccessors+ConstructSiblings+HasElem<Elem=T>> Permute for V {
 	// default implementation of permutes,
 	// can be over-ridden with platform-specific SIMD..
 	fn permute_x(&self)->Self::V1		{ Self::make_vec1(self.vx())}
@@ -1786,7 +1387,7 @@ impl<V:VecNumOps> Sub<V> for V{
 }
 */
 
-pub trait Min :Sized+Copy+Clone{
+pub trait Min :Sized+Clone{
 	fn min(self,other:Self)->Self;
 }
 ///scalar implemenantation
@@ -1794,11 +1395,11 @@ impl<T:PartialOrd+Sized+Clone+Num> Min for T{
 	fn min(self,other:Self)->Self{if self< other{self.clone()}else{other.clone()}}
 }
 
-pub  trait Max :Sized+Copy+Clone{
+pub  trait Max :Sized+Clone{
 	fn max(self,other:Self)->Self;
 }
 /// scalar implementation .. vector version would be componentwise
-impl<T:PartialOrd+Sized+Copy+Clone+Num> Max for T{
+impl<T:PartialOrd+Sized+Clone+Num> Max for T{
 	fn max(self,other:Self)->Self{if self>other{self.clone()}else{other.clone()}}
 }
 
@@ -2088,7 +1689,7 @@ impl<T:Clone> Siblings for (T,T,T,T){
 
 /// accessors for a contained type guaranteed to support floatmath
 /// we just simplified this to padding out.
-pub trait VecAccessors : HasElem+Sized+Copy {
+pub trait VecAccessors : HasElem+Sized {
 	fn vx(&self)->Self::Elem;
 	fn vy(&self)->Self::Elem;
 	fn vz(&self)->Self::Elem;
@@ -2144,11 +1745,11 @@ pub trait Project<T:VElem=f32>{
 
 impl<T:Float+VElem> Project<T> for Vec4<T>{
     fn project_to_vec3(&self)->Vec3<T>{
-        let inv=self.w.reciprocal();
+        let inv=self.w.recip();
         vec3(self.x*inv,self.y*inv,self.z*inv)
     }
     fn project(&self)->Vec4<T>{
-        let inv=self.w.reciprocal();
+        let inv=self.w.recip();
         vec4(self.x*inv,self.y*inv,self.z*inv,one())
     }
 }
@@ -2176,8 +1777,8 @@ pub trait ToVec3<T:VElem> {
 impl<T:Float+VElem,V:HasXYZ<Elem=T>> ToVec3<T> for V{
 	fn to_vec3(&self)->Vec3<T>{vec3(self.x(),self.y(),self.z())}
 }
-impl<T:Float+Copy> ToVec2<T> for (T,T){
-    fn to_vec2(&self)->Vec2<T>{vec2(self.0,self.1)}
+impl<T:Float+Clone> ToVec2<T> for (T,T){
+    fn to_vec2(&self)->Vec2<T>{vec2(self.0.clone(),self.1.clone())}
 }
 
 //impl<T:Float> ToVec3<T> for (T,T,T){

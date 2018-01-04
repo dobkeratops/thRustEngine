@@ -443,7 +443,7 @@ pub enum Action<T:Editable>{
 
 pub trait Editable : Sized+Clone+Default+'static{
     fn default_tool()->Box<Tool<Self>>;
-    fn edscn_key(&self, ed:&Editor<Self>, k:KeyAt)->Action<Self>;
+    fn edscn_key(&self, ed:&Editor<Self>, k:&KeyAt)->Action<Self>;
     fn scn_render(&self, m:&Mat44);
     fn copy(&self, pos:&ScreenPos, clipboard:&mut Self);
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
@@ -566,7 +566,7 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         let vpos = k.pos();
         //todo -we want plain chars really
         {
-            let keyaction=ed.e_scene().edscn_key(ed, k);
+            let keyaction=ed.e_scene().edscn_key(ed, &k);
             ed.e_action(keyaction);
         }
         let move_step=0.2f32/ed.zoom;

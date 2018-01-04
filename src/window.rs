@@ -33,7 +33,7 @@ pub enum WinKey{
 }
 
 pub type Modifiers=u32;
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone)]
 pub struct KeyAt(pub WinKey,pub Modifiers, pub KeyTransition,pub ScreenPos);
 impl KeyAt{ pub fn pos(&self)->ScreenPos{self.3}}
 pub type PixelPosi=(i32,i32);
@@ -77,7 +77,7 @@ pub enum Command {
     Create((f32,f32,f32),String),
 }
 /// UI events passed to window interfaces.
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug)]
 pub enum Event {
     None,
     Render(f32),
@@ -101,7 +101,7 @@ impl Event{
             &Event::Update(f32)=>None,
             &Event::Activate()=>None,
             &Event::Deactivate()=>None,
-            &Event::Key(kc)=>Some(kc.pos()),
+            &Event::Key(ref kc)=>Some(kc.pos()),
             &Event::Move(pos)=>Some(pos),
             &Event::Clicked(_,pos)=>Some(pos),
             &Event::TryBeginDrag(_,pos)=>Some(pos),
@@ -460,7 +460,7 @@ static mut g_screen_pixel_sizef:PixelPosf=(960.0f32,480.0f32);
 const  MaxEvent:usize=256;
 static mut g_aspect_ratio:f32=1.0f32;
 fn get_aspect_ratio()->f32{unsafe{return g_aspect_ratio}}
-static mut g_ui_event:[Event;MaxEvent]=[Event::None;MaxEvent];
+static mut g_ui_event:Option<Vec<Event>>=None;
 static mut g_head:i32=0;
 static mut g_tail:i32=0;
 pub const CTRL:u32=0x0001;
@@ -676,24 +676,51 @@ fn get_mouse_ppos()->PixelPosi{unsafe{g_mouse_pos}}
 fn get_drag_start()->Option<ScreenPos>{unsafe{
     if let Some(ipos)=g_ldrag_start { Some(to_screenpos(ipos))} else {None}
 }}
+
+fn lazy_init_ui_events(){
+    unsafe{
+        if g_ui_event.is_none(){
+            let mut uiv=vec![];
+            for x in 0..MaxEvent{uiv.push(Event::None);}
+            g_ui_event=Some(uiv)
+        }
+    }
+}
+/// push event: uses move, event queues involve passing ownership..
 fn push_event(e:Event){
     unsafe {
+        lazy_init_ui_events();
         let next = (g_head + 1) & ((MaxEvent - 1) as i32);
         if next != g_tail {
-            g_ui_event[g_head as usize] = e;
+            if let Some(ref mut uiv)=g_ui_event {uiv[g_head as usize] = e;}
             g_head=next;
         } else {
             println!("buffer full,lost event");
         }
     }
 }
+/*
+struct Singleton<T>(Option<T>);
+impl<T> Singleton{
+    fn apply_mut<R,F:Fn(&mut T)->R>(&mut self,f:F)->R{
+        self.get();
+        if let Some(ref mut x)=self.0{f(x)}else{panic!("singleton couldn't create")}
+    }
+    fn apply<R,F:Fn(&T)->R>(&mut self,f:F)->R{
+        self.get();
+        if let Some(ref mut x)=self.0{f(x)}else{panic!("singleton couldn't create")}
+    }
+}
+*/
+
 fn pop_event()->Option<Event>{
     unsafe {
+        lazy_init_ui_events();
         let next = (g_tail + 1) & ((MaxEvent - 1) as i32);
         if g_tail == g_head {
             None
         } else {
-            let e = g_ui_event[g_tail as usize];
+            let e = if let Some(ref mut uiv)=g_ui_event{uiv[g_tail as usize].clone()}else{Event::None};
             g_tail = next;
             Some(e)
         }
@@ -1186,7 +1213,7 @@ impl<OWNER> Window<OWNER> for Split<OWNER>{
         let rects=self.calc_rects(&r);
         match e.pos(){
             // non-spatial event - dispatch to all
-            None=>{self.subwin[1].event(owner,e,r); self.subwin[0].event(owner,e,r)},
+            None=>{self.subwin[1].event(owner,e.clone(),r); self.subwin[0].event(owner,e,r)},
             // spatial event: dispatch to the sub-window enclosing it.
             Some(pos)=>{
                 windbg!("spatial event {:?}, pos={:?}", e, pos);
@@ -1194,7 +1221,7 @@ impl<OWNER> Window<OWNER> for Split<OWNER>{
                 for (i,subr) in rects.iter().enumerate(){
                     if v2is_inside(&pos, (&subr.min,&subr.max)){
                         //println!("dispatch {:?} to win {:?}",e,i);
-                        ret=self.subwin[i].event(owner,e, subr);
+                        ret=self.subwin[i].event(owner,e.clone(), subr);
                     }
                 }
                 ret
