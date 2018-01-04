@@ -167,13 +167,14 @@ pub fn generate_torus_vertex(ij:uint, (num_u,num_v):(uint,uint))->self::VertexNF
 	let tau=pi*2.0f32;
 	let (sx,cx)=sin_cos(fi*tau);
 	let (sy,cy)=sin_cos(fj*tau);
-	let norm=Vec3(sy*cx, sy*sx, cy).vnormalize().vscale(0.1);
+	let norm:Vec3=normal(sy*cx, sy*sx, cy).vscale(0.1);
+
 
 	VertexNFCT{
-		pos:Vec3((rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy),
-		color:Vec4(1.0,1.0,1.0,fj),
+		pos:vec3((rx+sy*ry)*cx, (rx+sy*ry)*sx, ry*cy),
+		color:vec4(1.0,1.0,1.0,fj),
 		norm:norm,
-		tex0:Vec2(fi*16.0, fj*2.0),
+		tex0:vec2(fi*16.0, fj*2.0),
 	}	
 }
 
@@ -384,14 +385,14 @@ impl GlMesh {
 
 		safe_set_uniform1i(shu.tex0, 0);
 		safe_set_uniform1i(shu.tex1, 1);
-		safe_set_uniform(shu.specular_dir, &Vec4(0.032,0.707f32,0.707f32,0.0f32));
-		safe_set_uniform(shu.specular_color, &Vec4(1.0f32,0.75f32,0.5f32,0.0f32));
-		safe_set_uniform(shu.ambient, &Vec4(0.25f32,0.25f32,0.25f32,1.0f32));
-		safe_set_uniform(shu.diffuse_dx, &Vec4(0.1f32,0.0f32,0.25f32,0.0f32));
-		safe_set_uniform(shu.diffuse_dy, &Vec4(0.3f32,0.25f32,0.5f32,0.0f32));
-		safe_set_uniform(shu.diffuse_dz, &Vec4(0.25f32,0.0f32,0.1f32,0.0f32));
+		safe_set_uniform(shu.specular_dir, &vec4(0.032,0.707f32,0.707f32,0.0f32));
+		safe_set_uniform(shu.specular_color, &vec4(1.0f32,0.75f32,0.5f32,0.0f32));
+		safe_set_uniform(shu.ambient, &vec4(0.25f32,0.25f32,0.25f32,1.0f32));
+		safe_set_uniform(shu.diffuse_dx, &vec4(0.1f32,0.0f32,0.25f32,0.0f32));
+		safe_set_uniform(shu.diffuse_dy, &vec4(0.3f32,0.25f32,0.5f32,0.0f32));
+		safe_set_uniform(shu.diffuse_dz, &vec4(0.25f32,0.0f32,0.1f32,0.0f32));
 		safe_set_uniform(shu.fog_color, &g_fog_color);
-		safe_set_uniform(shu.fog_falloff, &Vec4(0.5f32,0.25f32,0.0f32,0.0f32));
+		safe_set_uniform(shu.fog_falloff, &vec4(0.5f32,0.25f32,0.0f32,0.0f32));
 //		glActiveTexture(GL_TEXTURE0+0);
 //		glBindTexture(GL_TEXTURE_2D, g_textures[tex0i]);
 //		glActiveTexture(GL_TEXTURE0+1);
@@ -453,7 +454,7 @@ pub unsafe  fn test_draw_2d(){
 	glEnd();
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,g_textures[1]);
-	draw::rect_tex(&Vec2(-0.4,-0.4),&Vec2(0.2,0.2),z);
+	draw::rect_tex(&Vec2::new(-0.4,-0.4),&Vec2::new(0.2,0.2),z);
 	draw::end();
 	glBegin(GL_TRIANGLE_STRIP);
 
@@ -480,7 +481,7 @@ pub unsafe  fn test_draw_2d(){
 			let fx=x as f32*0.1f32;
 			let fy=y as f32*0.1f32;
 
-			draw::sprite_at(&Vec3(fx,fy,z),0.5f32, draw::pack(&Vec4(fx,fy,0.5f32,1.0f32)));
+			draw::sprite_at(&vec3(fx,fy,z),0.5f32, draw::pack(&vec4(fx,fy,0.5f32,1.0f32)));
 		}
 	}
 	draw::end();
@@ -624,9 +625,9 @@ impl<'a> From<&'a TriMesh<VertexP>> for GlMesh{
 		for (i,v) in src.vertices.iter().enumerate(){
 			vts.push(VertexNFCT{
 				pos:v.pos,
-				color:Vec4(1.0,1.0,1.0,1.0),
+				color:vec4(1.0,1.0,1.0,1.0),
 				norm:normals[i as i32],
-				tex0:Vec2(0.0,0.0),
+				tex0:vec2(0.0,0.0),
 			});
 		}
 		let mut concati:Vec<i32> = Vec::new();
@@ -675,7 +676,7 @@ pub fn lazy_create_resources() {
 			g_lazy_init=true;
 			g_torus_mesh = GlMesh::new_torus((16,16)); //new GridMesh(16,16);
 			g_landscape_mesh=create_landscape();
-			g_voxel_mesh=create_voxel_landscape(0.25,0.0,&Vec3(0.0,0.15,0.0));// landscape with gradient to make flat-ish
+			g_voxel_mesh=create_voxel_landscape(0.25,0.0,&vec3(0.0,0.15,0.0));// landscape with gradient to make flat-ish
 			g_voxblob_mesh=create_voxel_landscape(0.25,0.225,&Vec3::zero());// less spherical
 			g_voxsphere_mesh=create_voxel_landscape(0.0,1.0,&Vec3::zero()); // more spherical
 			create_shaders();
@@ -808,10 +809,9 @@ pub fn main(){
 
 
     let m:Mat44f = matrix::identity();
-    let v=Vec3::zero();
+    let v:Vec3f=zero();
     let v1=m.mul_vec3w0(&v);
     let mm:Matrix4<Vec3<f32>>;
-
 
 	voxels::test_array3d();
  	#[cfg(all(shadertest,target_os="emscripten"))]

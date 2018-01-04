@@ -191,7 +191,7 @@ impl BspHeader {
 	pub fn visit_vertices<'a>(&'a self, fv:&Fn(int,&Vec3<f32>)){
 		for i in 0..self.vertices.len() {
 			let v=self.vertices.get(self,i);
-			let vt=Vec3(v.0,v.1,v.2);
+			let vt=vec3(v.0,v.1,v.2);
 			fv(i as int,&vt);
 		}
 	}
@@ -275,12 +275,12 @@ impl BspHeader {
 	pub fn extents(&self)->(Extents<Vec3<f32>>,Vec3<f32>,f32) {
 		let mut ext=Extents::new();
 		self.visit_vertices_mut(&mut |index,pos|{
-			ext.include(&Vec3(pos.0,pos.1,pos.2));
+			ext.include(&Vec3::new(pos.0,pos.1,pos.2));
 		});
 		let c=ext.centre();
 		let mut maxr2=0.0f32;
 		self.visit_vertices_mut(&mut |_,pos|{
-			let ofs=Vec3(pos.0,pos.1,pos.2).vsub(&c);
+			let ofs=Vec3::new(pos.0,pos.1,pos.2).vsub(&c);
 			let d2=ofs.vsqr();
 			maxr2=max(d2,maxr2);
 		});

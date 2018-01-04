@@ -138,7 +138,7 @@ impl Scene {
         for (vti,&vt) in self.vertices.iter().enumerate(){
             let mut spos=vcs.world_to_viewport(&vt.to_vec3());
             spos.z=zero();
-            let r2=v3dist_squared(&Vec3(vcs.pos.x,vcs.pos.y,zero()),&spos);
+            let r2=v3dist_squared(&vec3(vcs.pos.x,vcs.pos.y,zero()),&spos);
             if r2<maxr2{besti=Some(vti as VertexIndex); maxr2=r2;println!("picked pt\n")}
         }
         return besti;
@@ -231,7 +231,7 @@ impl DrawTool{
 impl Tool<Scene> for DrawTool {
 
     fn tool_preselection(&self, (scene, e):ViewCursorScene<Scene>) -> ToolPresel {
-        let newpt=e.viewport_to_world(&Vec3(e.pos.x,e.pos.y,0.0f32));
+        let newpt=e.viewport_to_world(&vec3(e.pos.x,e.pos.y,0.0f32));
         let viewpt_recovered=e.world_to_viewport(&newpt);
         //dump!(e.pos,newpt,viewpt_recovered);
         let picked_point=scene.pick_point_at(e,g_snap_radius);
@@ -290,7 +290,7 @@ impl Tool<Scene> for DrawTool {
     fn tool_drag_end(&mut self, d:&ToolDrag, (s, e):ViewCursorScene<Scene>)->optbox<Operation<Scene>>{
         if !e.drag_start.is_some(){return None;}
         let screen_delta=v2sub(&e.pos, &e.drag_start.unwrap());
-        let world_delta=e.screen_to_world.mul_vec3w0(&Vec3(screen_delta.x, screen_delta.y,0.0f32)).to_vec3();
+        let world_delta=e.screen_to_world.mul_vec3w0(&vec3(screen_delta.x, screen_delta.y,0.0f32)).to_vec3();
 //        let s=e.scene;
         match d {
             &ToolDrag::MovePoint(ref vti)=>Some(Box::new(
@@ -414,7 +414,7 @@ impl Editable for Scene {
 */
 			
 				draw::set_texture(0,g_test_texture[0]);
-				draw::rect_tex(&Vec2(-0.5f32,-0.5f32),&Vec2(0.5f32,0.5f32),0.99f32 );
+				draw::rect_tex(&vec2(-0.5f32,-0.5f32),&vec2(0.5f32,0.5f32),0.99f32 );
 				draw::set_texture(0,0);
 			}
 		}

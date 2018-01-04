@@ -56,12 +56,12 @@ impl<A:'static> window::Window<A> for FlyMode {
 
         let eye: Vec3f = self.pos.to_vec3();//into();
         let (ax, ay) = (sin(self.hdg), cos(self.hdg));
-        let at = Vec3(eye.x + ax, eye.y + ay, eye.z);
+        let at = vec3(eye.x + ax, eye.y + ay, eye.z);
         let cam = Camera::look_along(
             &Frustum(1.0f32, 1.0f32, (0.1f32, 1000.0f32)),
-            &Vec3(eye.x, eye.y, eye.z),
-            &Vec3(ax, ay, 0.0f32),
-            &Vec3(0.0f32, 0.0f32, 1.0f32));
+            &vec3(eye.x, eye.y, eye.z),
+            &vec3(ax, ay, 0.0f32),
+            &vec3(0.0f32, 0.0f32, 1.0f32));
         unsafe {
             glutSetCursor(GLUT_CURSOR_CROSSHAIR as i32);
             // g_ypos-=0.1f32;

@@ -115,7 +115,7 @@ impl Extents<Vec3<f32>>{
 	pub fn new()->Extents<Vec3<f32>> {
         // negative extents - empty
 		let f=1000000.0f32;//todo: FLT_MAX
-		Extents{min:Vec3(f,f,f),max:Vec3(-f,-f,-f)}
+		Extents{min:Vec3::splat(f),max:Vec3::splat(-f)}
 	}
 	pub fn from_vertices<V:Pos>(vertices:&[V])->Extents {
 		let mut m=Extents::new();

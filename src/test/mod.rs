@@ -19,8 +19,8 @@ impl<A> Window<A> for s{
         unsafe {
             draw::clear(0x808080);
             draw::main_mode_text("hello world");
-            draw::line(&Vec3(-1.0,0.0,0.5),&Vec3(1.0,0.0,0.5));
-            draw::line(&Vec3(-1.0,0.0,-0.5),&Vec3(1.0,0.0,-0.5));
+            draw::line(&vec3(-1.0,0.0,0.5),&vec3(1.0,0.0,0.5));
+            draw::line(&vec3(-1.0,0.0,-0.5),&vec3(1.0,0.0,-0.5));
             glFlush();
         }
     }

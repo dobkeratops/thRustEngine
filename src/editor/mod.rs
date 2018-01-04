@@ -257,13 +257,13 @@ impl<T:Editable> SpatialViewPane<T> {
         // and transalte across.
         let centre=r.centre();
         let scale=self.viewport_scale(ed,r);
-        matrix::scale_translate(&Vec3(scale,scale,1.0f32),&Vec3(centre.x,centre.y,0.0f32))
+        matrix::scale_translate(&vec3(scale,scale,1.0f32),&vec3(centre.x,centre.y,0.0f32))
     }
 
     fn matrix_viewport_to_eye(&self, ed:&Editor<T>, r:&Rect)->Mat44f{
         let centre=r.centre();
         let inv_scale=1.0f32/self.viewport_scale(ed,r);
-        matrix::scale_translate(&Vec3(inv_scale,inv_scale,1.0f32),&Vec3(-centre.x*inv_scale,-centre.y*inv_scale,0.0f32))
+        matrix::scale_translate(&vec3(inv_scale,inv_scale,1.0f32),&vec3(-centre.x*inv_scale,-centre.y*inv_scale,0.0f32))
 
     }
     // why scissoring, why not just set glViewport to the damn window?
@@ -277,7 +277,7 @@ impl<T:Editable> SpatialViewPane<T> {
 
     fn viewport_scale(&self,ed:&Editor<T>,r:&Rect)->f32{
         let dst_size=r.size();//v2sub(&r.1,&r.0);
-        let src_size=Vec2(2.0f32,2.0f32);
+        let src_size=vec2(2.0f32,2.0f32);
         let scalex=dst_size.x/src_size.x;
         let scaley=dst_size.y/src_size.y;
         let scale=max(scalex,scaley);// you get weird skewing the other way

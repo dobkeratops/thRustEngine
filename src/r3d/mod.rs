@@ -35,10 +35,12 @@ pub extern crate half;
 #[cfg(not(vec_xyzw_crate))]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec1<T:VElem=f32>{pub x:T}
+impl<T:Copy> Vec1<T>{pub fn new(x:T)->Self{Vec1{x:x}}}
 
 #[cfg(not(vec_xyzw_crate))]
 #[derive(Clone,Copy,Debug)]
 pub struct Vec2<X:VElem=f32,Y=X>{pub x:X,pub y:Y}
+impl<T:Copy> Vec2<T>{pub fn new(x:T,y:T)->Self{Vec2{x:x,y:y}}}
 
 #[cfg(not(vec_xyzw_crate))]
 #[derive(Clone,Copy,Debug)]
@@ -462,7 +464,7 @@ impl<T,X:TNum> From<FixedPt<T,X>> for f32 where T:Into<f32>{
 impl From<PackedARGB8888> for Vec4<f32> {
 	fn from(src:PackedARGB)->Self{
 		let scale=1.0f32/255.0f32;		
-		Vec4(
+		Vec4::new(
 			(src.0 & 0xff)as f32 * scale,
 			((src.0>>8) & 0xff)as f32 * scale,
 			((src.0>>16) & 0xff)as f32 * scale,

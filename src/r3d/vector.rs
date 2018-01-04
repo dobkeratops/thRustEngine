@@ -397,7 +397,7 @@ impl<A,B,O,P> Cross<Vec3<B>> for Vec3<A> where
 {
 	type Output=Vec3<O>;
 	fn cross(self,b:Vec3<B>)->Self::Output{
-		Vec3(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x)
+		vec3(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x)
 	}
 }
 // vec4 cross just uses (x,y,z) and emits (x',y',z',0)
@@ -410,7 +410,7 @@ impl<A,B,O,P> Cross<Vec4<B>> for Vec4<A> where
 {
 	type Output=Vec4<O>;
 	fn cross(self,b:Vec4<B>)->Self::Output{
-		Vec4(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x, zero::<O>())
+		vec4(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x, zero::<O>())
 	}
 }
 /// useful for finding a normal from a point to a target
@@ -483,10 +483,10 @@ pub struct Vec16<T=f32>(pub T,pub T,pub T,pub T, pub T,pub T,pub T,pub T, pub T,
 
 
 // constructors
-pub fn Vec4<X:VElem,Y:VElem,Z:VElem,W:VElem>(x:X,y:Y,z:Z,w:W)->Vec4<X,Y,Z,W> { Vec4{x:x,y:y,z:z,w:w}}
-pub fn Vec3<X:VElem,Y:VElem,Z:VElem>(x:X,y:Y,z:Z)->Vec3<X,Y,Z> { Vec3{x:x,y:y,z:z}}
-pub fn Vec2<X:VElem,Y:VElem>(x:X,y:Y)->Vec2<X,Y> { Vec2{x:x,y:y}}
-pub fn Vec1<X:VElem>(x:X)->Vec1<X> { Vec1{x:x}}
+pub fn vec4<X:VElem,Y:VElem,Z:VElem,W:VElem>(x:X,y:Y,z:Z,w:W)->Vec4<X,Y,Z,W> { Vec4{x:x,y:y,z:z,w:w}}
+pub fn vec3<X:VElem,Y:VElem,Z:VElem>(x:X,y:Y,z:Z)->Vec3<X,Y,Z> { Vec3{x:x,y:y,z:z}}
+pub fn vec2<X:VElem,Y:VElem>(x:X,y:Y)->Vec2<X,Y> { Vec2{x:x,y:y}}
+pub fn vec1<X:VElem>(x:X)->Vec1<X> { Vec1{x:x}}
 
 impl<T:VElem> HasElem for Vec1<T>{
     type Elem=T;
@@ -556,8 +556,8 @@ pub trait VSplat<T>{
 }
 
 impl<T:VElem> VSplat<T> for Vec2<T> {
-//	pub fn new(x:T,y:T)->Vec2<T>	{Vec2(x,y)}
-	 fn vsplat(v:T)->Vec2<T> { Vec2(v.clone(),v)}
+//	pub fn new(x:T,y:T)->Vec2<T>	{Vec2::new(x,y)}
+	 fn vsplat(v:T)->Vec2<T> { vec2(v.clone(),v)}
 	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
 }
 pub trait CrossZ<T>{
@@ -568,20 +568,20 @@ impl<T:Num+VElem> CrossZ<T> for Vec2<T> {
 	 fn vcross_z(&self,other:&Vec2<T>)->T {self.x*other.y-self.y*other.x}
 }
 impl<T:VElem> VSplat<T> for Vec3<T> {
-	 fn vsplat(v:T)->Vec3<T> { Vec3(v,v,v)}
+	 fn vsplat(v:T)->Vec3<T> { vec3(v,v,v)}
 	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
 }
 impl<T:VElem> VSplat<T> for Vec4<T> {
-	 fn vsplat(v:T)->Vec4<T> { Vec4(v.clone(),v.clone(),v.clone(),v.clone())}	// todo -move to elsewhere
+	 fn vsplat(v:T)->Vec4<T> { vec4(v.clone(),v.clone(),v.clone(),v.clone())}	// todo -move to elsewhere
 	 unsafe fn raw_ptr(&self)->*const T{&self.x as *const T}
 }
 /*
 impl<T:Clone> Vec4<T> {
-	pub fn new(x:T,y:T,z:T,w:T)->Vec4<T> {Vec4(x.clone(),y.clone(),z.clone(),w.clone())}
+	pub fn new(x:T,y:T,z:T,w:T)->Vec4<T> {Vec4::new(x.clone(),y.clone(),z.clone(),w.clone())}
 
-	pub fn vfromake_vec3(xyz:Vec3<T>,w:T)->Vec4<T> {Vec4(xyz.x.clone(),xyz.y.clone(),xyz.z.clone(),w.clone())}
-	pub fn vfromake_vec2(xy:Vec2<T>,z:T,w:T)->Vec4<T> {Vec4(xy.x.clone(),xy.y.clone(),z.clone(),w.clone())}
-	pub fn vfromake_vec2Vec2(xy:Vec2<T>,zw:Vec2<T>)->Vec4<T> {Vec4(xy.x.clone(),xy.y.clone(),zw.x.clone(),zw.y.clone())}
+	pub fn vfromake_vec3(xyz:Vec3<T>,w:T)->Vec4<T> {Vec4::new(xyz.x.clone(),xyz.y.clone(),xyz.z.clone(),w.clone())}
+	pub fn vfromake_vec2(xy:Vec2<T>,z:T,w:T)->Vec4<T> {Vec4::new(xy.x.clone(),xy.y.clone(),z.clone(),w.clone())}
+	pub fn vfromake_vec2Vec2::new(xy:Vec2<T>,zw:Vec2<T>)->Vec4<T> {Vec4::new(xy.x.clone(),xy.y.clone(),zw.x.clone(),zw.y.clone())}
 }
 */
 
@@ -621,7 +621,7 @@ pub trait VSelect<X>{
 
 
 impl<B:VElem,T:BitSel<B>+VElem> VSelect<Vec4<B>> for Vec4<T> {
-	fn vselect(&self,a:&Vec4<B>,b:&Vec4<B>)->Vec4<B>{ Vec4(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z), self.w.bitsel(&a.w,&b.w)) }
+	fn vselect(&self,a:&Vec4<B>,b:&Vec4<B>)->Vec4<B>{ vec4(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z), self.w.bitsel(&a.w,&b.w)) }
 }
 macro_rules! impl_vec_bit_ops{
 
@@ -653,7 +653,7 @@ impl_vec_bit_ops!(struct Vec3<T>{x:T,y:T,z:T});
 impl_vec_bit_ops!(struct Vec4<T>{x:T,y:T,z:T,w:T});
 
 impl<X:VElem,T:BitSel<X>+VElem> VSelect<Vec3<X>> for Vec3<T> {
-	fn vselect(&self,a:&Vec3<X>,b:&Vec3<X>)->Vec3<X>{ Vec3(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z)) }
+	fn vselect(&self,a:&Vec3<X>,b:&Vec3<X>)->Vec3<X>{ vec3(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y), self.z.bitsel(&a.z,&b.z)) }
 }
 trait AllBitOps :ops::BitAnd+ops::BitOr+ops::Not+ops::BitXor+Sized{type Output;}
 impl<T:ops::BitAnd<Output=T>+ops::BitOr<Output=T>+ops::BitXor<Output=T>+ops::Not<Output=T>+ops::Not<Output=T>+Sized> AllBitOps for T{
@@ -677,23 +677,23 @@ pub trait ToVec2w<T:VElem>{
 }
 
 impl<T:VElem> ToVec4w<T> for  Vec3<T>{
-     fn to_vec4_w(&self, w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
+     fn to_vec4_w(&self, w:T)->Vec4<T>{vec4(self.x.clone(),self.y.clone(),self.z.clone(),w)}
 }
 impl<T:VElem> ToVec2<T> for Vec3<T>{
 
-     fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
+     fn to_vec2(&self)->Vec2<T>{vec2(self.x.clone(),self.y.clone())}
 }
 impl<T:VElem> ToVec3<T> for Vec4<T>{
-     fn to_vec3(&self)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),self.z.clone())}
+     fn to_vec3(&self)->Vec3<T>{vec3(self.x.clone(),self.y.clone(),self.z.clone())}
 }
 impl<T:VElem> ToVec2<T> for Vec4<T>{
-     fn to_vec2(&self)->Vec2<T>{Vec2(self.x.clone(),self.y.clone())}
+     fn to_vec2(&self)->Vec2<T>{vec2(self.x.clone(),self.y.clone())}
 }
 impl<T:VElem> ToVec3z<T> for Vec2<T>{
-     fn to_vec3_z(&self, z:T)->Vec3<T>{Vec3(self.x.clone(),self.y.clone(),z)}
+     fn to_vec3_z(&self, z:T)->Vec3<T>{vec3(self.x.clone(),self.y.clone(),z)}
 }
 impl<T:VElem> ToVec4zw<T> for Vec2<T>{
-     fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{Vec4(self.x.clone(),self.y.clone(),z,w)}
+     fn to_vec4_zw(&self, z:T,w:T)->Vec4<T>{vec4(self.x.clone(),self.y.clone(),z,w)}
 }
 
 // float/int conversions 
@@ -722,22 +722,22 @@ macro_rules! impl_vec_conv{
 			type OUT_ISIZE=Vec3<isize>;
 			type OUT_USIZE=Vec3<usize>;
 			fn vto_i32(&self)->Vec3<i32>{
-				Vec3(self.x as i32,self.y as i32,self.z as i32)
+				vec3(self.x as i32,self.y as i32,self.z as i32)
 			}
 			fn vto_u32(&self)->Vec3<u32>{
-				Vec3(self.x as u32,self.y as u32,self.z as u32)
+				vec3(self.x as u32,self.y as u32,self.z as u32)
 			}
 			fn vto_isize(&self)->Vec3<isize>{
-				Vec3(self.x as isize,self.y as isize,self.z as isize)
+				vec3(self.x as isize,self.y as isize,self.z as isize)
 			}
 			fn vto_usize(&self)->Vec3<usize>{
-				Vec3(self.x as usize,self.y as usize,self.z as usize)
+				vec3(self.x as usize,self.y as usize,self.z as usize)
 			}
 			fn vto_f32(&self)->Vec3<f32>{
-				Vec3(self.x as f32,self.y as f32,self.z as f32)
+				vec3(self.x as f32,self.y as f32,self.z as f32)
 			}
 			fn vto_f64(&self)->Vec3<f64>{
-				Vec3(self.x as f64,self.y as f64,self.z as f64)
+				vec3(self.x as f64,self.y as f64,self.z as f64)
 			}
 		}
 	}
@@ -750,7 +750,7 @@ impl_vec_conv!(f64);
 impl_vec_conv!(isize);
 
 impl<X:VElem,T:BitSel<X>+VElem> VSelect<Vec2<X>> for Vec2<T> {
-	fn vselect(&self,a:&Vec2<X>,b:&Vec2<X>)->Vec2<X>{ Vec2(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y)) }
+	fn vselect(&self,a:&Vec2<X>,b:&Vec2<X>)->Vec2<X>{ vec2(self.x.bitsel(&a.x,&b.x),self.y.bitsel(&a.y,&b.y)) }
 }
 
 pub trait BitSel<X>{
@@ -1063,10 +1063,10 @@ where
 				V4=Vec4<T>
 					>
 {
-	fn make_vec1(x:Self::Elem)->Vec1<V::Elem> { Vec1(x) }
-	fn make_vec2(x:Self::Elem,y:Self::Elem)->Self::V2 {Vec2(x,y)}
-	fn make_vec3(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self::V3{Vec3(x,y,z)}
-	fn make_vec4(x:Self::Elem,y:Self::Elem,z:Self::Elem,w:Self::Elem)->Self::V4{Vec4(x,y,z,w)}
+	fn make_vec1(x:Self::Elem)->Vec1<V::Elem> { vec1(x) }
+	fn make_vec2(x:Self::Elem,y:Self::Elem)->Self::V2 {vec2(x,y)}
+	fn make_vec3(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self::V3{vec3(x,y,z)}
+	fn make_vec4(x:Self::Elem,y:Self::Elem,z:Self::Elem,w:Self::Elem)->Self::V4{vec4(x,y,z,w)}
 
 }
 /*
@@ -1199,13 +1199,13 @@ trait Select<V>{
 }
 impl<T:VElem> Select<Vec3<T>> for Vec3<bool> where bool:Select<T>{
 	fn select(&self,a:Vec3<T>,b:Vec3<T>)->Vec3<T> {
-		Vec3( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) )
+		vec3( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) )
 	}
 }
 
 impl<T:VElem,BOOL:VElem> Select<Vec4<T>> for Vec4<BOOL> where BOOL:Select<T>{
 	fn select(&self,a:Vec4<T>,b:Vec4<T>)->Vec4<T> {
-		Vec4( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) , self.w .select(a.w,b.w) )
+		vec4( self.x .select(a.x,b.x), self.y .select(a.y,b.y), self.z .select(a.z,b.z) , self.w .select(a.w,b.w) )
 	}
 }
 
@@ -1469,9 +1469,9 @@ pub type Normal2<T=f32>=Normal<Vec2<T>>;
 pub type Normal3<T=f32>=Normal<Vec3<T>>;
 pub type Normal4<T=f32>=Normal<Vec4<T>>;
 
-fn Point2<T:VElem>(x:T,y:T)->Point<Vec2<T>>{ Point(Vec2(x,y)) }
-fn Point3<T:VElem>(x:T,y:T,z:T)->Point<Vec3<T>>{ Point(Vec3(x,y,z)) }
-fn Point4<T:VElem>(x:T,y:T,z:T,w:T)->Point<Vec4<T>>{ Point(Vec4(x,y,z,w)) }
+fn Point2<T:VElem>(x:T,y:T)->Point<Vec2<T>>{ Point(Vec2::new(x,y)) }
+fn Point3<T:VElem>(x:T,y:T,z:T)->Point<Vec3<T>>{ Point(Vec3::new(x,y,z)) }
+fn Point4<T:VElem>(x:T,y:T,z:T,w:T)->Point<Vec4<T>>{ Point(Vec4::new(x,y,z,w)) }
 
 /// Trait for component multiply access, some platforms dont like moving from vec to scalar pipes..
 pub trait VecBroadcastOps:Sized {
@@ -1646,7 +1646,7 @@ macro_rules! impl_vec_method_sametypes{
 		impl<T:$OpTrait+$Bound> $OpTrait for Vec2<T> {
 			type Output=Vec2<T>;
 			fn $op(self,rhs:Vec2<T>)->Vec2<T> { 
-				Vec2(self.x.$op(rhs.x)   , self.y.$op(rhs.y))
+				Vec2::new(self.x.$op(rhs.x)   , self.y.$op(rhs.y))
 			}
 		}
 
@@ -1660,7 +1660,7 @@ macro_rules! impl_vec_method_sametypes{
 		impl<T:$OpTrait $OpTrait for Vec4<T> {
 			type Output=Vec4<T>;
 			fn $op(self,rhs:Vec4<T>)->Vec4<T> { 
-				Vec4(self.x.$op(rhs.x)   , self.y.$op(rhs.y), self.z.$op(rhs.z), self.w.$op(rhs.w))
+				Vec4::new(self.x.$op(rhs.x)   , self.y.$op(rhs.y), self.z.$op(rhs.z), self.w.$op(rhs.w))
 			}
 		}
 
@@ -1674,7 +1674,7 @@ macro_rules! impl_vec_operator{
 		impl<A:$OpTrait<B,Output=C>,B,C> $OpTrait<Vec2<B>> for Vec2<A> {
 			type Output=Vec2<C>;
 			fn $op(self,rhs:Vec2<B>)->Vec2<C> { 
-				Vec2(self.x.$op(rhs.x)   , self.y.$op(rhs.y))
+				Vec2::new(self.x.$op(rhs.x)   , self.y.$op(rhs.y))
 			}
 		}
 
@@ -1688,7 +1688,7 @@ macro_rules! impl_vec_operator{
 		impl<A:$OpTrait<B,Output=C>,B,C> $OpTrait<Vec4<B>> for Vec4<A> {
 			type Output=Vec4<C>;
 			fn $op(self,rhs:Vec4<B>)->Vec4<C> { 
-				Vec4(self.x.$op(rhs.x)   , self.y.$op(rhs.y), self.z.$op(rhs.z), self.w.$op(rhs.w))
+				Vec4::ew(self.x.$op(rhs.x)   , self.y.$op(rhs.y), self.z.$op(rhs.z), self.w.$op(rhs.w))
 			}
 		}
 */
@@ -1725,7 +1725,7 @@ macro_rules! impl_vec_operator{
 		{
 			type Output=Vec2<C>;
 			fn $op(self,rhs:&'a Vec2<B>)->Vec2<C> { 
-				Vec2(self.x.$op(&rhs.x)   , self.y.$op(&rhs.y))
+				Vec2::new(self.x.$op(&rhs.x)   , self.y.$op(&rhs.y))
 			}
 		}
 
@@ -1743,7 +1743,7 @@ macro_rules! impl_vec_operator{
 		{
 			type Output=Vec4<C>;
 			fn $op(self,rhs:&'a Vec4<B>)->Vec4<C> { 
-				Vec4(self.x.$op(&rhs.x)   , self.y.$op(&rhs.y), self.z.$op(&rhs.z), self.w.$op(&rhs.w))
+				Vec4::new(self.x.$op(&rhs.x)   , self.y.$op(&rhs.y), self.z.$op(&rhs.z), self.w.$op(&rhs.w))
 			}
 		}
 */
@@ -1813,7 +1813,7 @@ macro_rules! impl_vec_component_method{
 	($Trait:ident::$method:ident where T:$Bound:ident,  for VecN<T>)=>{
 		impl<T:$Trait+$Bound+VElem> $Trait for Vec2<T>{
 			fn $method(self,rhs:Vec2<T>)->Vec2<T>{
-				Vec2(
+				Vec2::new(
 					self.x.$method(rhs.x),
 					self.y.$method(rhs.y)
 				)
@@ -1822,7 +1822,7 @@ macro_rules! impl_vec_component_method{
 
 		impl<T:$Trait+$Bound+VElem> $Trait for Vec3<T>{
 			fn $method(self,rhs:Vec3<T>)->Vec3<T>{
-				Vec3(
+				Vec3::new(
 					self.x.$method(rhs.x),
 					self.y.$method(rhs.y),
 					self.z.$method(rhs.z),
@@ -1919,17 +1919,17 @@ impl<T:Float+VElem> VMath for Vec2<T>{}
 
 
 impl<T:VElem+Float> VecOps for Vec2<T> {
-	fn vscale(&self,f:T)->Vec2<T>		{Vec2(self.x*f,self.y*f)}
-	fn vmul(&self,b:&Vec2<T>)->Vec2<T>	{Vec2(self.x*b.x,self.y*b.y)}
+	fn vscale(&self,f:T)->Vec2<T>		{vec2(self.x*f,self.y*f)}
+	fn vmul(&self,b:&Vec2<T>)->Vec2<T>	{vec2(self.x*b.x,self.y*b.y)}
 	fn vsum_elems(&self)->T	{self.x+self.y}
-    fn vneg(&self)->Self{Vec2(-self.x,-self.y)}
+    fn vneg(&self)->Self{Vec2::new(-self.x,-self.y)}
 	// todo .. not entirely happy with this interface.
 	// cross product for a vector type returning its own type seems awkward
 	// perhaps 'crossToSelf and crossToVec3' .. and 'cross' for vec3 only?
 	fn vcross(&self,_:&Vec2<T>)->Vec2<T>{unimplemented!()}
-	fn vcross_to_vec3(&self,b:&Vec2<T>)->Vec3<T>	{Vec3(Zero::zero(),Zero::zero(),self.vcross_z(b))}
+	fn vcross_to_vec3(&self,b:&Vec2<T>)->Vec3<T>	{vec3(Zero::zero(),Zero::zero(),self.vcross_z(b))}
 //	pub fn axisScale(i:int,f:VScalar)->Vec2 { vecAxisScale(i,f) } 
-	fn vfrom_xyz_f(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self {Vec2(x,y)}
+	fn vfrom_xyz_f(x:Self::Elem,y:Self::Elem,z:Self::Elem)->Self {Vec2::new(x,y)}
 }
 
 
@@ -1996,16 +1996,16 @@ macro_rules! impl_vec_cmp_ops{
 		impl<T:VElem+PartialOrd> VecCmpOps for $VecN<T> {
 			type CmpOutput=$VecN<bool>;	// todo: figure out nesting, e.g. impl this for scalars to terminate
 			fn vmin(&self, b:&Self)->Self	{
-				$VecN($( min_ref(&self.$elem, &b.$elem) ),*)
+				$VecN{$( $elem : min_ref(&self.$elem, &b.$elem) ),*}
 			}
 			fn vmax(&self, b:&Self)->Self	{
-				$VecN($( max_ref(&self.$elem, &b.$elem) ),*)
+				$VecN{$( $elem : max_ref(&self.$elem, &b.$elem) ),*}
 			}
 			fn lt(&self, b:&Self)->$VecN<bool>{
-				$VecN($( self.$elem < b.$elem ),*)
+				$VecN{$( $elem : self.$elem < b.$elem ),*}
 			}
 			fn gt(&self, b:&Self)->$VecN<bool>{
-				$VecN($( self.$elem > b.$elem ),*)
+				$VecN{$( $elem : self.$elem > b.$elem ),*}
 			}
 		}
 	}
@@ -2100,13 +2100,15 @@ pub trait VecAccessors : HasElem+Sized+Copy {
 	fn splat_w(&self)->Self{ Self::splat(self.vw())}
 }
 
+pub fn normal(x:f32,y:f32,z:f32)->Vec3<f32>{Vec3::new(x,y,z).vnormalize()}
+
 impl<T:Zero+VElem> VecAccessors for Vec2<T>
 {
 	fn vx(&self)->T	{ self.x.clone()}
 	fn vy(&self)->T	{ self.y.clone()}
 	fn vz(&self)->T	{ zero::<T>()}
 	fn vw(&self)->T	{ zero::<T>()}
-	fn splat(f:T)->Self{ Vec2(f.clone(),f.clone())}
+	fn splat(f:T)->Self{ vec2(f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> VecAccessors for Vec3<T> {
@@ -2114,7 +2116,7 @@ impl<T:Zero+VElem> VecAccessors for Vec3<T> {
 	fn vy(&self)->T	{ self.y.clone()}
 	fn vz(&self)->T	{ self.z.clone()}
 	fn vw(&self)->T	{ zero::<T>()}
-	fn splat(f:T)->Self{ Vec3(f.clone(),f.clone(),f.clone())}
+	fn splat(f:T)->Self{ vec3(f.clone(),f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> VecAccessors for Vec4<T>
@@ -2123,15 +2125,15 @@ impl<T:Zero+VElem> VecAccessors for Vec4<T>
 	fn vy(&self)->T	{ self.y.clone()}
 	fn vz(&self)->T	{ self.z.clone()}
 	fn vw(&self)->T	{ self.w.clone()}
-	fn splat(f:T)->Self{ Vec4(f.clone(),f.clone(),f.clone(),f.clone())}
+	fn splat(f:T)->Self{ vec4(f.clone(),f.clone(),f.clone(),f.clone())}
 }
 
 impl<T:Zero+VElem> Zero for Vec4<T> {
-	fn zero()->Vec4<T>{Vec4(zero::<T>(),zero::<T>(),zero::<T>(),zero::<T>())}
+	fn zero()->Vec4<T>{vec4(zero::<T>(),zero::<T>(),zero::<T>(),zero::<T>())}
 	fn is_zero(self)->bool  {self.x.is_zero() && self.y.is_zero() && self.z.is_zero() && self.w.is_zero()}
 }
 impl<T:Zero+VElem> Zero for Vec2<T> {
-    fn zero()->Vec2<T>{Vec2(zero::<T>(),zero::<T>())}
+    fn zero()->Vec2<T>{vec2(zero::<T>(),zero::<T>())}
     fn is_zero(self)->bool  {self.x.is_zero() && self.y.is_zero()}
 }
 
@@ -2143,23 +2145,23 @@ pub trait Project<T:VElem=f32>{
 impl<T:Float+VElem> Project<T> for Vec4<T>{
     fn project_to_vec3(&self)->Vec3<T>{
         let inv=self.w.reciprocal();
-        Vec3(self.x*inv,self.y*inv,self.z*inv)
+        vec3(self.x*inv,self.y*inv,self.z*inv)
     }
     fn project(&self)->Vec4<T>{
         let inv=self.w.reciprocal();
-        Vec4(self.x*inv,self.y*inv,self.z*inv,one())
+        vec4(self.x*inv,self.y*inv,self.z*inv,one())
     }
 }
 
 
 impl<T:Zero+One+VElem> VecConsts for Vec2<T> {
 
-    fn one()->Vec2<T>	{Vec2(one::<T>(),one::<T>())}
-    fn origin()->Vec2<T>	{Vec2(zero::<T>(),zero::<T>())}
+    fn one()->Vec2<T>	{vec2(one::<T>(),one::<T>())}
+    fn origin()->Vec2<T>	{vec2(zero::<T>(),zero::<T>())}
     fn vaxis(i:int)->Vec2<T>{
         match i{
-            0=>Vec2(one::<T>(),zero::<T>()),
-            _=>Vec2(zero::<T>(),one::<T>()),
+            0=>vec2(one::<T>(),zero::<T>()),
+            _=>vec2(zero::<T>(),one::<T>()),
         }
     }
 }
@@ -2172,20 +2174,20 @@ pub trait ToVec3<T:VElem> {
     fn to_vec3(&self)->Vec3<T>;
 }
 impl<T:Float+VElem,V:HasXYZ<Elem=T>> ToVec3<T> for V{
-	fn to_vec3(&self)->Vec3<T>{Vec3(self.x(),self.y(),self.z())}
+	fn to_vec3(&self)->Vec3<T>{vec3(self.x(),self.y(),self.z())}
 }
 impl<T:Float+Copy> ToVec2<T> for (T,T){
-    fn to_vec2(&self)->Vec2<T>{Vec2(self.0,self.1)}
+    fn to_vec2(&self)->Vec2<T>{vec2(self.0,self.1)}
 }
 
 //impl<T:Float> ToVec3<T> for (T,T,T){
 //    fn to_vec3(&self)->Vec3<T>{Vec3(self.0,self.1,self.2)}
 //}
 impl<T:Float> ToVec4<T> for (T,T,T,T){
-    fn to_vec4(&self)->Vec4<T>{Vec4(self.0,self.1,self.2,self.3)}
+    fn to_vec4(&self)->Vec4<T>{Vec4::new(self.0,self.1,self.2,self.3)}
 }
 //impl<T,V:HasXYZ<Elem=T>> ToVec3<T> for V{
-//	fn to_vec3(&self)->Vec3<T>{Vec3(self.x(),self.y(),self.z())}
+//	fn to_vec3(&self)->Vec3<T>{Vec3::new(self.x(),self.y(),self.z())}
 //}
 pub trait ToTuple<T>{
     type Output;
@@ -2263,15 +2265,15 @@ impl<F:Float,V:HasXYZW<Elem=F>> From<V> for PackedS8x4 {
 
 impl<T:Zero+One+VElem> VecConsts for Vec4<T> {
 
-	fn one()->Vec4<T>	{Vec4(one::<T>(),one::<T>(),one::<T>(),one::<T>())}
-	fn origin()->Vec4<T>	{Vec4(zero::<T>(),zero::<T>(),zero::<T>(),one::<T>())}
+	fn one()->Vec4<T>	{Vec4::new(one::<T>(),one::<T>(),one::<T>(),one::<T>())}
+	fn origin()->Vec4<T>	{Vec4::new(zero::<T>(),zero::<T>(),zero::<T>(),one::<T>())}
 	fn vaxis(i:int)->Vec4<T>{
 		match i{
-			0=>Vec4(one::<T>(),zero::<T>(),zero::<T>(),zero::<T>()),
-			1=>Vec4(zero::<T>(),one::<T>(),zero::<T>(),zero::<T>()),
-			2=>Vec4(zero::<T>(),zero::<T>(),one::<T>(),zero::<T>()),
-			3=>Vec4(zero::<T>(),zero::<T>(),zero::<T>(),one::<T>()),
-			_=>Vec4(zero::<T>(),zero::<T>(),zero::<T>(),zero::<T>())
+			0=>vec4(one::<T>(),zero::<T>(),zero::<T>(),zero::<T>()),
+			1=>vec4(zero::<T>(),one::<T>(),zero::<T>(),zero::<T>()),
+			2=>vec4(zero::<T>(),zero::<T>(),one::<T>(),zero::<T>()),
+			3=>vec4(zero::<T>(),zero::<T>(),zero::<T>(),one::<T>()),
+			_=>vec4(zero::<T>(),zero::<T>(),zero::<T>(),zero::<T>())
 		}
 	}
 }
@@ -2284,8 +2286,8 @@ impl<T:Float> VecPermute for Vec4<T> {
 */
 
 impl<T:Num+VElem> VecNumOps for Vec4<T> {
-    fn vadd(&self, b: &Vec4<T>) -> Vec4<T> { Vec4(self.x + b.x, self.y + b.y, self.z + b.z, self.w + b.w) }
-    fn vsub(&self, b: &Vec4<T>) -> Vec4<T> { Vec4(self.x - b.x, self.y - b.y, self.z - b.z, self.w - b.w) }
+    fn vadd(&self, b: &Vec4<T>) -> Vec4<T> { Vec4::new(self.x + b.x, self.y + b.y, self.z + b.z, self.w + b.w) }
+    fn vsub(&self, b: &Vec4<T>) -> Vec4<T> { Vec4::new(self.x - b.x, self.y - b.y, self.z - b.z, self.w - b.w) }
 
 }
 
@@ -2300,16 +2302,16 @@ impl<T:Num+Default,V:HasXYZW<Elem=T>> VecNumOps for V {
 
 impl<T:Float> VecOps for Vec4<T> {
 	// todo-trait VecPrimOps
-	fn vscale(&self,f:T)->Vec4<T>		{Vec4(self.x*f,self.y*f,self.z*f,self.w*f)}
-	fn vmul(&self,b:&Vec4<T>)->Vec4<T>	{Vec4(self.x*b.x,self.y*b.y,self.z*b.z,self.w*b.w)}
+	fn vscale(&self,f:T)->Vec4<T>		{Vec4::new(self.x*f,self.y*f,self.z*f,self.w*f)}
+	fn vmul(&self,b:&Vec4<T>)->Vec4<T>	{Vec4::new(self.x*b.x,self.y*b.y,self.z*b.z,self.w*b.w)}
 	fn vsum_elems(&self)->T	{self.x+self.y+self.z+self.w}
 	fn vmul_elems(&self)->T	{self.x*self.y*self.z*self.w}
 
-	fn vcross(&self,b:&Vec4<T>)->Vec4<T>	{Vec4(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x,zero::<T>())}
+	fn vcross(&self,b:&Vec4<T>)->Vec4<T>	{Vec4::new(self.y*b.z-self.z*b.y,self.z*b.x-self.x*b.z,self.x*b.y-self.y*b.x,zero::<T>())}
 
 	fn vcross_to_vec3(&self,b:&Vec4<T>)->Vec3<T>	{self.vcross(b).permute_xyz()}
-	fn vfrom_xyz_f(x:T,y:T,z:T)->Vec4<T>{Vec4(x,y,z,zero::<T>())}
-    fn vneg(&self)->Self{Vec4(-self.x(),-self.y(),-self.z(),-self.w())}
+	fn vfrom_xyz_f(x:T,y:T,z:T)->Vec4<T>{Vec4::new(x,y,z,zero::<T>())}
+    fn vneg(&self)->Self{Vec4::new(-self.x(),-self.y(),-self.z(),-self.w())}
 }
 /*
 #[derive(Clone,Debug)]

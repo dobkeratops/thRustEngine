@@ -68,9 +68,9 @@ pub fn lines_xy<V:HasXY<Elem=f32>>(vts:&Vec<V>,z:f32,close:bool){
     unsafe {
         glBegin(GL_LINE_STRIP);
         for v in vts {
-            gl_vertex(Vec3(v.x(),v.y(),z));
+            gl_vertex(Vec3::new(v.x(),v.y(),z));
         }
-        if close {gl_vertex(Vec3(vts[0].x(),vts[0].y(),z))}
+        if close {gl_vertex(Vec3::new(vts[0].x(),vts[0].y(),z))}
         glEnd();
     }
 }
@@ -147,12 +147,12 @@ pub fn rect_outline_v2<V2:HasXY<Elem=f32>>(a:&V2,b:&V2,color:u32) {
 }
 
 pub fn box_corners(a:&Vec3f,b:&Vec3f,f:f32,c:Color){
-	rect_corners_xy(a, &Vec3(b.x,b.y,a.z), f,c);
-	rect_corners_xy(a, &Vec3(b.x,b.y,b.z), f,c);
-	line_ends(&Vec3(a.x,a.y,a.z),&Vec3(a.x,a.y,b.z),f,c);
-	line_ends(&Vec3(b.x,a.y,a.z),&Vec3(b.x,a.y,b.z),f,c);
-	line_ends(&Vec3(a.x,b.y,a.z),&Vec3(a.x,b.y,b.z),f,c);
-	line_ends(&Vec3(b.x,b.y,a.z),&Vec3(b.x,b.y,b.z),f,c);
+	rect_corners_xy(a, &vec3(b.x,b.y,a.z), f,c);
+	rect_corners_xy(a, &vec3(b.x,b.y,b.z), f,c);
+	line_ends(&vec3(a.x,a.y,a.z),&vec3(a.x,a.y,b.z),f,c);
+	line_ends(&vec3(b.x,a.y,a.z),&vec3(b.x,a.y,b.z),f,c);
+	line_ends(&vec3(a.x,b.y,a.z),&vec3(a.x,b.y,b.z),f,c);
+	line_ends(&vec3(b.x,b.y,a.z),&vec3(b.x,b.y,b.z),f,c);
 }
 
 fn line_ends(a:&Vec3f,b:&Vec3f,f:f32,color:Color){
@@ -166,25 +166,25 @@ pub fn rect_corners_xy(a:&Vec3f,b:&Vec3f,corner_fraction:f32,c:Color) {
     let cx=dx*corner_fraction;
     let cy=dy*corner_fraction;
 
-    let aa=Vec3(a.x, a.y, a.z);
-    let ab=Vec3(a.x, b.y, a.z);
-    let ba=Vec3(b.x, a.y, a.z);
-    let bb=Vec3(b.x, b.y, a.z);
+    let aa=vec3(a.x, a.y, a.z);
+    let ab=vec3(a.x, b.y, a.z);
+    let ba=vec3(b.x, a.y, a.z);
+    let bb=vec3(b.x, b.y, a.z);
 
-    line_strip2_c( &Vec3(a.x, a.y+cy,a.z), &aa, &Vec3(a.x+cx, a.y,a.z),c);
-    line_strip2_c( &Vec3(a.x, b.y-cy,a.z), &ab, &Vec3(a.x+cx, b.y,a.z),c);
+    line_strip2_c( &vec3(a.x, a.y+cy,a.z), &aa, &vec3(a.x+cx, a.y,a.z),c);
+    line_strip2_c( &vec3(a.x, b.y-cy,a.z), &ab, &vec3(a.x+cx, b.y,a.z),c);
 
-    line_strip2_c( &Vec3(b.x, a.y+cy,a.z), &ba, &Vec3(b.x-cx, a.y,a.z),c);
-    line_strip2_c( &Vec3(b.x, b.y-cy,a.z), &bb, &Vec3(b.x-cx, b.y,a.z),c);
+    line_strip2_c( &vec3(b.x, a.y+cy,a.z), &ba, &vec3(b.x-cx, a.y,a.z),c);
+    line_strip2_c( &vec3(b.x, b.y-cy,a.z), &bb, &vec3(b.x-cx, b.y,a.z),c);
 }
 pub fn circle_point_xy(a:f32, r:f32)->Vec3f{
-    Vec3(a.cos()*r,a.sin()*r,0.0)
+    vec3(a.cos()*r,a.sin()*r,0.0)
 }
 pub fn circle_point_xz(a:f32, r:f32)->Vec3f{
-    Vec3(a.cos()*r,0.0,a.sin()*r)
+    vec3(a.cos()*r,0.0,a.sin()*r)
 }
 pub fn circle_point_yz(a:f32, r:f32)->Vec3f{
-    Vec3(0.0,a.cos()*r,a.sin()*r)
+    vec3(0.0,a.cos()*r,a.sin()*r)
 }
 pub fn curve_open<F:Fn(f32)->Vec3f>(f:F, start:f32,end:f32,segs:i32){
     let mut i=0;
@@ -366,10 +366,10 @@ pub fn rect_tex_c_crop<V2:HasXY<Elem=f32>>(a:&V2,b:&V2,z:f32,col:u32,uv0:&V2,uv1
 	let v1=uv1.y();
 	unsafe {
 	glBegin(GL_TRIANGLE_STRIP);
-	gl_vertex_tc(&Vec3(x0,y0,z), &Vec2(0.0,0.0),col);
-	gl_vertex_tc(&Vec3(x1,y0,z), &Vec2(0.0,1.0),col);
-	gl_vertex_tc(&Vec3(x0,y1,z), &Vec2(1.0,0.0),col);
-	gl_vertex_tc(&Vec3(x1,y1,z), &Vec2(1.0,1.0),col);
+	gl_vertex_tc(&vec3(x0,y0,z), &vec2(0.0,0.0),col);
+	gl_vertex_tc(&vec3(x1,y0,z), &vec2(0.0,1.0),col);
+	gl_vertex_tc(&vec3(x0,y1,z), &vec2(1.0,0.0),col);
+	gl_vertex_tc(&vec3(x1,y1,z), &vec2(1.0,1.0),col);
 	glEnd();
 	}
 }
@@ -379,7 +379,7 @@ pub fn rect_tex<V:HasXY<Elem=f32>>(a:&V,b:&V,z:f32){
 	rect_tex_c_crop(a,b,z,0xffffffff,&V::from_xy(0.0f32,1.0f32),&V::from_xy(1.0f32,0.0f32));
 }
 pub fn rect_xy_tex(a:&Vec2f,b:&Vec2f,z:f32){
-	rect_tex_c_crop(&Vec2(a.x,a.y), &Vec2(b.x,b.y),z, 0xffffffff, &Vec2(0.0f32,1.0f32), &Vec2(1.0f32,0.0f32) );
+	rect_tex_c_crop(&vec2(a.x,a.y), &vec2(b.x,b.y),z, 0xffffffff, &vec2(0.0f32,1.0f32), &vec2(1.0f32,0.0f32) );
 }
 
 pub fn quad_outline<V:HasXYZ<Elem=f32>>(aa:&V,ab:&V,bb:&V,ba:&V) {
@@ -403,9 +403,9 @@ pub fn triangle<V:HasXYZ<Elem=f32>>(a:&V,b:&V,c:&V){
 pub fn sprite_at(a:&Vec3f,r:f32,color:Color) {
 // todo - pointsprite buffer, camera facing, etc.
 	rect_tex_c_crop(
-		&Vec2(a.x, a.y),&Vec2(a.x, a.y), a.z,
+		&vec2(a.x, a.y),&vec2(a.x, a.y), a.z,
 		0xffffffff,
-		&Vec2(0.0f32,1.0f32), &Vec2(1.0f32,0.0f32));
+		&vec2(0.0f32,1.0f32), &vec2(1.0f32,0.0f32));
 /*
 	unsafe{
 		glBegin(GL_TRIANGLE_STRIP);

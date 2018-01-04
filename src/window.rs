@@ -160,11 +160,11 @@ pub enum Flow<A>{
 
 fn split_x(r:&Rect,f0:f32,f1:f32)->Rect {
     let size=r.size();
-    Extents(&Vec2(r.min.x+size.x*f0, r.min.y),&Vec2(r.min.x+size.x*f1, r.max.y))
+    Extents(&Vec2::new(r.min.x+size.x*f0, r.min.y),&Vec2::new(r.min.x+size.x*f1, r.max.y))
 }
 fn split_y(r:&Rect,f0:f32,f1:f32)->Rect {
     let size=r.size();
-    Extents(&Vec2(r.min.x, r.min.y+size.y*f0),&Vec2(r.max.x, r.min.y+size.y*f1))
+    Extents(&Vec2::new(r.min.x, r.min.y+size.y*f0),&Vec2::new(r.max.x, r.min.y+size.y*f1))
 }
 
 pub enum ForeachResult{
@@ -665,7 +665,7 @@ fn drag_dist(a:PixelPosf,b:PixelPosf)->f32{
 fn divf32(a:i32,b:i32)->f32{a as f32 / b as f32}
 fn to_screenpos(s:PixelPosi)->ScreenPos{
     unsafe{
-    Vec2(   divf32(s.0,g_screen_pixel_sizei.0)*2.0f32-1.0f32,
+    vec2(   divf32(s.0,g_screen_pixel_sizei.0)*2.0f32-1.0f32,
         -(divf32(s.1,g_screen_pixel_sizei.1)*2.0f32-1.0f32)
     )}
 }
@@ -713,7 +713,7 @@ type WindowId=c_int;
 
 fn render_begin(){
     unsafe {
-        gl_scissor_s(&Extents(&Vec2(-1.0f32,-1.0f32),&Vec2(1.0f32,1.0f32)));
+        gl_scissor_s(&Extents(&vec2(-1.0f32,-1.0f32),&vec2(1.0f32,1.0f32)));
         //glScissor(0,0,g_screen_pixel_sizei.0,g_screen_pixel_sizei.1);
         glClearColor(0.5f32, 0.5f32, 0.5f32, 1.0f32);
 
@@ -770,7 +770,7 @@ fn process_flow<APP>(next:Flow<APP>,wins:&mut Windows<APP>){
         _ => () // default - continue
     }
 }
-fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3f{Vec3(x,y,z)}
+fn from_tuple_z((x,y):(f32,f32),z:f32)->Vec3f{vec3(x,y,z)}
 
 /// window and cursor state, passed down because the framework calculates sizes.
 #[derive(Clone,Debug)]
@@ -824,7 +824,7 @@ unsafe fn render_drag_overlay(){
     // clear all rendering states
     draw::identity();
     let sv=to_screenpos(g_ldrag_start.unwrap()).to_vec3_z(0.0);
-    let ev=Vec3(cvp.x,cvp.y,0.0);//from_tuple_z(cvp.into(),0.0);
+    let ev=vec3(cvp.x,cvp.y,0.0);//from_tuple_z(cvp.into(),0.0);
     match g_dragmode{
         DragMode::Line=>{
             draw::line(&sv, &ev);
@@ -851,7 +851,7 @@ unsafe fn render_drag_overlay(){
     }
 }
 fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
-    let whole_rect = Extents(&Vec2(-1.0,-1.0),&Vec2(1.0,1.0));
+    let whole_rect = Extents(&vec2(-1.0,-1.0),&vec2(1.0,1.0));
     unsafe{
         //render.
         let top=wins.0 .len();
@@ -860,7 +860,7 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
             let i = top - 1;
             {
 				let wc=WinCursor{
-                    rect:Extents(&Vec2(-1.0,-1.0),&Vec2(1.0,1.0)),
+                    rect:Extents(&vec2(-1.0,-1.0),&vec2(1.0,1.0)),
                     old_pos:get_mouse_ovpos(),
                     pos:get_mouse_vpos(),
                     drag_start:None,

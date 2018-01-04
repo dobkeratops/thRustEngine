@@ -154,7 +154,7 @@ impl TriMesh<VertexP,()> {
 		for y in 0..height{
 			let mut fx=-0.5f32*cellxsize;
 			for x in 0..width{
-				vertices.push(VertexP{pos:Vec3(fx,fy,ht[y][x])});
+				vertices.push(VertexP{pos:Vec3::new(fx,fy,ht[y][x])});
 				fx+=cellxsize;
 			}
 			fy+=cellysize;
@@ -227,9 +227,9 @@ impl TriMesh<VertexNFCT,()>{
 			let cell_size=size/(voltex.len() as f32);
 			let make_vertex=|ipos:Array3<i32>,clip:f32,normal_axis_index:i32,(u,v)|{
 				let mut norm:Vec3f=match normal_axis_index{
-					0=>Vec3(1.0,0.0,0.0),
-					1=>Vec3(0.0,1.0,0.0),
-					2=>Vec3(0.0,0.0,1.0),
+					0=>Vec3::new(1.0,0.0,0.0),
+					1=>Vec3::new(0.0,1.0,0.0),
+					2=>Vec3::new(0.0,0.0,1.0),
 					_=>panic!()
 				} ;
 				let (pix,piy,piz):(i32,i32,i32)=(ipos[0],ipos[1],ipos[2]);
@@ -237,13 +237,13 @@ impl TriMesh<VertexNFCT,()>{
 				let fx:f32=ipos[0] as f32 * cell_size;
 				let fy:f32=ipos[1] as f32 *cell_size;
 				let fz:f32=ipos[2] as f32 *cell_size;
-				let pv:Vec3<f32>=Vec3(fx,fy,fz);
+				let pv:Vec3<f32>=Vec3::new(fx,fy,fz);
 				// todo - confusion about centreing ,0.0 or 0.05?
 				VertexNFCT{
 					pos:pv.vmadd(&norm,clip*cell_size),
-					color:Vec4(s,s,s,1.0),
+					color:Vec4::new(s,s,s,1.0),
 					norm:norm,
-					tex0:Vec2(u,v)
+					tex0:Vec2::new(u,v)
 				}
 			};
 

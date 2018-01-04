@@ -211,19 +211,19 @@ impl<F:Float> Matrix4<Vec4<F>> where
 	// transpose assuming vec4
 	pub fn transpose4(&self) -> Matrix4<Vec4<F>> {
 		Matrix4::new(
-			&Vec4(self.ax.vx(), self.ay.vx(), self.az.vx(), self.aw.vx()),
-			&Vec4(self.ax.vy(), self.ay.vy(), self.az.vy(), self.aw.vy()),
-			&Vec4(self.ax.vz(), self.ay.vz(), self.az.vz(), self.aw.vz()),
-			&Vec4(self.ax.vw(), self.ay.vw(), self.az.vw(), self.aw.vw())
+			&Vec4::new(self.ax.vx(), self.ay.vx(), self.az.vx(), self.aw.vx()),
+			&Vec4::new(self.ax.vy(), self.ay.vy(), self.az.vy(), self.aw.vy()),
+			&Vec4::new(self.ax.vz(), self.ay.vz(), self.az.vz(), self.aw.vz()),
+			&Vec4::new(self.ax.vw(), self.ay.vw(), self.az.vw(), self.aw.vw())
 		)
 	}
 }
 impl<F:Float> Matrix3<Vec3<F>> where {
 	pub fn transpose3(&self) -> Matrix3<Vec3<F>> {
 		Matrix3::new(
-			&Vec3(self.ax.vx(), self.ay.vx(), self.az.vx()),
-			&Vec3(self.ax.vy(), self.ay.vy(), self.az.vy()),
-			&Vec3(self.ax.vz(), self.ay.vz(), self.az.vz())
+			&Vec3::new(self.ax.vx(), self.ay.vx(), self.az.vx()),
+			&Vec3::new(self.ax.vy(), self.ay.vy(), self.az.vy()),
+			&Vec3::new(self.ax.vz(), self.ay.vz(), self.az.vz())
 		)
 	}
 }
@@ -329,12 +329,12 @@ impl<T:Float> Matrix4<Vec4<T>> {
 		let ay=t.ay.permute_xyz0();
 		let az=t.az.permute_xyz0();
 
-		let invpos = Vec4(
-			-self.ax.vdot(&self.aw),
-			-self.ay.vdot(&self.aw),
-			-self.az.vdot(&self.aw),
-			One::one()
-		);
+		let invpos = Vec4{
+            x:- self.ax.vdot( & self.aw),
+            y:- self.ay.vdot(& self.aw),
+            z:- self.az.vdot( & self.aw),
+            w:One::one()
+        };
 		Matrix4::new(&ax,&ay,&az,&invpos)
 	}
 
@@ -464,20 +464,20 @@ pub fn projection<F:Float>(tan_half_fov:F, aspect:F, znear:F, zfar:F)->Matrix4<V
 	let h=two*znear/ height;
 	
 	Matrix4::new(
-		&Vec4(w, zero, zero, zero),
-		&Vec4(zero, h, zero, zero),
-		&Vec4(zero, zero, q, -one),
-		&Vec4(zero, zero, qn, zero),
+		&Vec4::new(w, zero, zero, zero),
+		&Vec4::new(zero, h, zero, zero),
+		&Vec4::new(zero, zero, q, -one),
+		&Vec4::new(zero, zero, qn, zero),
 	)
 }
 
 pub fn view_xyz<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4{
-        ax: Vec4(one, zero, zero, zero),
-        ay: Vec4(zero, one, zero, zero),
-        az: Vec4(zero, zero, one, zero),
-        aw: Vec4(zero, zero, zero, one),
+        ax: Vec4::new(one, zero, zero, zero),
+        ay: Vec4::new(zero, one, zero, zero),
+        az: Vec4::new(zero, zero, one, zero),
+        aw: Vec4::new(zero, zero, zero, one),
     }
 }
 pub fn inv_view_xyz<F:Float>()->Matrix4<Vec4<F>>{
@@ -487,97 +487,97 @@ pub fn inv_view_xyz<F:Float>()->Matrix4<Vec4<F>>{
 pub fn view_xzy<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4(one,  zero,   zero,   zero),
-        &Vec4(zero, zero,   one,   zero),
-        &Vec4(zero, -one,   zero,   zero),
-        &Vec4(zero, zero,   zero,   one),
+        &Vec4::new(one,  zero,   zero,   zero),
+        &Vec4::new(zero, zero,   one,   zero),
+        &Vec4::new(zero, -one,   zero,   zero),
+        &Vec4::new(zero, zero,   zero,   one),
     )
 }
 pub fn inv_view_xzy<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4(one,  zero,   zero,   zero),
-        &Vec4(zero, zero,   -one,   zero),
-        &Vec4(zero, one,   zero,   zero),
-        &Vec4(zero, zero,   zero,   one),
+        &Vec4::new(one,  zero,   zero,   zero),
+        &Vec4::new(zero, zero,   -one,   zero),
+        &Vec4::new(zero, one,   zero,   zero),
+        &Vec4::new(zero, zero,   zero,   one),
     )
 }
 pub fn view_yzx<F:Float>()->Matrix4<Vec4<F>>{
 let one=one::<F>(); let zero=zero::<F>();
 Matrix4::new(
-&Vec4(zero, one,   zero,   zero),
-&Vec4(zero, zero,   one,   zero),
-&Vec4(one,  zero, zero,   zero),
-&Vec4(zero, zero,   zero,   one),
+&Vec4::new(zero, one,   zero,   zero),
+&Vec4::new(zero, zero,   one,   zero),
+&Vec4::new(one,  zero, zero,   zero),
+&Vec4::new(zero, zero,   zero,   one),
 )
 }
 
 pub fn inv_view_yzx<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4(zero,  zero,   one,   zero),
-        &Vec4(one, zero,   zero,   zero),
-        &Vec4(zero, one,   zero,   zero),
-        &Vec4(zero, zero,   zero,   one),
+        &Vec4::new(zero,  zero,   one,   zero),
+        &Vec4::new(one, zero,   zero,   zero),
+        &Vec4::new(zero, one,   zero,   zero),
+        &Vec4::new(zero, zero,   zero,   one),
     )
 }
 pub fn scale_translate<F:Float>(scale:&Vec3<F>,trans:&Vec3<F>)->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4(scale.x,    zero,    zero,    zero  ),
-        &Vec4(zero,    scale.y,    zero,    zero),
-        &Vec4(zero,    zero,    scale.z,    zero  ),
-        &Vec4(trans.x, trans.y,   trans.z,    one  )
+        &Vec4::new(scale.x,    zero,    zero,    zero  ),
+        &Vec4::new(zero,    scale.y,    zero,    zero),
+        &Vec4::new(zero,    zero,    scale.z,    zero  ),
+        &Vec4::new(trans.x, trans.y,   trans.z,    one  )
     )
 }
 
 pub fn rotate_x<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(one,	zero,	zero,	zero),
-		&Vec4(zero,	c,		s,	zero),
-		&Vec4(zero,	-s,		c,	zero),
-		&Vec4(zero,	zero,	zero,	one))
+		&Vec4::new(one,	zero,	zero,	zero),
+		&Vec4::new(zero,	c,		s,	zero),
+		&Vec4::new(zero,	-s,		c,	zero),
+		&Vec4::new(zero,	zero,	zero,	one))
 }
 pub fn rotate_y<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(c,		zero,	s,	zero),
-		&Vec4(zero,	one,	zero,	zero),
-		&Vec4(-s,		zero,	c,	zero),
-		&Vec4(zero,	zero,	zero,	one))
+		&Vec4::new(c,		zero,	s,	zero),
+		&Vec4::new(zero,	one,	zero,	zero),
+		&Vec4::new(-s,		zero,	c,	zero),
+		&Vec4::new(zero,	zero,	zero,	one))
 }
 pub fn rotate_z<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(c,		s,	zero,	zero),
-		&Vec4(-s,		c,	zero,	zero),
-		&Vec4(zero,	zero,	one,	zero),
-		&Vec4(zero,	zero,	zero,	one))
+		&Vec4::new(c,		s,	zero,	zero),
+		&Vec4::new(-s,		c,	zero,	zero),
+		&Vec4::new(zero,	zero,	one,	zero),
+		&Vec4::new(zero,	zero,	zero,	one))
 }
 pub fn translate_xyz<F:Float>(x:F,y:F,z:F)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(one,	zero,	zero,	zero),
-		&Vec4(zero,	one,	zero,	zero),
-		&Vec4(zero,	zero,	one,	zero),
-		&Vec4(x,	y,	z,	one))
+		&Vec4::new(one,	zero,	zero,	zero),
+		&Vec4::new(zero,	one,	zero,	zero),
+		&Vec4::new(zero,	zero,	one,	zero),
+		&Vec4::new(x,	y,	z,	one))
 }
 pub fn translate_vec4<F:Float>(trans:&Vec4<F>)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(one,	zero,	zero,	zero),
-		&Vec4(zero,	one,	zero,	zero),
-		&Vec4(zero,	zero,	one,	zero),
+		&Vec4::new(one,	zero,	zero,	zero),
+		&Vec4::new(zero,	one,	zero,	zero),
+		&Vec4::new(zero,	zero,	one,	zero),
 		trans)
 }
 pub fn translate<F:Float>(trans:&Vec3<F>)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4(one,	zero,	zero,	zero),
-		&Vec4(zero,	one,	zero,	zero),
-		&Vec4(zero,	zero,	one,	zero),
-		&Vec4(trans.x,trans.y,trans.z, one))
+		&Vec4::new(one,	zero,	zero,	zero),
+		&Vec4::new(zero,	one,	zero,	zero),
+		&Vec4::new(zero,	zero,	one,	zero),
+		&Vec4::new(trans.x,trans.y,trans.z, one))
 }
 
 
@@ -591,10 +591,10 @@ pub fn projection_frustum<F:Float>(left:F,right:F, bottom:F, top:F, fov_radians:
     let c=-(ffar+fnear)/(ffar-fnear);
     let d=-(two*ffar*fnear/(ffar-fnear));
 	Matrix4::new(
-		&Vec4(two*fnear/(right-left), zero, zero, zero),
-		&Vec4(zero, two*fnear/(top-bottom), zero, zero),
-		&Vec4(a, b, c, -one),
-		&Vec4(zero, zero, d, zero),
+		&Vec4::new(two*fnear/(right-left), zero, zero, zero),
+		&Vec4::new(zero, two*fnear/(top-bottom), zero, zero),
+		&Vec4::new(a, b, c, -one),
+		&Vec4::new(zero, zero, d, zero),
 	)
 }
 //pub fn camera_look_at<F:Float>(pos:Vec3f,)
