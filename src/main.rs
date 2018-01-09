@@ -54,7 +54,6 @@ pub use window::sto;
 pub use window::Window;
 pub use emscripten::*;
 pub use std::fs::File;
-pub mod particle;
 
 #[cfg(not(target_os="emscripten"))]
 extern crate image;
@@ -789,7 +788,7 @@ pub fn test_seq(){
 }
 // messing around to see what IntellijIDEA autocomplete finds
 pub fn try_autocomplete() {
-    let msh:r3d::mesh::Mesh;
+    //let msh:r3d::mesh::Mesh;
     let m:Matrix4<Vec4<f32>>;
     let mmm:Matrix4<Vec4<f32>>;
     let cm:Camera;
