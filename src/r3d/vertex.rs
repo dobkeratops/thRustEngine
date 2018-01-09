@@ -41,13 +41,13 @@ impl Pos<Vec3f> for VertexP {
 
 impl Pos<Vec3f> for VertexNFCT{	
 	type Output=Vec3f;
-	fn pos(&self)->Vec3f {Vec3::new(self.pos.x,self.pos.y,self.pos.z)}
+	fn pos(&self)->Vec3f {vec3(self.pos.x,self.pos.y,self.pos.z)}
 	fn set_pos(&mut self,v:&Vec3f) {self.pos=v.clone();}
 }
 
 impl Norm<Vec3f> for VertexNFCT{	
 	type Output=Vec3f;
-	fn norm(&self)->Vec3f {Vec3::new(self.norm.x,self.norm.y,self.norm.z)}
+	fn norm(&self)->Vec3f {vec3(self.norm.x,self.norm.y,self.norm.z)}
 	fn set_norm(&mut self,v:&Vec3f) {self.norm=v.clone();}
 }
 

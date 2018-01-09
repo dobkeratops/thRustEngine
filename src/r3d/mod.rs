@@ -516,7 +516,7 @@ impl<T,X:TNum> From<FixedPt<T,X>> for f32 where T:Into<f32>{
 impl From<PackedARGB8888> for Vec4<f32> {
 	fn from(src:PackedARGB)->Self{
 		let scale=1.0f32/255.0f32;		
-		Vec4::new(
+		vec4(
 			(src.0 & 0xff)as f32 * scale,
 			((src.0>>8) & 0xff)as f32 * scale,
 			((src.0>>16) & 0xff)as f32 * scale,
@@ -535,7 +535,7 @@ impl From<PackedXYZ> for Vec3<f32> {
 		let scale=1.0f32/511.0f32;		
 		let mask=(1i32<<10)-1;
 		let val=src.0 as i32;
-		Vec3::new(
+		vec3(
 			(((val) & mask)-centre)as f32 * scale,
 			(((val>>10) & mask)-centre)as f32 * scale,
 			(((val>>20) & mask)-centre)as f32 * scale

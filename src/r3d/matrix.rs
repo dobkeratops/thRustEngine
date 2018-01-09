@@ -42,9 +42,9 @@ impl<T:Float> IMatrix3<Vec3<T>> for RotateX<T> {
 		let angle=*self;
 		let (s,c)=sin_cos(&angle);
 		Matrix3::new(
-			&Vec3::new(one::<T>(),zero::<T>(),zero::<T>()),
-			&Vec3::new(zero::<T>(),c.clone(),s.clone()),
-			&Vec3::new(zero::<T>(),-s.clone(),c.clone()))
+			&vec3(one::<T>(),zero::<T>(),zero::<T>()),
+			&vec3(zero::<T>(),c.clone(),s.clone()),
+			&vec3(zero::<T>(),-s.clone(),c.clone()))
 	}
 	fn axisX(&self)->Vec3<T> {let m =self.matrix3(); m.ax}
 	fn axisY(&self)->Vec3<T> {let m =self.matrix3(); m.ay}
@@ -55,9 +55,9 @@ impl<T:Float+Clone> IMatrix3<Vec3<T>> for RotateY<T> {
 		let angle=*self;
 		let (s,c)=sin_cos(&angle);
 		Matrix3::new(
-			&Vec3::new(c.clone(),zero::<T>(),s.clone()),
-			&Vec3::new(zero::<T>(),one::<T>(),zero::<T>()),
-			&Vec3::new(-s.clone(),zero::<T>(),c.clone()))
+			&vec3(c.clone(),zero::<T>(),s.clone()),
+			&vec3(zero::<T>(),one::<T>(),zero::<T>()),
+			&vec3(-s.clone(),zero::<T>(),c.clone()))
 	}
 	fn axisX(&self)->Vec3<T> {let m =self.matrix3(); m.ax}
 	fn axisY(&self)->Vec3<T> {let m =self.matrix3(); m.ay}
@@ -68,9 +68,9 @@ impl<T:Float+Clone> IMatrix3<Vec3<T>> for RotateZ<T> {
 		let angle=self;
 		let (s,c)=angle.sin_cos();
 		Matrix3::new(
-			&Vec3::new(c.clone(),s.clone(),zero::<T>()),
-			&Vec3::new(-s.clone(),c.clone(),zero::<T>()),
-			&Vec3::new(zero::<T>(),zero::<T>(),one::<T>()))
+			&vec3(c.clone(),s.clone(),zero::<T>()),
+			&vec3(-s.clone(),c.clone(),zero::<T>()),
+			&vec3(zero::<T>(),zero::<T>(),one::<T>()))
 	}
 	fn axisX(&self)->Vec3<T> {let m =self.matrix3(); m.ax}
 	fn axisY(&self)->Vec3<T> {let m =self.matrix3(); m.ay}
@@ -117,19 +117,19 @@ impl<F:Float> Matrix4<Vec4<F>> where
 	// transpose assuming vec4
 	pub fn transpose4(&self) -> Matrix4<Vec4<F>> {
 		Matrix4::new(
-			&Vec4::new(self.ax.vx(), self.ay.vx(), self.az.vx(), self.aw.vx()),
-			&Vec4::new(self.ax.vy(), self.ay.vy(), self.az.vy(), self.aw.vy()),
-			&Vec4::new(self.ax.vz(), self.ay.vz(), self.az.vz(), self.aw.vz()),
-			&Vec4::new(self.ax.vw(), self.ay.vw(), self.az.vw(), self.aw.vw())
+			&vec4(self.ax.vx(), self.ay.vx(), self.az.vx(), self.aw.vx()),
+			&vec4(self.ax.vy(), self.ay.vy(), self.az.vy(), self.aw.vy()),
+			&vec4(self.ax.vz(), self.ay.vz(), self.az.vz(), self.aw.vz()),
+			&vec4(self.ax.vw(), self.ay.vw(), self.az.vw(), self.aw.vw())
 		)
 	}
 }
 impl<F:Float> Matrix3<Vec3<F>> where {
 	pub fn transpose3(&self) -> Matrix3<Vec3<F>> {
 		Matrix3::new(
-			&Vec3::new(self.ax.vx(), self.ay.vx(), self.az.vx()),
-			&Vec3::new(self.ax.vy(), self.ay.vy(), self.az.vy()),
-			&Vec3::new(self.ax.vz(), self.ay.vz(), self.az.vz())
+			&vec3(self.ax.vx(), self.ay.vx(), self.az.vx()),
+			&vec3(self.ax.vy(), self.ay.vy(), self.az.vy()),
+			&vec3(self.ax.vz(), self.ay.vz(), self.az.vz())
 		)
 	}
 }
@@ -370,20 +370,20 @@ pub fn projection<F:Float>(tan_half_fov:F, aspect:F, znear:F, zfar:F)->Matrix4<V
 	let h=two*znear/ height;
 	
 	Matrix4::new(
-		&Vec4::new(w, zero, zero, zero),
-		&Vec4::new(zero, h, zero, zero),
-		&Vec4::new(zero, zero, q, -one),
-		&Vec4::new(zero, zero, qn, zero),
+		&vec4(w, zero, zero, zero),
+		&vec4(zero, h, zero, zero),
+		&vec4(zero, zero, q, -one),
+		&vec4(zero, zero, qn, zero),
 	)
 }
 
 pub fn view_xyz<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4{
-        ax: Vec4::new(one, zero, zero, zero),
-        ay: Vec4::new(zero, one, zero, zero),
-        az: Vec4::new(zero, zero, one, zero),
-        aw: Vec4::new(zero, zero, zero, one),
+        ax: vec4(one, zero, zero, zero),
+        ay: vec4(zero, one, zero, zero),
+        az: vec4(zero, zero, one, zero),
+        aw: vec4(zero, zero, zero, one),
     }
 }
 pub fn inv_view_xyz<F:Float>()->Matrix4<Vec4<F>>{
@@ -393,97 +393,97 @@ pub fn inv_view_xyz<F:Float>()->Matrix4<Vec4<F>>{
 pub fn view_xzy<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4::new(one,  zero,   zero,   zero),
-        &Vec4::new(zero, zero,   one,   zero),
-        &Vec4::new(zero, -one,   zero,   zero),
-        &Vec4::new(zero, zero,   zero,   one),
+        &vec4(one,  zero,   zero,   zero),
+        &vec4(zero, zero,   one,   zero),
+        &vec4(zero, -one,   zero,   zero),
+        &vec4(zero, zero,   zero,   one),
     )
 }
 pub fn inv_view_xzy<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4::new(one,  zero,   zero,   zero),
-        &Vec4::new(zero, zero,   -one,   zero),
-        &Vec4::new(zero, one,   zero,   zero),
-        &Vec4::new(zero, zero,   zero,   one),
+        &vec4(one,  zero,   zero,   zero),
+        &vec4(zero, zero,   -one,   zero),
+        &vec4(zero, one,   zero,   zero),
+        &vec4(zero, zero,   zero,   one),
     )
 }
 pub fn view_yzx<F:Float>()->Matrix4<Vec4<F>>{
 let one=one::<F>(); let zero=zero::<F>();
 Matrix4::new(
-&Vec4::new(zero, one,   zero,   zero),
-&Vec4::new(zero, zero,   one,   zero),
-&Vec4::new(one,  zero, zero,   zero),
-&Vec4::new(zero, zero,   zero,   one),
+&vec4(zero, one,   zero,   zero),
+&vec4(zero, zero,   one,   zero),
+&vec4(one,  zero, zero,   zero),
+&vec4(zero, zero,   zero,   one),
 )
 }
 
 pub fn inv_view_yzx<F:Float>()->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4::new(zero,  zero,   one,   zero),
-        &Vec4::new(one, zero,   zero,   zero),
-        &Vec4::new(zero, one,   zero,   zero),
-        &Vec4::new(zero, zero,   zero,   one),
+        &vec4(zero,  zero,   one,   zero),
+        &vec4(one, zero,   zero,   zero),
+        &vec4(zero, one,   zero,   zero),
+        &vec4(zero, zero,   zero,   one),
     )
 }
 pub fn scale_translate<F:Float>(scale:&Vec3<F>,trans:&Vec3<F>)->Matrix4<Vec4<F>>{
     let one=one::<F>(); let zero=zero::<F>();
     Matrix4::new(
-        &Vec4::new(scale.x,    zero,    zero,    zero  ),
-        &Vec4::new(zero,    scale.y,    zero,    zero),
-        &Vec4::new(zero,    zero,    scale.z,    zero  ),
-        &Vec4::new(trans.x, trans.y,   trans.z,    one  )
+        &vec4(scale.x,    zero,    zero,    zero  ),
+        &vec4(zero,    scale.y,    zero,    zero),
+        &vec4(zero,    zero,    scale.z,    zero  ),
+        &vec4(trans.x, trans.y,   trans.z,    one  )
     )
 }
 
 pub fn rotate_x<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(one,	zero,	zero,	zero),
-		&Vec4::new(zero,	c,		s,	zero),
-		&Vec4::new(zero,	-s,		c,	zero),
-		&Vec4::new(zero,	zero,	zero,	one))
+		&vec4(one,	zero,	zero,	zero),
+		&vec4(zero,	c,		s,	zero),
+		&vec4(zero,	-s,		c,	zero),
+		&vec4(zero,	zero,	zero,	one))
 }
 pub fn rotate_y<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(c,		zero,	s,	zero),
-		&Vec4::new(zero,	one,	zero,	zero),
-		&Vec4::new(-s,		zero,	c,	zero),
-		&Vec4::new(zero,	zero,	zero,	one))
+		&vec4(c,		zero,	s,	zero),
+		&vec4(zero,	one,	zero,	zero),
+		&vec4(-s,		zero,	c,	zero),
+		&vec4(zero,	zero,	zero,	one))
 }
 pub fn rotate_z<F:Float>(a:F)->Matrix4<Vec4<F>> {
 	let (s,c)=a.sin_cos(); let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(c,		s,	zero,	zero),
-		&Vec4::new(-s,		c,	zero,	zero),
-		&Vec4::new(zero,	zero,	one,	zero),
-		&Vec4::new(zero,	zero,	zero,	one))
+		&vec4(c,		s,	zero,	zero),
+		&vec4(-s,		c,	zero,	zero),
+		&vec4(zero,	zero,	one,	zero),
+		&vec4(zero,	zero,	zero,	one))
 }
 pub fn translate_xyz<F:Float>(x:F,y:F,z:F)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(one,	zero,	zero,	zero),
-		&Vec4::new(zero,	one,	zero,	zero),
-		&Vec4::new(zero,	zero,	one,	zero),
-		&Vec4::new(x,	y,	z,	one))
+		&vec4(one,	zero,	zero,	zero),
+		&vec4(zero,	one,	zero,	zero),
+		&vec4(zero,	zero,	one,	zero),
+		&vec4(x,	y,	z,	one))
 }
 pub fn translate_vec4<F:Float>(trans:&Vec4<F>)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(one,	zero,	zero,	zero),
-		&Vec4::new(zero,	one,	zero,	zero),
-		&Vec4::new(zero,	zero,	one,	zero),
+		&vec4(one,	zero,	zero,	zero),
+		&vec4(zero,	one,	zero,	zero),
+		&vec4(zero,	zero,	one,	zero),
 		trans)
 }
 pub fn translate<F:Float>(trans:&Vec3<F>)->Matrix4<Vec4<F>> {
 	let one=one::<F>(); let zero=zero::<F>();
 	Matrix4::new(
-		&Vec4::new(one,	zero,	zero,	zero),
-		&Vec4::new(zero,	one,	zero,	zero),
-		&Vec4::new(zero,	zero,	one,	zero),
-		&Vec4::new(trans.x,trans.y,trans.z, one))
+		&vec4(one,	zero,	zero,	zero),
+		&vec4(zero,	one,	zero,	zero),
+		&vec4(zero,	zero,	one,	zero),
+		&vec4(trans.x,trans.y,trans.z, one))
 }
 
 
@@ -497,10 +497,10 @@ pub fn projection_frustum<F:Float>(left:F,right:F, bottom:F, top:F, fov_radians:
     let c=-(ffar+fnear)/(ffar-fnear);
     let d=-(two*ffar*fnear/(ffar-fnear));
 	Matrix4::new(
-		&Vec4::new(two*fnear/(right-left), zero, zero, zero),
-		&Vec4::new(zero, two*fnear/(top-bottom), zero, zero),
-		&Vec4::new(a, b, c, -one),
-		&Vec4::new(zero, zero, d, zero),
+		&vec4(two*fnear/(right-left), zero, zero, zero),
+		&vec4(zero, two*fnear/(top-bottom), zero, zero),
+		&vec4(a, b, c, -one),
+		&vec4(zero, zero, d, zero),
 	)
 }
 //pub fn camera_look_at<F:Float>(pos:Vec3f,)
@@ -518,9 +518,9 @@ impl<T:VElem> Transpose for Matrix4<Vec3<T>> {
 	type Output = Matrix3<Vec4<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix3::new(
-			&Vec4::new(self.ax.x,	self.ay.x, self.az.x, self.aw.x),
-			&Vec4::new(self.ax.y,	self.ay.y, self.az.y, self.aw.y),
-			&Vec4::new(self.ax.z,	self.ay.z, self.az.z, self.aw.z),
+			&vec4(self.ax.x,	self.ay.x, self.az.x, self.aw.x),
+			&vec4(self.ax.y,	self.ay.y, self.az.y, self.aw.y),
+			&vec4(self.ax.z,	self.ay.z, self.az.z, self.aw.z),
 		)
 	}
 }
@@ -530,10 +530,10 @@ impl<T:VElem,> Transpose for Matrix4<Vec4<T>> {
 	fn transpose(&self)->Self::Output{
         // TODO - SIMD impl in 4x4x32bit case
 		Matrix4::new(
-			&Vec4::new(self.ax.x,	self.ay.x, self.az.x, self.aw.x),
-			&Vec4::new(self.ax.y,	self.ay.y, self.az.y, self.aw.y),
-			&Vec4::new(self.ax.z,	self.ay.z, self.az.z, self.aw.z),
-			&Vec4::new(self.ax.w,	self.ay.w, self.az.w, self.aw.w),
+			&vec4(self.ax.x,	self.ay.x, self.az.x, self.aw.x),
+			&vec4(self.ax.y,	self.ay.y, self.az.y, self.aw.y),
+			&vec4(self.ax.z,	self.ay.z, self.az.z, self.aw.z),
+			&vec4(self.ax.w,	self.ay.w, self.az.w, self.aw.w),
 		)
 	}
 }
@@ -542,10 +542,10 @@ impl<T:VElem> Transpose for Matrix3<Vec4<T>> {
 	type Output = Matrix4<Vec3<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix4::new(
-			&Vec3::new(self.ax.x,	self.ay.x, self.az.x),
-			&Vec3::new(self.ax.y,	self.ay.y, self.az.y),
-			&Vec3::new(self.ax.z,	self.ay.z, self.az.z),
-			&Vec3::new(self.ax.w,	self.ay.w, self.az.w),
+			&vec3(self.ax.x,	self.ay.x, self.az.x),
+			&vec3(self.ax.y,	self.ay.y, self.az.y),
+			&vec3(self.ax.z,	self.ay.z, self.az.z),
+			&vec3(self.ax.w,	self.ay.w, self.az.w),
 		)
 	}
 }
@@ -554,9 +554,9 @@ impl<T:VElem> Transpose for Matrix3<Vec3<T>> {
 	type Output = Matrix3<Vec3<T>>;
 	fn transpose(&self)->Self::Output{
 		Matrix3::new(
-			&Vec3::new(self.ax.x,	self.ay.x, self.az.x),
-			&Vec3::new(self.ax.y,	self.ay.y, self.az.y),
-			&Vec3::new(self.ax.z,	self.ay.z, self.az.z)
+			&vec3(self.ax.x,	self.ay.x, self.az.x),
+			&vec3(self.ax.y,	self.ay.y, self.az.y),
+			&vec3(self.ax.z,	self.ay.z, self.az.z)
 		)
 	}
 }
@@ -576,10 +576,10 @@ pub type Mat2_<ColV> = Matrix<Vec2<ColV>>;
 pub type Mat1_<ColV> = Matrix<Vec1<ColV>>;
 
 fn Mat4_<V:VElem>(ax:&V,ay:&V,az:&V,pos:&V)->Mat4_<V>{
-	Matrix(Vec4::new(ax.clone(),ay.clone(),az.clone(),pos.clone()))
+	Matrix(vec4(ax.clone(),ay.clone(),az.clone(),pos.clone()))
 }
 fn Mat3_<V:VElem>(ax:&V,ay:&V,az:&V)->Mat3_<V>{
-	Matrix(Vec3::new(ax.clone(),ay.clone(),az.clone()))
+	Matrix(vec3(ax.clone(),ay.clone(),az.clone()))
 }
 
 

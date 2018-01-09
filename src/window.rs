@@ -160,11 +160,11 @@ pub enum Flow<A>{
 
 fn split_x(r:&Rect,f0:f32,f1:f32)->Rect {
     let size=r.size();
-    Extents(&Vec2::new(r.min.x+size.x*f0, r.min.y),&Vec2::new(r.min.x+size.x*f1, r.max.y))
+    Extents(&vec2(r.min.x+size.x*f0, r.min.y),&vec2(r.min.x+size.x*f1, r.max.y))
 }
 fn split_y(r:&Rect,f0:f32,f1:f32)->Rect {
     let size=r.size();
-    Extents(&Vec2::new(r.min.x, r.min.y+size.y*f0),&Vec2::new(r.max.x, r.min.y+size.y*f1))
+    Extents(&vec2(r.min.x, r.min.y+size.y*f0),&vec2(r.max.x, r.min.y+size.y*f1))
 }
 
 pub enum ForeachResult{

@@ -68,9 +68,9 @@ pub fn lines_xy<V:HasXY<Elem=f32>>(vts:&Vec<V>,z:f32,close:bool){
     unsafe {
         glBegin(GL_LINE_STRIP);
         for v in vts {
-            gl_vertex(Vec3::new(v.x(),v.y(),z));
+            gl_vertex(vec3(v.x(),v.y(),z));
         }
-        if close {gl_vertex(Vec3::new(vts[0].x(),vts[0].y(),z))}
+        if close {gl_vertex(vec3(vts[0].x(),vts[0].y(),z))}
         glEnd();
     }
 }

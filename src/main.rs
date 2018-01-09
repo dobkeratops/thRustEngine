@@ -456,7 +456,7 @@ pub unsafe  fn test_draw_2d(){
 	glEnd();
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,g_textures[1]);
-	draw::rect_tex(&Vec2::new(-0.4,-0.4),&Vec2::new(0.2,0.2),z);
+	draw::rect_tex(&vec2(-0.4,-0.4),&vec2(0.2,0.2),z);
 	draw::end();
 	glBegin(GL_TRIANGLE_STRIP);
 
@@ -795,7 +795,7 @@ pub fn try_autocomplete() {
     let cm:Camera;
 
 
-    let v:Vec3<f32>=Vec3::new(0.0,0.0,0.0);
+    let v:Vec3<f32>=vec3(0.0,0.0,0.0);
     let xx:[f32;3]=v.to_array();
     let xxx:Vec3<f32>=v.x.splat_to_vec();
 
