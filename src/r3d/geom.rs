@@ -136,7 +136,7 @@ impl<V:VecCmpOps> Extents<V> {
 		self.max=self.max.vmax(v);
 	}
 }
-impl<T:Float,V:VMath<Elem=T>> Extents<V> {
+impl<V:VMath> Extents<V> where V::Elem:Float{
     pub fn size(&self)->V {
         self.max.vsub(&self.min)
     }

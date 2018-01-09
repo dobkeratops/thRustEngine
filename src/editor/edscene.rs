@@ -101,6 +101,9 @@ impl Scene{
         self.vertex_tags.push(tag);
 
     }
+    pub fn dump(&self){
+        dump!(self.vertices.len());
+    }
 }
 impl Scene{
     fn add_vertex(&mut self,p:V3)->VertexIndex{
@@ -456,6 +459,7 @@ impl Editable for Scene {
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self){
 
     }
+    fn dump(&self){ println!("edscene: vertices={} edges={}",self.vertices.len(),self.edges.len());}
 }
 
 impl Scene {

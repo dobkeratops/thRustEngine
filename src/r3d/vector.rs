@@ -1531,7 +1531,8 @@ impl<T:Float,V:VecOps+VecAccessors+HasElem<Elem=T>> VecBroadcastOps for V where 
 pub trait VMath : VecOps + VecCmpOps+VecConsts+
     Permute + VecAccessors+
     Siblings
-    where Self::Elem : Float{}
+    where Self::Elem : Float
+{}
 //impl<T:Float+VElem, V:VecOps+VecCmpOps+VecConsts+Permute+VecAccessors+HasElem<Elem=T>> VMath for V{
 //}
 

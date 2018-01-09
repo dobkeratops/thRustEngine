@@ -265,7 +265,7 @@ pub unsafe fn	create_shader_program(
 //TODO: split into default uniforms, default vertex, default vertex-shader-out
 
 // TODO [cfg OPENGL_ES ..]
-static shader_prefix_desktop:&'static str=&"\
+static shader_prefix_desktop:&'static str=&"
 #version 120	\n\
 #define highp	\n\
 #define mediump	\n\
@@ -273,13 +273,13 @@ static shader_prefix_desktop:&'static str=&"\
 ";
 
 
-static vertex_shader_prefix_gles:&'static str=&"\
+static vertex_shader_prefix_gles:&'static str=&"
 #version 100			\n\
 precision highp float;	\n\
 ";
 
 //#version 100			\n\
-static pixel_shader_prefix_gles:&'static str=&"\
+static pixel_shader_prefix_gles:&'static str=&"
 precision mediump float;	\n\
 ";
 
@@ -294,8 +294,8 @@ varying	highp vec4 v_tangent;
 varying	highp vec4 v_binormal;
 ";
 
-static ps_vertex_format0:&'static str=&
-"attribute vec3 a_pos;
+static ps_vertex_format0:&'static str=&"
+attribute vec3 a_pos;
 attribute vec2 a_tex0;
 attribute vec4 a_color;
 attribute vec3 a_norm;
@@ -412,11 +412,11 @@ PS:
 
 // sanity check debug, checking that the andoir build does this ok..
 static g_PS_ConcatForAndroid:&'static str= &"
-precision mediump float; \n\
-varying	highp vec4 v_pos;\n\
-varying	highp vec4 v_color;\n\
-varying	highp vec3 v_norm;\n\
-varying	highp vec2 v_tex0;\n\
+precision mediump float;
+varying	highp vec4 v_pos;
+varying	highp vec4 v_color;
+varying	highp vec3 v_norm;
+varying	highp vec2 v_tex0;
 varying	highp vec3 v_tex1uvw;\n\
 varying	highp vec4 v_tangent;\n\
 varying	highp vec4 v_binormal;\n\

@@ -832,7 +832,14 @@ pub fn main(){
     minimal_shader::mainr();
 
     voxels::test_array3d();
- 	#[cfg(all(shadertest,target_os="emscripten"))]
+
+//    #[cfg(any(target_os = "emscripten",editor))]
+    {
+        println!("config: editor");
+        window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
+    }
+
+    #[cfg(all(shadertest,target_os="emscripten"))]
 	{
 //		minimal_shader::mainr();
 	}
@@ -847,11 +854,6 @@ pub fn main(){
 	#[cfg(not(target_os = "emscripten"))]
 	window::run_loop(vec![world::new(),Box::new(ShaderTest{time:30})],&mut ());
 
-	#[cfg(any(target_os = "emscripten",editor))]
-	{
-		println!("editor");
-	    window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
-	}
 //  window::run_loop(test::new(),&mut ());
 //  bsp::bsp::main();
 //	shadertest();

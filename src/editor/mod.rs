@@ -49,6 +49,18 @@ enum EditorOp<T:Editable>{
     // TODO- cycle multi-copy-buffer, visualize that.
 }
 
+impl<T:Editable> EditorOp<T>{
+    pub fn eop_dump(&self){
+        match self{
+            &EditorOp::Op(ref op)=>op.op_dump(),
+            &EditorOp::Delete(_)=>println!("op_delete"),
+            &EditorOp::Cut(_)=>println!("op_cut"),
+            &EditorOp::Copy(_)=>println!("op_copy"),
+            &EditorOp::Paste(_)=>println!("op_paste"),
+        }
+    }
+}
+
 pub struct Editor<T:Editable> {             // a type of frame window.
     scene:T,    // Current view of whats' being edited
     clipboard:T,
@@ -123,11 +135,14 @@ impl<T:Editable> Editor<T> {
 	}
 	fn e_undo(&mut self){
 		self.e_cancel();
-		println!("undo");
+		println!("undo: ops={}",self.operations.len());
+
 		if let Some(op)=self.operations.pop(){
+            println!("popped operation"); op.eop_dump();
 			// todo: cache copies logarithmically
 			self.redo_stack.push(op);
 			self.e_recompute_scene();
+            self.scene.dump();
 		}
 	}
 	fn e_redo(&mut self){
@@ -446,6 +461,7 @@ pub trait Editable : Sized+Clone+Default+'static{
     fn copy(&self, pos:&ScreenPos, clipboard:&mut Self);
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
     fn delete(&mut self);// 'cut'=copy + delete.
+    fn dump(&self);
 }
 
 impl<T:Editable> EditorOp<T>{
@@ -492,14 +508,17 @@ impl<T:Editable> Editor<T> {
     }
 
     fn e_recompute_scene(&mut self){
+        println!("e_recompute_scene ops={}",self.operations.len());
         // todo - logarithmic caching spacing eg [0       n/2      n-n/4 n-n/8 n-1 n]
         let mut s=T::default();
         for o in self.operations.iter() {
-            o.wo_apply(&mut self.scene, &mut self.clipboard);
+            o.wo_apply(&mut s, &mut self.clipboard);
+            self.scene.dump();
         }
         self.scene=s;
         match self.transient_op{
             Some(ref op)=>{
+
                 let mut scn=self.scene.clone();
                 op.op_apply(&mut scn);
                 self.transient_scene=Some(scn);

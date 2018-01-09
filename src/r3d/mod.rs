@@ -6,7 +6,6 @@ pub mod array3d;
 pub mod geom;
 pub mod voxels;
 pub mod vertex;
-pub mod triangulatevoxels;
 pub mod trimesh;
 pub mod sdl;
 pub mod rawglbinding;
@@ -157,7 +156,6 @@ pub use vecgenericindex::*;
 pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,convert};
 pub use io::Read;
 pub use fmt::Debug;
-pub use triangulatevoxels::*;
 pub use vertex::*;
 use ::std::f32::consts::PI;
 
