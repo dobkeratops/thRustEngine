@@ -104,8 +104,25 @@ impl Scene{
     }
 }
 
-#[derive(Default,Debug,Clone)]
-pub struct DrawTool{last_point:Option<VertexIndex>}
+/// Possible tool states
+#[derive(Debug,Clone)]
+pub enum ToolState{
+    None,
+    CanPickPoint(VertexIndex),
+    CanMakePoint(V3),
+    CanConnectLine(VertexIndex,VertexIndex),
+    CanDrawLine(VertexIndex,V3),
+	DraggingPoint(VertexIndex),
+	RectSelect(BoolOp),
+    // TODO: split-edge..
+}
+// todo - shared drag state division
+#[derive(Debug,Clone)]
+pub struct DrawTool{
+	state:ToolState,
+	last_point:Option<VertexIndex>
+}
+impl DrawTool{pub fn default()->Self{DrawTool{state:ToolState::None,last_point:None}}}
 
 #[derive(Default,Debug,Clone)]
 struct AddPoint(V3);
@@ -336,79 +353,69 @@ impl DrawTool{
 	}
 }
 
-
 impl Tool<Scene> for DrawTool {
 
-    fn tool_preselection(&self, (scene, e):ViewCursorScene<Scene>) -> ToolPresel {
+    fn tool_passive_move(&mut self, (scene, e):ViewCursorScene<Scene>) {
         let newpt=e.viewport_to_world(&vec3(e.pos.x,e.pos.y,0.0f32));
         let viewpt_recovered=e.world_to_viewport(&newpt);
         //dump!(e.pos,newpt,viewpt_recovered);
         let picked_point=scene.pick_point_at(e,g_snap_radius);
         // now here's where rust shines..
         let ret=match (get_last_point(self), picked_point) {
-            (None,None)         =>ToolPresel::MakePoint(newpt.to_tuple()),
-            (None,Some(ei))     =>ToolPresel::PickPoint(ei),
-            (Some(si),None)     =>ToolPresel::DrawLine(si, newpt.to_tuple()),
-            (Some(si),Some(ei)) =>ToolPresel::ConnectLine(si,ei)
+            (None,None)         =>ToolState::CanMakePoint(newpt.to_tuple()),
+            (None,Some(ei))     =>ToolState::CanPickPoint(ei),
+            (Some(si),None)     =>ToolState::CanDrawLine(si, newpt.to_tuple()),
+            (Some(si),Some(ei)) =>ToolState::CanConnectLine(si,ei)
         };
         //dump!(ret);
-        ret
+        self.state=ret;
     }
 
-    fn tool_render_passive(&self, p:&ToolPresel, (s,e):ViewCursorScene<Scene>)
+    fn tool_render(&self, (s,e):ViewCursorScene<Scene>)
     {
         //let s=e.scene;
-        match p{
-            &ToolPresel::MakePoint(ref newpt)=>
+        match &self.state{
+            &ToolState::CanMakePoint(ref newpt)=>
 				crosshair_feedback(&e.world_to_viewport(&newpt.to_vec3())),
-            &ToolPresel::PickPoint(ei)=>
+            &ToolState::CanPickPoint(ei)=>
 				crosshair_feedback(&e.world_to_viewport(&s.vertices[ei as usize].to_vec3())),
-            &ToolPresel::ConnectLine(si,ei)=>
+            &ToolState::CanConnectLine(si,ei)=>
                 draw::line_c(&e.world_to_viewport(&s.vertices[si as usize].to_vec3()),&e.world_to_viewport(&s.vertices[ei  as usize].to_vec3()), g_color_feedback),
-            &ToolPresel::DrawLine(si,ref newpt)=>{
+            &ToolState::CanDrawLine(si,ref newpt)=>{
 				crosshair_feedback(&e.world_to_viewport(&newpt.to_vec3()));
                 draw::line_c(&e.world_to_viewport(&s.vertices[si  as usize].to_vec3()),&e.world_to_viewport(&newpt.to_vec3()),g_color_feedback)
 			},
+            &ToolState::RectSelect(_)=>{
+                draw::rect_outline_v2(&e.drag_start.unwrap(),&e.pos,g_color_feedback)
+            },
             _=>{},
         }
     }
 
-    fn tool_render_drag(&self, d:&ToolDrag, (s,e):ViewCursorScene<Scene>){
-        if !e.drag_start.is_some(){return;};
-        match d {
-            &ToolDrag::RectSelect(_)=>{
-                draw::rect_outline_v2(&e.drag_start.unwrap(),&e.pos,g_color_feedback)
-            },
-            _=>{}
-        }
-    }
-    fn tool_drag(&mut self, d:&ToolDrag, se:ViewCursorScene<Scene>) ->optbox<Operation<Scene>>{
+    fn tool_drag(&mut self, se:ViewCursorScene<Scene>) ->optbox<Operation<Scene>>{
         let (s,e)=se;
         // shows what drag-end would produce, as a transient state.
         // TODO.. suspicious of a function that just calls another
         // is it because this *might* yield operations?
-        self.tool_drag_end(d,se)
-    }
-    fn tool_passive_move(&self, (s,e):ViewCursorScene<Scene>){
-
+        self.tool_drag_end(se)
     }
 
     // todo - should the drag itself be an object that completes itself?
     // we have the logic for a single mode split between several places.
     // you could have IDrag { start, render, end}
-    fn tool_drag_end(&mut self, d:&ToolDrag, (s, e):ViewCursorScene<Scene>)->optbox<Operation<Scene>>{
+    fn tool_drag_end(&mut self, (s, e):ViewCursorScene<Scene>)->optbox<Operation<Scene>>{
         if !e.drag_start.is_some(){return None;}
         let screen_delta=v2sub(&e.pos, &e.drag_start.unwrap());
         let world_delta=e.screen_to_world.mul_vec3w0(&vec3(screen_delta.x, screen_delta.y,0.0f32)).to_vec3();
 //        let s=e.scene;
-        match d {
-            &ToolDrag::MovePoint(ref vti)=>Some(Box::new(
+        match &self.state {
+            &ToolState::DraggingPoint(ref vti)=>Some(Box::new(
                 ComposedOp(
                     SingleSelPoint(*vti),
                     Translate{delta:world_delta.to_tuple()}
                 )
             )),
-            &ToolDrag::RectSelect(ref mode)=>{
+            &ToolState::RectSelect(ref mode)=>{
                 let pts=s.get_vertices_in_rect(&Extents(&e.drag_start.unwrap(),&e.pos));
                 Some(Box::new(SelectPoints{mode:BoolOp::Invert,points:pts}))
             },
@@ -417,41 +424,43 @@ impl Tool<Scene> for DrawTool {
         }
     }
 
-    fn tool_lclick(&mut self, p:&ToolPresel,(s,e):ViewCursorScene<Scene>) -> optbox<Operation<Scene>> {
+    fn tool_lclick(&mut self, (s,e):ViewCursorScene<Scene>) -> optbox<Operation<Scene>> {
         println!("drawtool lclick , make a addpoint op");
 		// returns an operation
-        match p {
-            &ToolPresel::MakePoint(newpt) =>{
+        match &self.state {
+            &ToolState::CanMakePoint(newpt) =>{
                 self.set_last_point(Some(s.vertices.len() as VertexIndex)); println!("vertices.len()={:?}",s.vertices.len());Some(Box::new(AddPoint(newpt)) as _)
             },
-            &ToolPresel::PickPoint(pti)     =>{
+            &ToolState::CanPickPoint(pti)     =>{
                 self.set_last_point(Some(pti));Some(Box::new(ToggleSelPoint(pti)))
             },
-            &ToolPresel::ConnectLine(si,ei) =>{
+            &ToolState::CanConnectLine(si,ei) =>{
                 self.set_last_point(None);Some(Box::new(ConnectLine(si,ei)))
             },
-            &ToolPresel::DrawLine(si,newpt) =>{
+            &ToolState::CanDrawLine(si,newpt) =>{
                 self.set_last_point(Some(s.vertices.len() as VertexIndex));Some(Box::new(DrawLine(si,newpt)) )
             },
             _ => None
         }
     }
-    fn tool_rclick(&mut self, p:&ToolPresel, (s,e):(&Scene,&ViewCursorSceneS))->optbox<Operation<Scene>>{
+
+    fn tool_rclick(&mut self, (s,e):(&Scene,&ViewCursorSceneS))->optbox<Operation<Scene>>{
         println!("rclick");
         self.tool_cancel();
         None
     }
 
-    fn tool_drag_begin(&mut self, p:&ToolPresel,(s,e):(&Scene,&ViewCursorSceneS))->ToolDrag{
-        if let &ToolPresel::PickPoint(pti)=p{
+    fn tool_drag_begin(&mut self, (s,e):(&Scene,&ViewCursorSceneS)){
+        let ns=if let ToolState::CanPickPoint(pti)=self.state{
             println!("drag start-movepoint");
-            ToolDrag::MovePoint(pti)
+            ToolState::DraggingPoint(pti)
         } else {
-            ToolDrag::RectSelect(BoolOp::Invert)
-        }
+            ToolState::RectSelect(BoolOp::Invert)
+        };
+		self.state=ns;
     }
 
-    fn tool_cancel(&mut self){self.set_last_point(None)}
+    fn tool_cancel(&mut self){self.set_last_point(None); self.state=ToolState::None;}
 
     /*    fn lclick(&mut self, scn:&mut Scene, a:ScreenPos){
             let ve=scn.add_vertex((a.0,a.1,0.0f32));

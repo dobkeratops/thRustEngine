@@ -55,21 +55,18 @@ pub trait Tool<T:Editable>{
 	// why the prefixing? - easier with grep/simple autocomplete.
 	// we still get polymorphism (there are many 'tool_activate..' implementations)
     fn tool_name(&self)->&'static str{"un-named tool"}
-    fn tool_activate(&self){}
-    fn tool_deactivate(&self){}
-    fn tool_preselection(&self, e:ViewCursorScene<T>)->ToolPresel; // common computation between highlight & operation
-    fn tool_lclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_mclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_rclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_drag_end(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{ return None;}
-    fn tool_drag(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{None}// TODO - return transient Operation..
-    fn tool_drag_begin(&mut self, p:&ToolPresel, e:ViewCursorScene<T> )->ToolDrag{ToolDrag::None}
-    fn tool_render_passive(&self, p:&ToolPresel, e:ViewCursorScene<T>){}
-    fn tool_render_drag(&self, /*p:&Self::Presel, */d:&ToolDrag,e:ViewCursorScene<T>){}
-	// TODO - this needs to return something to have purpose
-    fn tool_passive_move(&self,e:ViewCursorScene<T>){}
+    fn tool_activate(&mut self){}
+    fn tool_deactivate(&mut self){}
+    fn tool_passive_move(&mut self, e:ViewCursorScene<T>); // common computation between highlight & operation
+    fn tool_lclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_mclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_rclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+
+    fn tool_drag_begin(&mut self, e:ViewCursorScene<T> );
+    fn tool_drag(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{None}// TODO - return transient Operation..
+    fn tool_drag_end(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{ return None;}
+    fn tool_render(&self, e:ViewCursorScene<T>){}
     fn tool_cancel(&mut self){println!("cancel")}
-    //fn try_drag(&self, e:SceneView, mbpos:(MouseButtons,ScreenPos))->DragMode{DragMode::Rect }
 }
 pub type PTool<T>=Box<Tool<T>>;
 // wrapped op: user defined ops alongside inbuilt 'cut-copy-paste' commands, framework manages copy-buffer
@@ -96,9 +93,6 @@ pub struct Editor<T:Editable> {             // a type of frame window.
     tool    :Box<Tool<T>>,             // current tool.
     last_tool    :optbox<Tool<T>>,     // saved for 'last tool toggle'
     saved_tool    :optbox<Tool<T>>, // saved for 'sticky-keys' mode
-    presel: ToolPresel,
-    dragstart:Option<ScreenPos>,
-    drag:ToolDrag,
 }
 pub enum ViewMode{
     XY,XZ,YZ,Perspective
@@ -123,24 +117,6 @@ pub struct ViewCursorSceneS{
     interest_point:Vec3f,
     screen_interest_point:Vec3f, //IP transformed into screenspace inc depth.
 }
-/// Possible actions in the drawing tool based on cursor location
-#[derive(Debug,Clone)]
-pub enum ToolPresel{
-    None,
-    PickPoint(VertexIndex),
-    MakePoint(V3),
-    ConnectLine(VertexIndex,VertexIndex),
-    DrawLine(VertexIndex,V3),
-    // TODO: split-edge..
-}
-/// Possible dragging states
-#[derive(Debug,Clone,PartialEq)]
-pub enum ToolDrag{
-    None,
-    MovePoint(VertexIndex),
-	RectSelect(BoolOp),
-}
-
 
 /*
              MTool   EdScene
@@ -242,8 +218,6 @@ impl<T:Editable> Editor<T> {
     fn e_delete(&mut self,spos:ScreenPos){ self.e_push_op(EditorOp::Delete(spos)) } // paste knows.
 	fn e_cancel(&mut self){
 		self.tool.tool_cancel();
-		self.drag=ToolDrag::None;
-		self.presel=ToolPresel::None;
 	}
 	fn e_undo(&mut self){
 		self.e_cancel();
@@ -288,11 +262,8 @@ pub fn make_editor_window<A:'static,T:Editable+'static>() -> sto<Window<A>> {
                 tool: T::default_tool(),
                 saved_tool: None,
                 last_tool: None,
-                drag: ToolDrag::None,
-                presel: ToolPresel::None,
                 interest_point: v3zero(),
                 zoom:1.0f32,
-                dragstart: None,
             },
 			// 3 views is predominantly topdown with the other 2 axes slightly minor.  2/4 views would be all equal
             window::Split::<Editor<T>>(
@@ -430,16 +401,9 @@ impl<T:Editable, A:Operation<T>,B:Operation<T>> Operation<T> for ComposedOp<A,B>
     }
 }
 
-
-
-impl Default for ToolPresel{ fn default()->Self{ToolPresel::None}}
-
-
 impl Default for BoolOp {
 	fn default()->Self{BoolOp::Clear}
 }
-
-impl Default for ToolDrag{ fn default()->Self{ToolDrag::None}}
 
 
 /// box a struct and associate with a vtable, infering types from context.
@@ -650,28 +614,17 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
 
         //}
         let vcs=self.view_cursor_scene_sub(ed,wc);
-        //println!("todo pass the matrix in here");
-		match ed.dragstart{
-	        Some(vs)=>ed.tool.tool_render_drag(&ed.drag, (scn,&vcs)),
-//                (vs.0,vs.1), (&ed.e_scene(),&wc.pos),  wc.rect),
-			_=>ed.tool.tool_render_passive(&ed.presel, (scn,&vcs))//ed.e_scene(),  rc),
-		}
+		ed.tool.tool_render((scn,&vcs));
         draw::main_mode_text("lmb-draw rmb-cancel");
     }
     fn on_passive_move(&mut self,ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>> {
         let vcs=self.view_cursor_scene_sub(ed,wc);
-        ed.presel=ed.tool.tool_preselection((&ed.scene,&vcs));
-//            &
-//            (&ed.scene/*not transient*/,&pos));
-        ed.tool.tool_passive_move((&ed.scene, &vcs));
+        ed.tool.tool_passive_move((&ed.scene,&vcs));
         Flow::Continue()
     }
     fn on_ldrag_begin(&mut self,ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>>{
         let vcs=self.view_cursor_scene_sub(ed,wc);
-		let drag=
-			ed.tool.tool_drag_begin(&ed.presel, (&ed.scene,&vcs));
-        ed.drag=drag;
-		ed.dragstart=Some(wc.drag_start.unwrap());
+		ed.tool.tool_drag_begin((&ed.scene,&vcs));
         Flow::Continue()
     }
 
@@ -680,12 +633,9 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         println!("where is the transient scene?");
         let transient_op={
             let vcs = self.view_cursor_scene_sub(ed,wc);
-            if let ToolDrag::None = ed.drag {None} else {
-                // todo - solution is holder for transient+scene
-                let s=unwrap_ref_or(&ed.transient_scene,&ed.scene);
-                    //ed.e_scene();
-                ed.tool.tool_drag(&ed.drag, (s,&vcs))
-            }
+            let s=unwrap_ref_or(&ed.transient_scene,&ed.scene);
+            ed.tool.tool_drag((s,&vcs))
+         
         };
         ed.e_transient_op(transient_op);
         Flow::Continue()
@@ -697,10 +647,9 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         let vcs:ViewCursorSceneS = self.view_cursor_scene_sub(ed,wc);
         let op={
             let s=unwrap_ref_or(&ed.transient_scene,&ed.scene);
-            ed.tool.tool_drag_end(&ed.drag, (s,&vcs))
+            ed.tool.tool_drag_end((s,&vcs))
         };
         ed.e_push_op_maybe(op);
-		ed.dragstart=None;
         Flow::Continue()
     }
 
@@ -711,37 +660,17 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
     fn on_lclick(&mut self, ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>>{
         println!("editor onclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
-        let op=ed.tool.tool_lclick(&ed.presel, (&ed.scene,&vcs));
+        let op=ed.tool.tool_lclick((&ed.scene,&vcs));
         ed.e_push_op_maybe(op);
         Flow::Continue()
     }
     fn on_rclick(&mut self, ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>> {
         println!("editor onrclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
-        let op = ed.tool.tool_rclick(&ed.presel, (&ed.scene,&vcs));
+        let op = ed.tool.tool_rclick((&ed.scene,&vcs));
         ed.e_push_op_maybe(op);
         Flow::Continue()
     }
-
-    fn try_drag(&self, a:&Editor<T>, mb:MouseButtons, wc:&WinCursor)->DragMode{
-        //self.tool.try_drag(&self.app.scene,  (mb,pos))
-        DragMode::None
-    }
-/*
-    fn event(&mut self, e: Event)->Flow{
-        println!("event:");dump!(e);
-        match e{
-            Event::Button(MouseButtons::Left,true,(x,y))=>{
-                self.state=EState::LastPoint(ve);
-            },
-            Event::Button(MouseButtons::Right,true,(x,y))=> {
-                self.state=EState::None;
-            },
-            _=>{}
-        }
-		Flow::Continue()
-    }
-    */
 }
 
 
