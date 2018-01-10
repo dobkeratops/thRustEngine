@@ -100,7 +100,7 @@ impl<T:Editable> Editor<T> {
         match a {
             Action::None => {},
             Action::SetTool(t) => self.e_set_tool(t),
-            Action::DoOperation(op) => self.operations.push(EditorOp::Op(op)),
+            Action::DoOperation(op) => self.e_push_operation(op),
         }
     }
     fn e_push_tool(&mut self, newtool: Box<Tool<T>>) {
@@ -323,6 +323,7 @@ type SceneViewPos<'e,SCENE/*:Editable*/>=(&'e SCENE, &'e ScreenPos);
 pub trait Tool<T:Editable>{
 	// why the prefixing? - easier with grep/simple autocomplete.
 	// we still get polymorphism (there are many 'tool_activate..' implementations)
+    fn tool_name(&self)->&'static str{"un-named tool"}
     fn tool_activate(&self){}
     fn tool_deactivate(&self){}
     fn tool_preselection(&self, e:ViewCursorScene<T>)->ToolPresel; // common computation between highlight & operation
@@ -457,10 +458,11 @@ pub enum Action<T:Editable>{
 pub trait Editable : Sized+Clone+Default+'static{
     fn default_tool()->Box<Tool<Self>>;
     fn edscn_key(&self, ed:&Editor<Self>, k:&KeyAt)->Action<Self>;
-    fn scn_render(&self, m:&Mat44);
-    fn copy(&self, pos:&ScreenPos, clipboard:&mut Self);
+    fn scn_render(&self, proj_view_matrix:&Mat44);
+    fn copy(&self, pos:&ScreenPos)->Self;
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
-    fn delete(&mut self);// 'cut'=copy + delete.
+    fn delete(&mut self);
+    fn cut(&mut self,pos:&ScreenPos){self.copy(pos); self.delete();}
     fn dump(&self);
 }
 
@@ -469,8 +471,8 @@ impl<T:Editable> EditorOp<T>{
         match self {
             &EditorOp::Op(ref o) => o.op_apply(s),
             &EditorOp::Delete(ref pos) => {s.delete()},
-            &EditorOp::Cut(ref pos) => {*clipboard=T::default();s.copy(pos, clipboard); s.delete()},
-            &EditorOp::Copy(ref pos) => {*clipboard=T::default();s.copy(pos, clipboard)},
+            &EditorOp::Cut(ref pos) => {*clipboard=s.copy(pos); s.delete()},
+            &EditorOp::Copy(ref pos) => { *clipboard = s.copy(pos)},
             &EditorOp::Paste(ref pos) => s.paste(pos, clipboard),
         }
     }

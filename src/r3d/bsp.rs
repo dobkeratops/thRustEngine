@@ -398,7 +398,7 @@ pub struct MipHeader {
 }
 impl MipHeader {
 	pub unsafe fn tex_offsets(&self)->*const u32 {
-		(self as *const _).offset(1) as *const u32
+		(self as *const MipHeader).offset(1) as *const u32
 	}
 	pub unsafe fn tex_offset(&self, i:i32)->int {
 		let ofs=self.tex_offsets();

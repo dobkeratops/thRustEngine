@@ -1,9 +1,10 @@
 use super::*;
 
+pub type Edge=[VertexIndex;2];
 #[derive(Default,Clone)]
-pub struct Scene{
+pub struct Scene{   // todo - switch to TriMesh hrc and tags as seperate entity
     vertices:   Vec<(V3)>,
-    edges:      Vec<[VertexIndex;2]>,
+    edges:      Vec<Edge>,
     vertex_tags:Vec<bool>,
 }
 
@@ -43,24 +44,13 @@ struct Vertices<V=Vec3f> {
     tags:Vec<bool>
 }
 
-struct QuadMesh<Vertex=Vec3f,PolyInfo=()> {
-    vertices:Vec<Vertex>,
-    triangles:Vec<(PolyInfo,[VertexIndex;4])>
-}
 
 pub enum RefOrBox<'e,T:'e>{
     Ref(&'e T),Box(Box<T>)
 }
 
-trait SceneElem {
-    fn vertices(&self)->Option<&Vertices>;
-    fn vertices_mut(&mut self)->Option<&mut Vertices>;
-    fn polygonize<'a>(&'a self)->RefOrBox<'a, QuadMesh>;    // .. it might have been a mesh
-    fn render(&self,mat:&Mat44);
-    fn dump(&self);
-    fn extents(&self)->Extents<Vec3f>;
-}
-
+/// TODO - generator of initial mesh from parameters
+/// parameters to be editable after in opstack
 mod primitive{
     struct Sphere(f32,(i32,i32));
     struct Torus(f32,f32,(i32,i32));
@@ -71,8 +61,6 @@ mod primitive{
 }
 
 
-// editable scene with extents.
-type SceneNode = TreeNode<(String,Mat44,optbox<SceneElem>)>;
 
 impl Scene{
     // todo - vertex tag iterator.
@@ -123,6 +111,12 @@ pub struct DrawTool{last_point:Option<VertexIndex>}
 struct AddPoint(V3);
 
 #[derive(Default,Debug,Clone)]
+struct Extrude();
+
+#[derive(Default,Debug,Clone)]
+struct Subdivide{}
+
+#[derive(Default,Debug,Clone)]
 struct ToggleSelPoint(VertexIndex);
 
 #[derive(Default,Debug,Clone)]
@@ -156,7 +150,7 @@ struct Translate{
 struct MovePointBy(VertexIndex,V3);
 
 #[derive(Default,Debug,Clone)]
-struct SelectPoints(SelectMode,Vec<VertexIndex>);
+struct SelectPoints{mode:SelectMode,points:Vec<VertexIndex>}
 
 
 
@@ -168,20 +162,44 @@ impl Operation<Scene> for SingleSelPoint{
 }
 
 impl Operation<Scene> for ToggleSelPoint{
-    fn op_apply(&self,ns:&mut Scene){
-        ns.vertex_tag_invert(self.0);
+    fn op_apply(&self,scn:&mut Scene){
+        scn.vertex_tag_invert(self.0);
     }
 }
 impl Operation<Scene> for SelectPoints {
     fn op_apply(&self,ns:&mut Scene){
-        for &v in self.1.iter() {
-            ns.vertex_tag_change(v,self.0);
+        for &v in self.points.iter() {
+            ns.vertex_tag_change(v,self.mode);
         }
     }
     fn op_dump(&self){
-        println!("select points[{:?}]",self.0);
+        println!("select points[{:?}]",self.points);
     }
 }
+
+impl Operation<Scene> for Subdivide {
+    fn op_apply(&self,msh:&mut Scene){
+        println!("subdivide op");
+        let mut new_edges=vec![];
+        //todo,it could consume
+        for edge in msh.edges.iter(){
+            if msh.is_edge_tagged(edge){
+                let ev0=edge[0];let ev1=edge[1];
+                let new_vti=msh.vertices.len();
+                let newvt=msh.vertices[ev0].vlerp(&msh.vertices[ev1],0.5f32);
+                msh.vertices.push(newvt);
+                new_edges.push([ev0,new_vti]);
+                new_edges.push([new_vti,ev1]);
+                msh.vertex_tags.push(true);
+            } else {new_edges.push(edge.clone())}
+        }
+        // todo: combined filter_and_unordered_append
+        //msh.edges.append(&mut new_edges);
+        msh.edges=new_edges;
+        //(&mut new_edges);
+    }
+}
+
 
 impl Operation<Scene> for DrawLine{
     fn op_apply(&self,ns:&mut Scene){
@@ -208,6 +226,7 @@ impl Operation<Scene> for AddPoint {
     }
     fn op_dump(&self){println!("{:?}",self); }
 }
+
 impl Operation<Scene> for Translate {
     fn op_apply(&self,ns:&mut Scene){
         for (i,vt) in ns.vertices.iter_mut().enumerate(){ if ns.vertex_tags[i]{v3addto(vt, &self.delta);}}
@@ -304,7 +323,7 @@ impl Tool<Scene> for DrawTool {
             )),
             &ToolDrag::Rect(ref mode)=>{
                 let pts=s.get_vertices_in_rect(&Extents(&e.drag_start.unwrap(),&e.pos));
-                Some(Box::new(SelectPoints(SelectMode::Invert,pts)))
+                Some(Box::new(SelectPoints{mode:SelectMode::Invert,points:pts}))
             },
             _ =>{None}
 
@@ -319,13 +338,13 @@ impl Tool<Scene> for DrawTool {
                 self.set_last_point(Some(s.vertices.len() as VertexIndex)); println!("vertices.len()={:?}",s.vertices.len());Some(Box::new(AddPoint(newpt)) as _)
             },
             &ToolPresel::PickPoint(pti)     =>{
-                self.set_last_point(Some(pti));Some(Box::new(ToggleSelPoint(pti)) as _)
+                self.set_last_point(Some(pti));Some(Box::new(ToggleSelPoint(pti)))
             },
             &ToolPresel::ConnectLine(si,ei) =>{
-                self.set_last_point(None);Some(Box::new(ConnectLine(si,ei)) as _)
+                self.set_last_point(None);Some(Box::new(ConnectLine(si,ei)))
             },
             &ToolPresel::DrawLine(si,newpt) =>{
-                self.set_last_point(Some(s.vertices.len() as VertexIndex));Some(Box::new(DrawLine(si,newpt)) as _)
+                self.set_last_point(Some(s.vertices.len() as VertexIndex));Some(Box::new(DrawLine(si,newpt)) )
             },
             _ => None
         }
@@ -371,11 +390,11 @@ impl Editable for Scene {
     fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Action<Scene>{
         match (k.0, k.1, k.2) {
             (WinKey::KeyCode('d'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
+            (WinKey::KeyCode('s'),0,KeyDown)=>Action::DoOperation(Box::new(Subdivide{})),
 
             _=>Action::None,
         }
     }
-
 
     fn scn_render(&self, mat: &Mat44) {
         //let ofs = (rc.rect.0.0 + 1.0f32, rc.rect.0.1 + 1.0f32, 0.0f32);
@@ -443,19 +462,33 @@ impl Editable for Scene {
         }
     }
 
-    fn copy(&self, pos:&ScreenPos, clipboard:&mut Self){
+    fn copy(&self, pos:&ScreenPos)->Self{
+        let mut clipboard=Self::default();
         let null_vertex=(-(1 as isize)) as VertexIndex;	// todo , will they?
         let mut vertex_xlat:Vec<VertexIndex>=vec![null_vertex; self.vertices.len()];
 
         // every selected vertex is shoved across,
-        for (i,v) in self.vertices.iter().enumerate(){
-            if self.vertex_tags[i]{
-                vertex_xlat[i]=clipboard.vertices.len();
+        for (i,v) in self.vertices.iter().enumerate() {
+            if self.vertex_tags[i] {
+                vertex_xlat[i] = clipboard.vertices.len();
                 clipboard.vertices.push(*v);
             }
         }
+        return clipboard;
     }
-    fn delete(&mut self){}   //'delete selection', whatever that maybe
+    //'delete selection', whatever that maybe
+    //todo - mode filters ? (vertex,edge,..)
+    fn delete(&mut self){
+        // delete
+        let mut new_edges=vec![];
+        // TODO: filter_unordered(..)
+        for edge in self.edges.iter(){
+            if !self.is_edge_tagged(edge){new_edges.push(edge.clone())}
+        }
+        self.edges=new_edges;
+        // remove unused vertices..
+        // renumber vertices..
+    }
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self){
 
     }
@@ -463,6 +496,9 @@ impl Editable for Scene {
 }
 
 impl Scene {
+    fn is_edge_tagged(&self,e:&Edge)->bool {
+        self.vertex_tags[e[0]] && self.vertex_tags[e[1]]
+    }
     fn get_vertices_in_rect(&self,r:&ScreenRect)->Vec<VertexIndex>
     {
         let mut ret=Vec::new();
