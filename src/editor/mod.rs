@@ -6,6 +6,142 @@ use std::marker::PhantomData;
 pub mod edscene;
 pub use self::edscene::*; //TODO remove when properly decoupled.
 
+#[derive(Debug,Clone,PartialEq,Copy)]
+pub enum BoolOp {Set,Clear,Invert}
+impl BoolOp{pub fn apply(self,x:bool)->bool{match self{
+	BoolOp::Set=>true,	BoolOp::Clear=>false,	BoolOp::Invert=>!x
+}}}
+
+/// defered action to take, part of editor<->editable communication
+pub enum Action<T:Editable>{
+    SetTool(Box<Tool<T>>),
+    DoOperation(Box<Operation<T>>),
+}
+
+/// Trait for editable datastructures, e.g. scene for 3d editor, etc.
+/// 'editable' could be implemented for components to make dedicated editors,
+/// e.g. mesh ,scene, materials could all be different editables describing their own
+pub trait Editable : Sized+Clone+Default+'static{
+    fn default_tool()->Box<Tool<Self>>;
+    fn edscn_key(&self, ed:&Editor<Self>, k:&KeyAt)->Option<Action<Self>>;
+    fn scn_render(&self, proj_view_matrix:&Mat44);
+    // handlers for common commands all editables should support
+    fn copy(&self, pos:&ScreenPos)->Self;
+    fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
+    fn delete(&mut self);
+    fn cut(&mut self,pos:&ScreenPos){self.copy(pos); self.delete();}
+    fn select_all(&mut self, sm:BoolOp);    // all editors should have select none command
+    fn cancel(&mut self);                   // escape key should do something sane
+    fn dump(&self);
+}
+pub trait Operation<T:Editable> {
+    fn op_name(&self)->String{String::from("operation")}
+    fn op_dump(&self){}
+    // todo - show UI - tweakable parameters.
+    //fn num_params();
+    //fn foreach_param((name:string,value:f32));
+    fn op_apply(&self, s:&mut T);
+    // todo - how to do this without earlier knowledge of the traits
+    // e.g. combine many selection operations, combine many transformations, etc.
+    // could we say 'this is a combinable Vector operation; this is a combinable Set operation'?
+    fn op_can_collapse_with<'e>(&self, other:&'e Operation<T>)->bool {false}
+    fn op_collapse_with<'e>(&self, other:&'e Operation<T>)->optbox<Operation<T>> {None}
+    //todo - dependancy graph sorting..
+}
+
+type SceneViewPos<'e,SCENE/*:Editable*/>=(&'e SCENE, &'e ScreenPos);
+
+pub trait Tool<T:Editable>{
+	// why the prefixing? - easier with grep/simple autocomplete.
+	// we still get polymorphism (there are many 'tool_activate..' implementations)
+    fn tool_name(&self)->&'static str{"un-named tool"}
+    fn tool_activate(&self){}
+    fn tool_deactivate(&self){}
+    fn tool_preselection(&self, e:ViewCursorScene<T>)->ToolPresel; // common computation between highlight & operation
+    fn tool_lclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_mclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_rclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_drag_end(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{ return None;}
+    fn tool_drag(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{None}// TODO - return transient Operation..
+    fn tool_drag_begin(&mut self, p:&ToolPresel, e:ViewCursorScene<T> )->ToolDrag{ToolDrag::None}
+    fn tool_render_passive(&self, p:&ToolPresel, e:ViewCursorScene<T>){}
+    fn tool_render_drag(&self, /*p:&Self::Presel, */d:&ToolDrag,e:ViewCursorScene<T>){}
+	// TODO - this needs to return something to have purpose
+    fn tool_passive_move(&self,e:ViewCursorScene<T>){}
+    fn tool_cancel(&mut self){println!("cancel")}
+    //fn try_drag(&self, e:SceneView, mbpos:(MouseButtons,ScreenPos))->DragMode{DragMode::Rect }
+}
+pub type PTool<T>=Box<Tool<T>>;
+// wrapped op: user defined ops alongside inbuilt 'cut-copy-paste' commands, framework manages copy-buffer
+enum EditorOp<T:Editable>{
+    Op(Box<Operation<T>>),      // modifies actual scene
+    Delete(ScreenPos),          // related to cut-copy-paste buffer.
+    Cut(ScreenPos),
+    Copy(ScreenPos),
+    Paste(ScreenPos),             // cut-copy-paste differ in that they need access to copy-buffer.
+    SelectAll(BoolOp),
+    Cancel()
+    // TODO- cycle multi-copy-buffer, visualize that.
+}
+
+pub struct Editor<T:Editable> {             // a type of frame window.
+    scene:T,    // Current view of whats' being edited
+    clipboard:T,
+    operations:Vec<EditorOp<T>>, // undo stack of operations generating 'scene'
+	redo_stack:Vec<EditorOp<T>>,
+    transient_op:optbox<Operation<T>>,// not part of the doc yet
+    transient_scene:Option<T>,
+    interest_point    :Vec3f,
+    zoom:f32,
+    tool    :Box<Tool<T>>,             // current tool.
+    last_tool    :optbox<Tool<T>>,     // saved for 'last tool toggle'
+    saved_tool    :optbox<Tool<T>>, // saved for 'sticky-keys' mode
+    presel: ToolPresel,
+    dragstart:Option<ScreenPos>,
+    drag:ToolDrag,
+}
+pub enum ViewMode{
+    XY,XZ,YZ,Perspective
+}
+// view pane in some sort of holder that gets size
+pub struct SpatialViewPane<T> {
+    view: ViewMode,
+    cam:   Cam,
+    phantom:PhantomData<T>,
+}
+// everything passed into Tools for interface to scene
+pub struct ViewCursorSceneS{
+//    scene:&'e SCENE,
+    drag_start:Option<ScreenPos>,   // copied from 'wincursor'.
+    old_pos:ScreenPos,
+    pos:ScreenPos,
+    rect:ScreenRect,
+    //todo: cursor ray in world space.
+    world_to_screen:Mat44,
+    screen_to_world:Mat44,  // incorrect but we hack it for 2d views
+    // 3d views need a complete different idea
+    interest_point:Vec3f,
+    screen_interest_point:Vec3f, //IP transformed into screenspace inc depth.
+}
+/// Possible actions in the drawing tool based on cursor location
+#[derive(Debug,Clone)]
+pub enum ToolPresel{
+    None,
+    PickPoint(VertexIndex),
+    MakePoint(V3),
+    ConnectLine(VertexIndex,VertexIndex),
+    DrawLine(VertexIndex,V3),
+    // TODO: split-edge..
+}
+/// Possible dragging states
+#[derive(Debug,Clone,PartialEq)]
+pub enum ToolDrag{
+    None,
+    MovePoint(VertexIndex),
+	RectSelect(BoolOp),
+}
+
+
 /*
              MTool   EdScene
 +-Editor--                   +
@@ -39,15 +175,6 @@ pub struct Cam{
 // TODO - is the editor the app?
 // should we just pass ownership of the state into the editor when we 'fire it up' ?
 
-// wrapped op: user defined ops alongside inbuilt 'cut-copy-paste' commands, framework manages copy-buffer
-enum EditorOp<T:Editable>{
-    Op(Box<Operation<T>>),      // modifies actual scene
-    Delete(ScreenPos),          // related to cut-copy-paste buffer.
-    Cut(ScreenPos),
-    Copy(ScreenPos),
-    Paste(ScreenPos),             // cut-copy-paste differ in that they need access to copy-buffer.
-    // TODO- cycle multi-copy-buffer, visualize that.
-}
 
 impl<T:Editable> EditorOp<T>{
     pub fn eop_dump(&self){
@@ -57,26 +184,12 @@ impl<T:Editable> EditorOp<T>{
             &EditorOp::Cut(_)=>println!("op_cut"),
             &EditorOp::Copy(_)=>println!("op_copy"),
             &EditorOp::Paste(_)=>println!("op_paste"),
+            &EditorOp::SelectAll(_)=>println!("op_select"),
+            &EditorOp::Cancel()=>println!("op_cancel"),
         }
     }
 }
 
-pub struct Editor<T:Editable> {             // a type of frame window.
-    scene:T,    // Current view of whats' being edited
-    clipboard:T,
-    operations:Vec<EditorOp<T>>, // undo stack of operations generating 'scene'
-	redo_stack:Vec<EditorOp<T>>,
-    transient_op:optbox<Operation<T>>,// not part of the doc yet
-    transient_scene:Option<T>,
-    interest_point    :Vec3f,
-    zoom:f32,
-    tool    :Box<Tool<T>>,             // current tool.
-    last_tool    :optbox<Tool<T>>,     // saved for 'last tool toggle'
-    saved_tool    :optbox<Tool<T>>, // saved for 'sticky-keys' mode
-    presel: ToolPresel,
-    dragstart:Option<ScreenPos>,
-    drag:ToolDrag,
-}
 
 // main window for an application.
 // holds the application and the 'main frame' view
@@ -98,12 +211,11 @@ impl<T:Editable> Editor<T> {
     }
     fn e_action(&mut self, a:Action<T>) {
         match a {
-            Action::None => {},
             Action::SetTool(t) => self.e_set_tool(t),
             Action::DoOperation(op) => self.e_push_operation(op),
         }
     }
-    fn e_push_tool(&mut self, newtool: Box<Tool<T>>) {
+    fn e_push_tool(&mut self, newtool: PTool<T>) {
         assert!(!self.saved_tool.is_some());
         self.saved_tool = Some(std::mem::replace(&mut self.tool, newtool));
     }
@@ -111,7 +223,7 @@ impl<T:Editable> Editor<T> {
         assert!(self.saved_tool.is_some());
         self.tool=std::mem::replace(&mut self.saved_tool, None).unwrap();
     }
-    fn e_set_tool(&mut self, newtool: Box<Tool<T>>){
+    fn e_set_tool(&mut self, newtool: PTool<T>){
 		self.tool.tool_deactivate();
         self.last_tool= Some(std::mem::replace(&mut self.tool, newtool));   // cache the last tool.
 		self.tool.tool_activate();
@@ -218,30 +330,7 @@ pub fn make_editor_window<A:'static,T:Editable+'static>() -> sto<Window<A>> {
 
 //editor operation sits on a modifier stack
 // these should produce an inspectable graph of operations
-pub trait Operation<T:Editable> {
-    fn op_name(&self)->String{String::from("operation")}
-    fn op_dump(&self){}
-    // todo - show UI - tweakable parameters.
-    //fn num_params();
-    //fn foreach_param((name:string,value:f32));
-    fn op_apply(&self, s:&mut T);
-    // todo - how to do this without earlier knowledge of the traits
-    // e.g. combine many selection operations, combine many transformations, etc.
-    // could we say 'this is a combinable Vector operation; this is a combinable Set operation'?
-    fn op_can_collapse_with<'e>(&self, other:&'e Operation<T>)->bool {false}
-    fn op_collapse_with<'e>(&self, other:&'e Operation<T>)->optbox<Operation<T>> {None}
-    //todo - dependancy graph sorting..
-}
 
-pub enum ViewMode{
-    XY,XZ,YZ,Perspective
-}
-// view pane in some sort of holder that gets size
-pub struct SpatialViewPane<T> {
-    view: ViewMode,
-    cam:   Cam,
-    phantom:PhantomData<T>,
-}
 impl<T:Editable> SpatialViewPane<T> {
     fn render(ed: &Editor<T>, rc: &Rect) {}
 
@@ -318,28 +407,6 @@ impl<T:Editable> SpatialViewPane<T> {
 }
 
 //
-type SceneViewPos<'e,SCENE/*:Editable*/>=(&'e SCENE, &'e ScreenPos);
-
-pub trait Tool<T:Editable>{
-	// why the prefixing? - easier with grep/simple autocomplete.
-	// we still get polymorphism (there are many 'tool_activate..' implementations)
-    fn tool_name(&self)->&'static str{"un-named tool"}
-    fn tool_activate(&self){}
-    fn tool_deactivate(&self){}
-    fn tool_preselection(&self, e:ViewCursorScene<T>)->ToolPresel; // common computation between highlight & operation
-    fn tool_lclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_mclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_rclick(&mut self, p:&ToolPresel, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_drag_end(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{ return None;}
-    fn tool_drag(&mut self, d:&ToolDrag, e:ViewCursorScene<T>)->optbox<Operation<T>>{None}// TODO - return transient Operation..
-    fn tool_drag_begin(&mut self, p:&ToolPresel, e:ViewCursorScene<T> )->ToolDrag{ToolDrag::None}
-    fn tool_render_passive(&self, p:&ToolPresel, e:ViewCursorScene<T>){}
-    fn tool_render_drag(&self, /*p:&Self::Presel, */d:&ToolDrag,e:ViewCursorScene<T>){}
-	// TODO - this needs to return something to have purpose
-    fn tool_passive_move(&self,e:ViewCursorScene<T>){}
-    fn tool_cancel(&mut self){println!("cancel")}
-    //fn try_drag(&self, e:SceneView, mbpos:(MouseButtons,ScreenPos))->DragMode{DragMode::Rect }
-}
 // operations that any 'Editable' must have
 #[derive(Debug,Clone)]
 pub struct OpCut<T:Editable>{at:ScreenPos, phantom:PhantomData<T>}
@@ -364,34 +431,14 @@ impl<T:Editable, A:Operation<T>,B:Operation<T>> Operation<T> for ComposedOp<A,B>
 }
 
 
-// Possible actions in the drawing tool based on cursor location
-#[derive(Debug,Clone)]
-pub enum ToolPresel{
-    None,
-    PickPoint(VertexIndex),
-    MakePoint(V3),
-    ConnectLine(VertexIndex,VertexIndex),
-    DrawLine(VertexIndex,V3),
-    // TODO: split-edge..
-}
 
 impl Default for ToolPresel{ fn default()->Self{ToolPresel::None}}
 
-#[derive(Debug,Clone,PartialEq,Copy)]
-pub enum SelectMode {
-	Select,Deselect,Invert
+
+impl Default for BoolOp {
+	fn default()->Self{BoolOp::Clear}
 }
 
-impl Default for SelectMode {
-	fn default()->SelectMode{SelectMode::Select}
-}
-
-#[derive(Debug,Clone,PartialEq)]
-pub enum ToolDrag{
-    None,
-    MovePoint(VertexIndex),
-	Rect(SelectMode),
-}
 impl Default for ToolDrag{ fn default()->Self{ToolDrag::None}}
 
 
@@ -447,24 +494,7 @@ static g_color_selected:u32=0xff0000ff;
 static g_color_highlight:u32=0xff0000ff;
 static g_color_wireframe:u32=0xffc0c0c0;
 
-// defered 'action' to take, needed for command invocations
-// to happen safely
-pub enum Action<T:Editable>{
-    None,
-    SetTool(Box<Tool<T>>),
-    DoOperation(Box<Operation<T>>),
-}
 
-pub trait Editable : Sized+Clone+Default+'static{
-    fn default_tool()->Box<Tool<Self>>;
-    fn edscn_key(&self, ed:&Editor<Self>, k:&KeyAt)->Action<Self>;
-    fn scn_render(&self, proj_view_matrix:&Mat44);
-    fn copy(&self, pos:&ScreenPos)->Self;
-    fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
-    fn delete(&mut self);
-    fn cut(&mut self,pos:&ScreenPos){self.copy(pos); self.delete();}
-    fn dump(&self);
-}
 
 impl<T:Editable> EditorOp<T>{
     fn wo_apply(&self, s:&mut T, clipboard:&mut T) {
@@ -474,11 +504,11 @@ impl<T:Editable> EditorOp<T>{
             &EditorOp::Cut(ref pos) => {*clipboard=s.copy(pos); s.delete()},
             &EditorOp::Copy(ref pos) => { *clipboard = s.copy(pos)},
             &EditorOp::Paste(ref pos) => s.paste(pos, clipboard),
+            &EditorOp::SelectAll(sm) => s.select_all(sm),
+			&EditorOp::Cancel()=>s.cancel(),
         }
     }
 }
-
-
 // editor working on a specific type of document, with an undo stack.
 impl<T:Editable> Editor<T> {
     fn e_clear_clipboard(&mut self){ self.clipboard=T::default();}
@@ -543,20 +573,6 @@ fn view_cursor_scene<'e,SCENE:Editable>(ed:&'e Editor<SCENE>, s:&'e SCENE, w:&Wi
     }
 }
 */
-// everything passed into Tools for interface to scene
-pub struct ViewCursorSceneS{
-//    scene:&'e SCENE,
-    drag_start:Option<ScreenPos>,   // copied from 'wincursor'.
-    old_pos:ScreenPos,
-    pos:ScreenPos,
-    rect:ScreenRect,
-    //todo: cursor ray in world space.
-    world_to_screen:Mat44,
-    screen_to_world:Mat44,  // incorrect but we hack it for 2d views
-    // 3d views need a complete different idea
-    interest_point:Vec3f,
-    screen_interest_point:Vec3f, //IP transformed into screenspace inc depth.
-}
 impl ViewCursorSceneS{
     pub fn world_to_viewport(&self,v:&Vec3f)->Vec3f{
         self.world_to_screen.mul_vec3_point(v).project_to_vec3()
@@ -584,9 +600,9 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         if k.1 == window::CTRL { println!("ctrl"); }
         let vpos = k.pos();
         //todo -we want plain chars really
-        {
-            let keyaction=ed.e_scene().edscn_key(ed, &k);
-            ed.e_action(keyaction);
+        if let Some(keyaction)=ed.e_scene().edscn_key(ed, &k){
+			ed.e_action(keyaction);
+			return Flow::Continue();
         }
         let move_step=0.2f32/ed.zoom;
         let zoom_step=1.2f32;

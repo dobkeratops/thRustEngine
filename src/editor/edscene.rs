@@ -75,12 +75,12 @@ impl Scene{
     fn vertex_tag_invert(&mut self, i:VertexIndex){
         self.vertex_tags[i]^=true;
     }
-    fn vertex_tag_change(&mut self, i:VertexIndex, mode:SelectMode){
+    fn vertex_tag_change(&mut self, i:VertexIndex, mode:BoolOp){
         let tag=self.vertex_tags[i];
         self.vertex_tags[i]=match mode{
-            SelectMode::Invert=>tag^true,
-            SelectMode::Select=>true,
-            SelectMode::Deselect=>false
+            BoolOp::Invert=>tag^true,
+            BoolOp::Set=>true,
+            BoolOp::Clear=>false
         }
     }
     fn create_vertex(&mut self, pos:V3,tag:bool){
@@ -147,7 +147,7 @@ struct Translate{
 struct MovePointBy(VertexIndex,V3);
 
 #[derive(Default,Debug,Clone)]
-struct SelectPoints{mode:SelectMode,points:Vec<VertexIndex>}
+struct SelectPoints{mode:BoolOp,points:Vec<VertexIndex>}
 
 
 
@@ -376,7 +376,7 @@ impl Tool<Scene> for DrawTool {
     fn tool_render_drag(&self, d:&ToolDrag, (s,e):ViewCursorScene<Scene>){
         if !e.drag_start.is_some(){return;};
         match d {
-            &ToolDrag::Rect(_)=>{
+            &ToolDrag::RectSelect(_)=>{
                 draw::rect_outline_v2(&e.drag_start.unwrap(),&e.pos,g_color_feedback)
             },
             _=>{}
@@ -408,9 +408,9 @@ impl Tool<Scene> for DrawTool {
                     Translate{delta:world_delta.to_tuple()}
                 )
             )),
-            &ToolDrag::Rect(ref mode)=>{
+            &ToolDrag::RectSelect(ref mode)=>{
                 let pts=s.get_vertices_in_rect(&Extents(&e.drag_start.unwrap(),&e.pos));
-                Some(Box::new(SelectPoints{mode:SelectMode::Invert,points:pts}))
+                Some(Box::new(SelectPoints{mode:BoolOp::Invert,points:pts}))
             },
             _ =>{None}
 
@@ -447,7 +447,7 @@ impl Tool<Scene> for DrawTool {
             println!("drag start-movepoint");
             ToolDrag::MovePoint(pti)
         } else {
-            ToolDrag::Rect(SelectMode::Invert)
+            ToolDrag::RectSelect(BoolOp::Invert)
         }
     }
 
@@ -470,19 +470,18 @@ impl Tool<Scene> for DrawTool {
         */
 }
 
-
 impl Editable for Scene {
     fn default_tool()->Box<Tool<Scene>>{ Box::new(DrawTool::default()) }
 
-    fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Action<Scene>{
+    fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Option<Action<Scene>>{
         match (k.0, k.1, k.2) {
-            (WinKey::KeyCode('d'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
+            (WinKey::KeyCode('d'),0,KeyDown)=>Some(Action::SetTool(Box::new(DrawTool::default()))),
             //(WinKey::KeyCode('m'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
-            (WinKey::KeyCode('s'),0,KeyDown)=>Action::DoOperation(Box::new(Subdivide{})),
-            (WinKey::KeyCode('e'),0,KeyDown)=>Action::DoOperation(Box::new(Extrude{})),
-            (WinKey::KeyCode('m'),0,KeyDown)=>Action::DoOperation(Box::new(Merge{})),
+            (WinKey::KeyCode('s'),0,KeyDown)=>Some(Action::DoOperation(Box::new(Subdivide{}))),
+            (WinKey::KeyCode('e'),0,KeyDown)=>Some(Action::DoOperation(Box::new(Extrude{}))),
+            (WinKey::KeyCode('m'),0,KeyDown)=>Some(Action::DoOperation(Box::new(Merge{}))),
 
-            _=>Action::None,
+            _=>None,
         }
     }
 
@@ -579,6 +578,14 @@ impl Editable for Scene {
         // remove unused vertices..
         // renumber vertices..
     }
+	fn cancel(&mut self){
+		println!("cancel");
+	}
+	fn select_all(&mut self, bop:BoolOp){
+		for tag in self.vertex_tags.iter_mut(){
+			*tag=bop.apply(*tag);
+		}
+	}
     fn paste(&mut self, pos:&ScreenPos, clipboard:&Self){
 
     }
