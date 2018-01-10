@@ -1,9 +1,10 @@
 use super::*;
 
 pub type Edge=[VertexIndex;2];
+pub type Vertex=V3;
 #[derive(Default,Clone)]
 pub struct Scene{   // todo - switch to TriMesh hrc and tags as seperate entity
-    vertices:   Vec<(V3)>,
+    vertices:   Vec<Vertex>,
     edges:      Vec<Edge>,
     vertex_tags:Vec<bool>,
 }
@@ -60,8 +61,6 @@ mod primitive{
     struct Grid((f32,f32),(i32,i32));
 }
 
-
-
 impl Scene{
     // todo - vertex tag iterator.
     fn clear_vertex_tags(&mut self){
@@ -93,6 +92,7 @@ impl Scene{
         dump!(self.vertices.len());
     }
 }
+
 impl Scene{
     fn add_vertex(&mut self,p:V3)->VertexIndex{
         let vi=self.vertices.len();
@@ -111,12 +111,6 @@ pub struct DrawTool{last_point:Option<VertexIndex>}
 struct AddPoint(V3);
 
 #[derive(Default,Debug,Clone)]
-struct Extrude();
-
-#[derive(Default,Debug,Clone)]
-struct Subdivide{}
-
-#[derive(Default,Debug,Clone)]
 struct ToggleSelPoint(VertexIndex);
 
 #[derive(Default,Debug,Clone)]
@@ -132,7 +126,9 @@ impl Scene {
     pub fn pick_point_at(&self, vcs:&ViewCursorSceneS, maxr:f32)->Option<VertexIndex>{
         let mut maxr2 = sqr(maxr);
         let mut besti=None;
-        for (vti,&vt) in self.vertices.iter().enumerate(){
+        // iterate the vertices in reverse to tend to pick the newly created ones first..
+        for (vti,&vt) in self.vertices.iter().enumerate().rev(){
+
             let mut spos=vcs.world_to_viewport(&vt.to_vec3());
             spos.z=zero();
             let r2=v3dist_squared(&vec3(vcs.pos.x,vcs.pos.y,zero()),&spos);
@@ -141,6 +137,7 @@ impl Scene {
         return besti;
     }
 }
+
 #[derive(Default,Debug,Clone)]
 struct Translate{
     delta:V3
@@ -177,6 +174,8 @@ impl Operation<Scene> for SelectPoints {
     }
 }
 
+#[derive(Default,Debug,Clone)]
+pub struct Subdivide{}
 impl Operation<Scene> for Subdivide {
     fn op_apply(&self,msh:&mut Scene){
         println!("subdivide op");
@@ -199,7 +198,92 @@ impl Operation<Scene> for Subdivide {
         //(&mut new_edges);
     }
 }
+/// in progress: macro to formalise the pattern of Operations , and their triggering from UI
+macro_rules! operations{
+    {$($hotkey:expr=>$opname:ident($($argname:ident : $argtype:ty = $argdefault:expr),*)$opbody:block)*}
+    =>{
+        $(
+            // instantiate an object to hold the parameter block
+            #[derive(Default,Debug,Clone)]
+            pub struct $opname{
+                pub $($argname:$argtype),*
+            }
+            impl $opname{
+                pub fn new()->Self{
+                    $argname:$argdefault
+                }
+                // todo: call with all operation args as params..
+                pub fn op_apply(&self, d:&mut Scene) $opbody
+            }
+        )*
+    }
+}
+#[derive(Default,Debug,Clone)]
+pub struct Merge{}
+impl Operation<Scene> for Merge {
+    fn op_apply(&self, d: &mut Scene) {
+        let mut sumpt:Vertex=zero();
+        let mut total=0;
+        let mut vt_xlat=vec![];
+        vt_xlat.resize(d.vertices.len(),(-1isize) as usize);
+        let mut mergevt:Option<VertexIndex>=None; // this will be pushed
+        let vt_xlat:Vec<_> = (0..d.vertices.len()).map(|vti|
+            if d.vertex_tags[vti] {
+                // allocate the first vertex index as the merged point,
+                if !mergevt.is_some(){mergevt=Some(vti)};
+                sumpt.vassign_add(&d.vertices[vti]);total+=1;
+                mergevt.unwrap()
+            }  else {
+                vti
+            }
+        ).collect();
 
+        match mergevt {
+            Some(merged_vertex)=>{
+                d.vertices[merged_vertex]=sumpt.vscale(1.0/(total as f32));
+                d.translate_vertex_indices(&vt_xlat);
+                d.clear_vertex_tags();
+                d.vertex_tags[mergevt.unwrap()]=true;
+            }
+            None=>{}
+        }
+    }
+}
+
+#[derive(Default,Debug,Clone)]
+pub struct Extrude{}
+impl Operation<Scene> for Extrude {
+    fn op_apply(&self, d:&mut Scene){
+        let mut vtmap = HashMap::<VertexIndex,VertexIndex>::new();
+        let mut new_vertices=Vec::<Vertex>::new();
+        let mut new_edges=vec![];
+        // every extruded edge is duplicated
+        let mut new_vertex=d.vertices.len();
+        for i in 0.. d.vertices.len(){
+            if d.vertex_tags[i]{
+                new_edges.push([i,new_vertex]);
+                vtmap.insert(i,new_vertex); new_vertex+=1;
+                new_vertices.push(d.vertices[i].clone());
+            }
+
+        }
+        // for every edge, extrude a polygon.. TODO
+        // for the moment we just create a wireframe around where the poly would be.
+        // if we go the half-edge route..
+        for edge in d.edges.iter(){
+            if d.is_edge_tagged(edge){
+                new_edges.push([vtmap[&edge[0]],vtmap[&edge[1]]]);
+            }
+        }
+        d.clear_vertex_tags();
+        d.edges.append(&mut new_edges);
+        d.vertices.append(&mut new_vertices);
+
+        for (_,_) in vtmap.iter(){
+            d.vertex_tags.push(true);
+        }
+    }
+}
 
 impl Operation<Scene> for DrawLine{
     fn op_apply(&self,ns:&mut Scene){
@@ -212,9 +296,11 @@ impl Operation<Scene> for DrawLine{
 impl Operation<Scene> for ConnectLine{
     //dump!("CONNECT LINE:",self);
     fn op_apply(&self,ns:&mut Scene){
-        ns.clear_vertex_tags();
-        ns.edges.push([self.0, self.1]);
-        ns.vertex_tags[self.1]=true;
+        if !ns.edge_exists(self.0,self.1) {
+            ns.clear_vertex_tags();
+            ns.edges.push([self.0, self.1]);
+            ns.vertex_tags[self.1] = true;
+        }
     }
     fn op_dump(&self){println!("{:?}",self); }
 }
@@ -390,7 +476,10 @@ impl Editable for Scene {
     fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Action<Scene>{
         match (k.0, k.1, k.2) {
             (WinKey::KeyCode('d'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
+            //(WinKey::KeyCode('m'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
             (WinKey::KeyCode('s'),0,KeyDown)=>Action::DoOperation(Box::new(Subdivide{})),
+            (WinKey::KeyCode('e'),0,KeyDown)=>Action::DoOperation(Box::new(Extrude{})),
+            (WinKey::KeyCode('m'),0,KeyDown)=>Action::DoOperation(Box::new(Merge{})),
 
             _=>Action::None,
         }
@@ -513,4 +602,54 @@ impl Scene {
         }
         ret
     }
+    fn edge_exists(&self,sv:VertexIndex,ev:VertexIndex)->bool{
+        for edge in self.edges.iter() {
+            if edge[0]==sv && edge[1]==ev || edge[0]==ev && edge[1]==sv{return true;}
+        }
+        return false;
+    }
+    fn translate_vertex_indices(&mut self, xlat:&Vec<VertexIndex>) {
+        for edge in self.edges.iter_mut() {
+            edge[0]=xlat[edge[0]];
+            edge[1]=xlat[edge[1]];
+        }
+
+    }
+    //fn delete_unused(&mut self){
+      //  let mut tags:Vec<bool>=vec![false;self.vertices.len()];
+        //for edge in self.edges.iter_mut() {tags[edge[0]]=true; tags[edge[1]]=true;}
+
+    //}
+    //vtc       0  1  2  3  4  5  6
+    //xlat      0  1  2  2  4  2  6
+    //inv_xlat  0  1  2  -1 4  -1 6
+    //          0  1  2  6  4
+    /*
+    fn translate_vertex_indices_with_redundant_elim(&mut self, mut xlat:Vec<VertexIndex>){
+        assert!(xlat.len()==self.vertices.len());
+        let nonei=(-1isize) as usize;
+        let mut inv_xlat:Vec<VertexIndex>=Vec::new();
+        inv_xlat.resize(xlat.len(),nonei);
+        // make the 'scatter' equivalent of this 'gather' index table
+
+        let mut lastvt=self.vertices.len()-1;
+
+        for i in 0..self.vertices.len(){inv_xlat[xlat[i]]=xlat[i];}
+        // new_xlat is a gather,
+        let new_xlat:Vec<_>=(0..self.vertices.len()).map(|i|
+            if inv_xlat[i]!=nonei{
+                xlat[i]
+            }else{
+                while inv_xlat[lastvt]==nonei{lastvt-=1};
+                xlat[]
+            }
+        ).take(lastvt+1).collect();
+        // now scatter
+        for i in range 0..
+        dump!(xlat);dump!(inv_xlat);dump!(new_xlat);
+        self.translate_vertex_indices(&new_xlat);
+        println!("merge: vertices in={} vertices out={}",self.vertices.len(),lastvt);
+        self.vertices.resize(lastvt+1,zero());
+        self.vertex_tags.resize(lastvt+1,false);
+    }*/
 }
