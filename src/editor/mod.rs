@@ -176,72 +176,72 @@ impl<D:Doc> EditorOp<D>{
 
 
 impl<D:Doc> Editor<D> {
-    fn e_scene<'a>(&'a self)->&'a D{
+    fn ed_scene<'a>(&'a self)->&'a D{
         match self.transient_scene{
             Some(ref s)=>s,
             None=>&self.scene
         }
     }
-    fn e_scene_mut<'a>(&'a mut self)->&'a mut D{
+    fn ed_scene_mut<'a>(&'a mut self)->&'a mut D{
         match self.transient_scene{
             Some(ref mut s)=>s,
             None=>&mut self.scene
         }
     }
-    fn e_action(&mut self, a:Action<D>) {
+    fn ed_action(&mut self, a:Action<D>) {
         match a {
-            Action::SetTool(t) => self.e_set_tool(t),
-            Action::PushTool(t) => self.e_push_tool(t),
-			Action::PopTool()=> self.e_pop_tool(),
-            Action::DoOperation(op) => self.e_push_operation(op),
+            Action::SetTool(t) => self.ed_set_tool(t),
+            Action::PushTool(t) => self.ed_push_tool(t),
+			Action::PopTool()=> self.ed_pop_tool(),
+            Action::DoOperation(op) => self.ed_push_operation(op),
         }
     }
-    fn e_push_tool(&mut self, newtool: PTool<D>) {
+    fn ed_push_tool(&mut self, newtool: PTool<D>) {
         assert!(!self.saved_tool.is_some());
         self.saved_tool = Some(std::mem::replace(&mut self.tool, newtool));
     }
-    fn e_pop_tool(&mut self) {
+    fn ed_pop_tool(&mut self) {
         assert!(self.saved_tool.is_some());
         self.tool=std::mem::replace(&mut self.saved_tool, None).unwrap();
     }
-    fn e_set_tool(&mut self, newtool: PTool<D>){
+    fn ed_set_tool(&mut self, newtool: PTool<D>){
 		self.tool.tool_deactivate();
         self.last_tool= Some(std::mem::replace(&mut self.tool, newtool));   // cache the last tool.
 		self.tool.tool_activate();
     }
-    fn e_swap_last_tool(&mut self){
+    fn ed_swap_last_tool(&mut self){
         if let Some(x)= std::mem::replace(&mut self.last_tool, None) {
-            self.e_set_tool(x);
+            self.ed_set_tool(x);
         }else{
             println!("swap last tool - none");
         }
     }
     // todo - caching of 'cuts' that are pasted.
-	fn e_cut(&mut self,spos:ScreenPos){ self.e_push_op(EditorOp::Cut(spos)) }
-	fn e_copy(&mut self,spos:ScreenPos){ self.e_push_op(EditorOp::Copy(spos)) }
-	fn e_paste(&mut self,spos:ScreenPos){ self.e_push_op(EditorOp::Paste(spos)) } // paste knows.
-    fn e_delete(&mut self,spos:ScreenPos){ self.e_push_op(EditorOp::Delete(spos)) } // paste knows.
-	fn e_cancel(&mut self){
+	fn ed_cut(&mut self,spos:ScreenPos){ self.ed_push_op(EditorOp::Cut(spos)) }
+	fn ed_copy(&mut self,spos:ScreenPos){ self.ed_push_op(EditorOp::Copy(spos)) }
+	fn ed_paste(&mut self,spos:ScreenPos){ self.ed_push_op(EditorOp::Paste(spos)) } // paste knows.
+    fn ed_delete(&mut self,spos:ScreenPos){ self.ed_push_op(EditorOp::Delete(spos)) } // paste knows.
+	fn ed_cancel(&mut self){
 		self.tool.tool_cancel();
 	}
-	fn e_undo(&mut self){
-		self.e_cancel();
+	fn ed_undo(&mut self){
+		self.ed_cancel();
 		println!("undo: ops={}",self.operations.len());
 
 		if let Some(op)=self.operations.pop(){
             println!("popped operation"); op.eop_dump();
 			// todo: cache copies logarithmically
 			self.redo_stack.push(op);
-			self.e_recompute_scene();
+			self.ed_recompute_scene();
             self.scene.doc_dump();
 		}
 	}
-	fn e_redo(&mut self){
-		self.e_cancel();
+	fn ed_redo(&mut self){
+		self.ed_cancel();
 		println!("redo");
 		if let Some(op)=self.redo_stack.pop(){
 			self.operations.push(op);
-			self.e_recompute_scene();
+			self.ed_recompute_scene();
 		}
 	}
 }
@@ -480,21 +480,21 @@ impl<D:Doc> EditorOp<D>{
 }
 // editor working on a specific type of document, with an undo stack.
 impl<D:Doc> Editor<D> {
-    fn e_clear_clipboard(&mut self){ self.clipboard=D::default();}
+    fn ed_clear_clipboard(&mut self){ self.clipboard=D::default();}
 
-    fn e_push_op(&mut self, wo:EditorOp<D>){
+    fn ed_push_op(&mut self, wo:EditorOp<D>){
         wo.wo_apply(&mut self.scene,&mut self.clipboard);
         self.operations.push(wo);
             //o.op_dump();
     }
-    fn e_push_operation(&mut self, op:Box<Operation<D>>){
+    fn ed_push_operation(&mut self, op:Box<Operation<D>>){
         op.op_apply(&mut self.scene);
         self.operations.push(EditorOp::Op(op));
     }
-    fn e_push_op_maybe(&mut self, op:optbox<Operation<D>>){
-        if let Some(o)=op{ self.e_push_operation(o);}
+    fn ed_push_op_maybe(&mut self, op:optbox<Operation<D>>){
+        if let Some(o)=op{ self.ed_push_operation(o);}
     }
-    fn e_transient_op(&mut self, oo:optbox<Operation<D>>){
+    fn ed_transient_op(&mut self, oo:optbox<Operation<D>>){
         //match self.app.doc.transient_op{
           //  Some(ref op)=>{self.app.transient_scene}
         //}
@@ -508,8 +508,8 @@ impl<D:Doc> Editor<D> {
         self.transient_op=oo;
     }
 
-    fn e_recompute_scene(&mut self){
-        println!("e_recompute_scene ops={}",self.operations.len());
+    fn ed_recompute_scene(&mut self){
+        println!("ed_recompute_scene ops={}",self.operations.len());
         // todo - logarithmic caching spacing eg [0       n/2      n-n/4 n-n/8 n-1 n]
         let mut s=D::default();
         for o in self.operations.iter() {
@@ -558,7 +558,7 @@ fn unwrap_ref_or<'q,T>(a:&'q Option<T>,b:&'q T)->&'q T{
 //type A=();
 impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
     fn win_key_mappings(&mut self, ed:&mut Editor<D>, f:&mut KeyMappings<Editor<D>>){
-        f('\x1b',"cancel",  &mut ||{ed.e_cancel();Flow::Continue()});
+        f('\x1b',"cancel",  &mut ||{ed.ed_cancel();Flow::Continue()});
         f('q',"back",  &mut ||Flow::Pop());
         f('1',"foo",  &mut ||Flow::Pop());
         f('2',"bar", &mut ||Flow::Pop());
@@ -569,8 +569,8 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
         if k.1 == window::CTRL { println!("ctrl"); }
         let vpos = k.pos();
         //todo -we want plain chars really
-        if let Some(keyaction)=ed.e_scene().doc_key(ed, &k){
-			ed.e_action(keyaction);
+        if let Some(keyaction)=ed.ed_scene().doc_key(ed, &k){
+			ed.ed_action(keyaction);
 			return Flow::Continue();
         }
         let move_step=0.2f32/ed.zoom;
@@ -582,14 +582,14 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
         match (k.0, k.1,k.2) {
 //            ('s',KeyDown)=>self.set_tool(SelectTool()),
 			//ctrl-z
-			(WinKey::KeyCode('\u{1a}'),window::CTRL, KeyDown)=>ed.e_undo(),
-			(WinKey::KeyCode('\u{19}'),window::CTRL, KeyDown)=>ed.e_redo(),
-			(WinKey::KeyCode('\u{18}'),window::CTRL, KeyDown)=>ed.e_cut(vpos),
-			(WinKey::KeyCode('\u{3}'),window::CTRL, KeyDown)=>ed.e_copy(vpos),
-			(WinKey::KeyCode('\u{16}'),window::CTRL, KeyDown)=>ed.e_paste(vpos),
+			(WinKey::KeyCode('\u{1a}'),window::CTRL, KeyDown)=>ed.ed_undo(),
+			(WinKey::KeyCode('\u{19}'),window::CTRL, KeyDown)=>ed.ed_redo(),
+			(WinKey::KeyCode('\u{18}'),window::CTRL, KeyDown)=>ed.ed_cut(vpos),
+			(WinKey::KeyCode('\u{3}'),window::CTRL, KeyDown)=>ed.ed_copy(vpos),
+			(WinKey::KeyCode('\u{16}'),window::CTRL, KeyDown)=>ed.ed_paste(vpos),
             (WinKey::KeyCode('='),0, KeyDown)=>{ed.zoom*=zoom_step;dump!(ed.zoom)},
             (WinKey::KeyCode('-'),0, KeyDown)=>{ed.zoom/=zoom_step;dump!(ed.zoom)},
-            (WinKey::KeyCode('x'),0, KeyDown)=>ed.e_swap_last_tool(),
+            (WinKey::KeyCode('x'),0, KeyDown)=>ed.ed_swap_last_tool(),
 
             (WinKey::KeyCursorLeft, 0, KeyDown)=>view_delta.x-=move_step,
             (WinKey::KeyCursorRight,0, KeyDown)=>view_delta.x+=move_step,
@@ -612,7 +612,7 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
 
         draw::rect_outline_v2(&wc.rect.min, &wc.rect.max, if v2is_inside(&wc.pos, (&wc.rect.min, &wc.rect.max)){0xa0a0a0}else{0x909090});
 
-        let scn=ed.e_scene();
+        let scn=ed.ed_scene();
         let mat=self.matrix_world_to_viewport(ed, &wc.rect);
         scn.doc_render(&mat);
         //for t in self.vertex_tags(){
@@ -642,19 +642,19 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
             ed.tool.tool_drag((s,&vcs))
          
         };
-        ed.e_transient_op(transient_op);
+        ed.ed_transient_op(transient_op);
         Flow::Continue()
     }
 
     fn win_ldrag_end(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
         println!("editor ldrag end");
-        ed.e_transient_op(None);
+        ed.ed_transient_op(None);
         let vcs:ViewCursorSceneS = self.view_cursor_scene_sub(ed,wc);
         let op={
             let s=unwrap_ref_or(&ed.transient_scene,&ed.scene);
             ed.tool.tool_drag_end((s,&vcs))
         };
-        ed.e_push_op_maybe(op);
+        ed.ed_push_op_maybe(op);
         Flow::Continue()
     }
 
@@ -666,14 +666,14 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
         println!("editor onclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
         let op=ed.tool.tool_lclick((&ed.scene,&vcs));
-        ed.e_push_op_maybe(op);
+        ed.ed_push_op_maybe(op);
         Flow::Continue()
     }
     fn win_rclick(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
         println!("editor onrclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
         let op = ed.tool.tool_rclick((&ed.scene,&vcs));
-        ed.e_push_op_maybe(op);
+        ed.ed_push_op_maybe(op);
         Flow::Continue()
     }
 }
