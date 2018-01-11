@@ -54,7 +54,7 @@ pub mod editor;
 pub mod edscene;
 pub mod landscape;
 pub mod texture;
-pub mod test;
+//pub mod test;
 pub mod emscripten;
 pub mod minimal_shader;
 pub mod shaders;

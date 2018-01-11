@@ -1,5 +1,4 @@
-use super::*;
-use r3d::*;
+pub use ::r3d::*;
 //use super::{Matrix4,Matrix3,Matrix2,Matrix1,HasElem};
 
 // todo: simplify, or verify our arithmetic will work with different types
@@ -7,9 +6,6 @@ use r3d::*;
 // last element can be another type.
 // e.g. ax,ay,az dimensionless,  pos = position dimension
 // todo - i think when it comes to inverting such a thing more thought is needed.
-
-
-
 
 pub struct Scaling<T>(T,T,T);
 
@@ -19,8 +15,6 @@ struct SRT<T:VElem=f32>{
 struct SQT<T:VElem=f32>{
 	scaling:Vec3<T>,rotation:Quaternion<T>,translation:Vec3<T>
 }
-
-
 
 struct RotateX<T>(T);
 struct RotateY<T>(T);
@@ -125,6 +119,7 @@ impl<F:Float> Matrix4<Vec4<F>> where
 		)
 	}
 }
+
 impl<F:Float> Matrix3<Vec3<F>> where {
 	pub fn transpose3(&self) -> Matrix3<Vec3<F>> {
 		Matrix3::new(

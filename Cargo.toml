@@ -3,6 +3,9 @@ name = "rustv"
 version = "0.1.0"
 authors = ["dobkeratops <dobkeratopsgit@gmail.com>"]
 
+[[bin]]
+name = "main"
+path = "main.rs"
 
 [dependencies]
 vec_xyzw = { git = "https://github.com/dobkeratops/vec_xyzw-rs.git"}
