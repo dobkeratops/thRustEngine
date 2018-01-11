@@ -1,6 +1,4 @@
 //pub mod vectypes;
-pub mod vector;
-pub mod matrix;
 pub mod quaternion;
 pub mod array3d;
 pub mod geom;
@@ -19,7 +17,10 @@ pub mod macros;
 pub mod classes;
 pub mod bsp;
 pub use sdl::*;
-pub use matrix::*;
+pub use super::matrix::*;
+pub use super::vector::*;
+use ::matrix;
+use ::vector;
 pub extern crate vecgenericindex;
 pub extern crate half;
 pub use array3d::*;

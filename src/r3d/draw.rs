@@ -1,6 +1,11 @@
 use super::*;
 pub struct Immiediate{}
 use ::bsp::*;
+use matrix::*;
+use vector::*;
+use ::matrix;
+use ::vector;
+
 
 /// debug graphics.. GL immediate mode rendering utilities
 

@@ -38,6 +38,10 @@
 #[macro_use]
 pub mod r3d;
 pub use r3d::*;
+pub mod vector;
+pub mod matrix;
+pub use vector::*;
+pub use matrix::*;
 pub mod window;
 use window::Flow;
 mod world;
