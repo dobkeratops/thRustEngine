@@ -23,14 +23,14 @@ trait Render{
 }
 
 impl<A:'static> window::Window<A> for FlyMode {
-    fn on_key(&mut self, a:&mut A, kp:w::KeyAt,wc:&window::WinCursor)->window::Flow<A>{
+    fn win_key(&mut self, a:&mut A, kp:w::KeyAt,wc:&window::WinCursor)->window::Flow<A>{
         println!("{:?}",kp);
         match (kp.0,kp.2) {
             (window::WinKey::KeyCode('e'),window::KeyTransition::KeyDown)=>Flow::Push(editor::make_editor_window::<A,editor::Scene>()),
             _=>Flow::Continue()
         }
     }
-    fn update(&mut self,a:&mut A, dt:f32)->window::Flow<A> {
+    fn win_update(&mut self,a:&mut A, dt:f32)->window::Flow<A> {
         let r = 30.0f32;
 
         let movespeed = 0.1f32;
@@ -52,7 +52,7 @@ impl<A:'static> window::Window<A> for FlyMode {
         window::Flow::Continue()
     }
 
-    fn render(&self, a:&A, wc:&window::WinCursor) {
+    fn win_render(&self, a:&A, wc:&window::WinCursor) {
 
         let eye: Vec3f = self.pos.to_vec3();//into();
         let (ax, ay) = (sin(self.hdg), cos(self.hdg));

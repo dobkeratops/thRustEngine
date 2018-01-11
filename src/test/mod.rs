@@ -14,7 +14,7 @@ pub fn new<A>()->Box<Window<A>> {
 
 impl<A> Window<A> for s{
 
-    fn render(&self, a:&A, wc:&window::WinCursor){
+    fn win_render(&self, a:&A, wc:&window::WinCursor){
         //draw::line( (1.0,2.0,1.0), (0.5,0.5,0.5), )
         unsafe {
             draw::clear(0x808080);

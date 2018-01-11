@@ -180,15 +180,15 @@ pub struct Dragging{
 pub type KeyMappings<A> = FnMut(KeyCode,&str, &mut FnMut()->Flow<A>);
 pub trait Window<A> {            //'C' the user defined commands it can respond to.
 
-    fn ask_size(&self)->Option<ScreenPos> { None }
-	fn name(&self)->&str		{"none"}
-    fn on_activate(&mut self, app:&mut A)   {}
-    fn on_deactivate(&mut self, app:&mut A) {}
-    fn render(&self,a:&A, _:&WinCursor)      {}  // todo render with mousepos
-    fn info(&self)->String      { String::new()}
-    fn update(&mut self,app:&mut A,dt:f32)->Flow<A> {Flow::Continue()}   // controller access..
+    fn win_ask_size(&self)->Option<ScreenPos> { None }
+	fn win_name(&self)->&str		{"none"}
+    fn win_activate(&mut self, app:&mut A)   {}
+    fn win_deactivate(&mut self, app:&mut A) {}
+    fn win_render(&self,a:&A, _:&WinCursor)      {}  // todo render with mousepos
+    fn win_info(&self)->String      { String::new()}
+    fn win_update(&mut self,app:&mut A,dt:f32)->Flow<A> {Flow::Continue()}   // controller access..
 
-    //todo on_enter/on_exit
+    //todo win_enter/on_exit
 
 
     // TODO: all this could be eliminated?
@@ -198,8 +198,8 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
 
     // iterate key mappings, along with functionality, to automate
     // rolling statusbar/tooltips/menu assignment
-    fn key_mappings(&mut self,owner:&mut A, kmf:&mut KeyMappings<A>){}
-    fn on_mouse_move(&mut self, owner:&mut A, wc:&WinCursor)->Flow<A> {
+    fn win_key_mappings(&mut self,owner:&mut A, kmf:&mut KeyMappings<A>){}
+    fn win_mouse_move(&mut self, owner:&mut A, wc:&WinCursor)->Flow<A> {
         // TODO - unsure if this is better dispatched by framework.
         let delta=v2sub(&wc.pos, &wc.old_pos);
 
@@ -214,11 +214,11 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
 
                 if g_firstdrag {
                     println!("first drag begin\n");
-                    self.on_ldrag_begin(owner, wc);
+                    self.win_ldrag_begin(owner, wc);
                     g_firstdrag = false;
                 }
             }
-            self.on_ldragging(owner, &d, wc)
+            self.win_ldragging(owner, &d, wc)
         } else
         if let Some(ds)=unsafe{g_rdrag_start}{
             let d=Dragging{
@@ -228,48 +228,48 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
             };
             unsafe {
                 if g_firstdrag {
-                    self.on_rdrag_begin(owner, wc);
+                    self.win_rdrag_begin(owner, wc);
                     unsafe { g_firstdrag = false; }
                 }
             }
-            self.on_rdragging(owner, &d,wc)
+            self.win_rdragging(owner, &d,wc)
         } else{
-            self.on_passive_move(owner,wc)
+            self.win_passive_move(owner,wc)
         }
     }
     // hooks for each specific dragable button state,
     // streamline rolling a tool
-    fn on_passive_move(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_passive_move(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
     // first frame of dragging might have special behaviour; by default, just issue normal move
-    fn on_ldrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_rdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_ldrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_rdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_ldragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_rdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_wheel_up(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_wheel_down(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_ldrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_rdrag_begin(&mut self,owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_ldrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_rdrag_end(&mut self, owner:&mut A, _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_ldragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_rdragging(&mut self,owner:&mut A,d:&Dragging,w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_wheel_up(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_wheel_down(&mut self, owner:&mut A,_:&WinCursor)->Flow<A>{Flow::PassThru()}
     // click - mouse pressed with no motion
-    fn on_lclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("lclick{:?}",w);Flow::PassThru()}
-    fn on_rclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("rclick{:?}",w);Flow::PassThru()}
-    fn on_mclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("mclick{:?}",w);Flow::PassThru()}
+    fn win_lclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("lclick{:?}",w);Flow::PassThru()}
+    fn win_rclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("rclick{:?}",w);Flow::PassThru()}
+    fn win_mclick(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{println!("mclick{:?}",w);Flow::PassThru()}
 
-    fn on_mouse_dragged(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
+    fn win_mouse_dragged(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
         println!("dragged{:?} {:?} {:?}",w.drag_start,w.pos,mode);
         match mb {
-            LeftButton=>self.on_ldrag_end(owner, w),
-            MiddleButton=>self.on_mdrag_end(owner, w),
-            RightButton=>self.on_rdrag_end(owner, w),
+            LeftButton=>self.win_ldrag_end(owner, w),
+            MiddleButton=>self.win_mdrag_end(owner, w),
+            RightButton=>self.win_rdrag_end(owner, w),
 
 
             _=>Flow::PassThru()
         }
     }
 
-    fn on_mouse_dragging(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
+    fn win_mouse_dragging(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor, mode:DragMode)->Flow<A>{
 
         let d=Dragging{
             start:w.drag_start.unwrap(),
@@ -280,74 +280,74 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
             LeftButton =>{
                 if unsafe{g_firstdrag} {
                     println!("firthist drag begin\n");
-                    self.on_ldrag_begin(owner, w);
+                    self.win_ldrag_begin(owner, w);
                     unsafe{g_firstdrag = false;}
                 }
-                self.on_ldragging(owner,&d,w)
+                self.win_ldragging(owner,&d,w)
             },
-            RightButton => self.on_ldragging(owner,&d,w),
-            MidButton => self.on_mdragging(owner,&d,w),
+            RightButton => self.win_ldragging(owner,&d,w),
+            MidButton => self.win_mdragging(owner,&d,w),
             _=>Flow::PassThru()
         }
     }
 
-    fn on_lbutton_down(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_rbutton_down(&mut self,owner:&mut A,  w:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_lbutton_up(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{
+    fn win_lbutton_down(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_rbutton_down(&mut self,owner:&mut A,  w:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_lbutton_up(&mut self,owner:&mut A, w:&WinCursor)->Flow<A>{
         match unsafe{g_ldrag_start} {
             Some(prev)=>{println!("lbutton up (dragged)");}
             None=>{println!("lbutton up (no drag)");}
         }
         Flow::PassThru()
     }
-    fn on_rbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mbutton_down(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
-    fn on_mouse_button(&mut self,owner:&mut A,  mb:MouseButtons,s:bool, w:&WinCursor)->Flow<A> {
+    fn win_rbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mbutton_down(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mbutton_up(&mut self,owner:&mut A,  _:&WinCursor)->Flow<A>{Flow::PassThru()}
+    fn win_mouse_button(&mut self,owner:&mut A,  mb:MouseButtons,s:bool, w:&WinCursor)->Flow<A> {
         match (mb,s){
-            (MouseButtons::Left,true)=>self.on_lbutton_down(owner,w),
-            (MouseButtons::Left,false)=>self.on_lbutton_up(owner,w),
-            (MouseButtons::Right,true)=>self.on_lbutton_down(owner,w),
-            (MouseButtons::Right,false)=>self.on_rbutton_up(owner,w),
-            (MouseButtons::Mid,true)=>self.on_mbutton_down(owner,w),
-            (MouseButtons::Mid,false)=>self.on_mbutton_up(owner,w),
-            (MouseButtons::WheelUp,true)=>self.on_wheel_up(owner,w),
-            (MouseButtons::WheelDown,true)=>self.on_wheel_down(owner,w),
+            (MouseButtons::Left,true)=>self.win_lbutton_down(owner,w),
+            (MouseButtons::Left,false)=>self.win_lbutton_up(owner,w),
+            (MouseButtons::Right,true)=>self.win_lbutton_down(owner,w),
+            (MouseButtons::Right,false)=>self.win_rbutton_up(owner,w),
+            (MouseButtons::Mid,true)=>self.win_mbutton_down(owner,w),
+            (MouseButtons::Mid,false)=>self.win_mbutton_up(owner,w),
+            (MouseButtons::WheelUp,true)=>self.win_wheel_up(owner,w),
+            (MouseButtons::WheelDown,true)=>self.win_wheel_down(owner,w),
 			_=>Flow::PassThru()
         }
     }
-    fn try_drag(&self, owner:&A, mbpos:MouseButtons, w:&WinCursor)->DragMode{
+    fn win_try_drag(&self, owner:&A, mbpos:MouseButtons, w:&WinCursor)->DragMode{
         trace!();
         DragMode::Rect
     }
-    fn on_click(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor)->Flow<A>{
+    fn win_click(&mut self, owner:&mut A, mb:MouseButtons, w:&WinCursor)->Flow<A>{
         // dispatch to specific button if so desired.
         match mb{
-            MouseButtons::Left=>self.on_lclick(owner,w),
-            MouseButtons::Right=>self.on_rclick(owner,w),
-            MouseButtons::Mid=>self.on_mclick(owner,w),
+            MouseButtons::Left=>self.win_lclick(owner,w),
+            MouseButtons::Right=>self.win_rclick(owner,w),
+            MouseButtons::Mid=>self.win_mclick(owner,w),
             _=>{warn!();Flow::Continue()}
         }
     }
-    fn on_key_down(&mut self,owner:&mut A,  k:window::WinKey, modifiers:u32, w:&WinCursor)->Flow<A> { Flow::PassThru() }
-    fn on_key_up(&mut self, owner:&mut A,k:window::WinKey, w:&WinCursor)->Flow<A> { Flow::PassThru() }
-    fn on_key(&mut self,owner:&mut A,k:KeyAt,w:&WinCursor)->Flow<A>{
+    fn win_key_down(&mut self,owner:&mut A,  k:window::WinKey, modifiers:u32, w:&WinCursor)->Flow<A> { Flow::PassThru() }
+    fn win_key_up(&mut self, owner:&mut A,k:window::WinKey, w:&WinCursor)->Flow<A> { Flow::PassThru() }
+    fn win_key(&mut self,owner:&mut A,k:KeyAt,w:&WinCursor)->Flow<A>{
         let KeyAt(keycode,modk,state,pos)=k;
         //default : route to seperate keydown,keyup
         match state{
-            KeyDown=>self.on_key_down(owner,keycode,modk,w),
-            KeyUp=>self.on_key_up(owner,keycode,w)}
+            KeyDown=>self.win_key_down(owner,keycode,modk,w),
+            KeyUp=>self.win_key_up(owner,keycode,w)}
     }
-    fn on_drop(&mut self, f:&str, w:&WinCursor)           {}
-    fn command( &mut self, owner:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
+    fn win_drop(&mut self, f:&str, w:&WinCursor)           {}
+    fn win_command( &mut self, owner:&mut A,c:Command)->Flow<A>{ Flow::PassThru() }
 
     // enum of every event,
     // defaults to calling the fn's
-    fn event_dispatch(&mut self, owner:&mut A, e:Event,r:&ScreenRect)->Flow<A>{
+    fn win_event_dispatch(&mut self, owner:&mut A, e:Event,r:&ScreenRect)->Flow<A>{
         match e{
-            Event::Update(dt)  =>{self.update(owner,dt);Flow::Continue()},
+            Event::Update(dt)  =>{self.win_update(owner,dt);Flow::Continue()},
             Event::Render(t)   =>{
-                self.render(owner,
+                self.win_render(owner,
                     &WinCursor
 					{
 						rect:r.clone(),
@@ -358,33 +358,33 @@ pub trait Window<A> {            //'C' the user defined commands it can respond 
 						t:0.0f32});
                 Flow::Continue()
             },
-            Event::Activate()  =>{self.on_activate(owner);Flow::Continue()},
-            Event::Deactivate()    =>{self.on_deactivate(owner);Flow::Continue()},
-            Event::Key(k)     =>self.on_key(owner,k,&mkwc(r,&get_mouse_vpos())),
-            Event::Move(pos)  =>self.on_mouse_move(owner,&mkwcm(r,&pos,&get_mouse_ovpos())),
+            Event::Activate()  =>{self.win_activate(owner);Flow::Continue()},
+            Event::Deactivate()    =>{self.win_deactivate(owner);Flow::Continue()},
+            Event::Key(k)     =>self.win_key(owner,k,&mkwc(r,&get_mouse_vpos())),
+            Event::Move(pos)  =>self.win_mouse_move(owner,&mkwcm(r,&pos,&get_mouse_ovpos())),
             Event::TryBeginDrag(mb,pos)=>{
                 match get_dragmode(){
-                    DragMode::None=>set_dragmode(self.try_drag(owner,mb,&mkwc(r,&pos))),
+                    DragMode::None=>set_dragmode(self.win_try_drag(owner,mb,&mkwc(r,&pos))),
                     _=>{}
                 };
                 Flow::Continue()
             }
-            Event::Clicked(mb,pos)=>self.on_click(owner,mb, &mkwc(r,&pos)),
+            Event::Clicked(mb,pos)=>self.win_click(owner,mb, &mkwc(r,&pos)),
 
             Event::Dragging(mb,start,current,dmode) =>
-                self.on_mouse_dragging(owner,mb,&mkwcd(r,&current,&start),dmode),
+                self.win_mouse_dragging(owner,mb,&mkwcd(r,&current,&start),dmode),
 
             Event::Dragged(mb,start,current,dmode)  =>
-                self.on_mouse_dragged(owner,mb,&mkwcd(r,&current,&start),dmode),
-            Event::Button(mb,s,pos)           =>self.on_mouse_button(owner,mb,s,&mkwc(r,&pos)),
+                self.win_mouse_dragged(owner,mb,&mkwcd(r,&current,&start),dmode),
+            Event::Button(mb,s,pos)           =>self.win_mouse_button(owner,mb,s,&mkwc(r,&pos)),
             _               =>Flow::Continue(),
         }
     }
     // main event dispatch: override to iter sub
     // TODO is this pointless forwarding to event_dispatch - should it just be one
-    fn event(&mut self,owner:&mut A, e:Event, r:&ScreenRect)->Flow<A>{
+    fn win_event(&mut self,owner:&mut A, e:Event, r:&ScreenRect)->Flow<A>{
 		use self::Event as Ev;
-        self.event_dispatch(owner,e,r)
+        self.win_event_dispatch(owner,e,r)
     }
     //fn foreach_child(&self, r:Option<Rect>, f:&FnMut(&Window<A>,Option<Rect>)->ForeachResult);
     //fn foreach_child_mut(&mut self, r:Option<Rect>, f:&FnMut(&mut Window<A>,Option<Rect>)->ForeachResult);
@@ -898,15 +898,15 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
                 // if it's an overlay , render previous first.
                 if i > 0 && win.1 {
                     // todo- generalize, any number of overlays
-                    wins.0[i - 1].0.render(a,&wc);
+                    wins.0[i - 1].0.win_render(a,&wc);
                 }
-                win.0.render(a,&wc);
+                win.0.win_render(a,&wc);
                 // check the keymappings,
             }
             {
                 let mut y = 0.9f32;
                 let win = &mut wins.0[i];
-                win.0.key_mappings(a,&mut move |k, name, _| {
+                win.0.win_key_mappings(a,&mut move |k, name, _| {
                     draw::char_at(&(-0.95f32, y, 0.0f32), 0x00ff00, k);
                     draw::string_at(&(-0.9f32, y, 0.0f32), 0x00ff00, name);
                     y -= 0.05f32;
@@ -925,7 +925,7 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
             if top>0 {
                 process_flow(
                     {let win = &mut wins.0[top - 1];
-                        win.0 .event(a,e,&whole_rect)}
+                        win.0 .win_event(a,e,&whole_rect)}
                     ,wins);
             }
         }
@@ -934,13 +934,13 @@ fn render_and_update(wins:&mut Windows<()>, a:&mut ()){
         if top>0{
             // overlays still allow base to update.
             if top>1 && wins.0[top-1].1 {
-                let flow=wins.0[top-1].0 .update(a,dt);
+                let flow=wins.0[top-1].0 .win_update(a,dt);
                 process_flow(flow,wins);
             }
             let flow= {
                 let l=wins .0 .len();
                 let win = &mut wins.0[l - 1];
-                win.0 .update(a,dt)
+                win.0 .win_update(a,dt)
             };
             process_flow(flow,wins)
         }
@@ -1101,17 +1101,17 @@ pub fn key(k:char)->bool{
 
 /// Editor: handles tool switching and forwards events to the tool.
 impl<O,E> Window<O> for MainWindow<E> {
-    fn event(&mut self,owner:&mut O, e:Event, r:&Rect)->Flow<O>{
+    fn win_event(&mut self,owner:&mut O, e:Event, r:&Rect)->Flow<O>{
         use self::Event as Ev;
         //self.event_dispatch(owner,e)
 
         // todo - respond to flow ..
         // replacement of the frame etc should be possible.
         let sw=&mut*self.subwindow;
-        sw.event(&mut self.content,e,r);
+        sw.win_event(&mut self.content,e,r);
         Flow::Continue()
     }
-    fn render(&self,a:&O, wc:&WinCursor){
+    fn win_render(&self,a:&O, wc:&WinCursor){
 		unsafe{
 			glActiveTexture(GL_TEXTURE1+0);
 			glBindTexture(GL_TEXTURE_2D, 0);
@@ -1121,7 +1121,7 @@ impl<O,E> Window<O> for MainWindow<E> {
 			glDisable(GL_TEXTURE_2D);
 		}
         gl_scissor_s(&wc.rect);
-        self.subwindow.render(&self.content,wc);
+        self.subwindow.win_render(&self.content,wc);
     }
 }
 pub fn gl_scissor_s(sr:&ScreenRect) {
@@ -1207,13 +1207,13 @@ macro_rules! windbg{
 
 impl<OWNER> Window<OWNER> for Split<OWNER>{
 
-    fn event(&mut self, owner:&mut OWNER, e:Event, r:&ScreenRect)->Flow<OWNER>{
+    fn win_event(&mut self, owner:&mut OWNER, e:Event, r:&ScreenRect)->Flow<OWNER>{
         //todo- dispatch event per side..
         // todo - this is actually BSP split?!
         let rects=self.calc_rects(&r);
         match e.pos(){
             // non-spatial event - dispatch to all
-            None=>{self.subwin[1].event(owner,e.clone(),r); self.subwin[0].event(owner,e,r)},
+            None=>{self.subwin[1].win_event(owner,e.clone(),r); self.subwin[0].win_event(owner,e,r)},
             // spatial event: dispatch to the sub-window enclosing it.
             Some(pos)=>{
                 windbg!("spatial event {:?}, pos={:?}", e, pos);
@@ -1221,7 +1221,7 @@ impl<OWNER> Window<OWNER> for Split<OWNER>{
                 for (i,subr) in rects.iter().enumerate(){
                     if v2is_inside(&pos, (&subr.min,&subr.max)){
                         //println!("dispatch {:?} to win {:?}",e,i);
-                        ret=self.subwin[i].event(owner,e.clone(), subr);
+                        ret=self.subwin[i].win_event(owner,e.clone(), subr);
                     }
                 }
                 ret
@@ -1230,14 +1230,14 @@ impl<OWNER> Window<OWNER> for Split<OWNER>{
 
 //        self.first.event(owner,e,r)
     }
-    fn render(&self, a:&OWNER, wc:&WinCursor){
+    fn win_render(&self, a:&OWNER, wc:&WinCursor){
         let rects = self.calc_rects(&wc.rect);
         let mut subwin0=wc.clone(); let mut subwin1=wc.clone();
         subwin0.rect=rects[0].clone(); subwin1.rect=rects[1].clone();
         gl_scissor_s(&subwin0.rect);
-        self.subwin[0].render(a, &subwin0);
+        self.subwin[0].win_render(a, &subwin0);
         gl_scissor_s(&subwin1.rect);
-        self.subwin[1].render(a, &subwin1);
+        self.subwin[1].win_render(a, &subwin1);
     }
 }
 

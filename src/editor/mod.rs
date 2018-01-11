@@ -13,65 +13,68 @@ impl BoolOp{pub fn apply(self,x:bool)->bool{match self{
 }}}
 
 /// defered action to take, part of editor<->editable communication
-pub enum Action<T:Editable>{
-    SetTool(Box<Tool<T>>),
-    DoOperation(Box<Operation<T>>),
+pub enum Action<D:Doc>{
+    SetTool(Box<Tool<D>>),
+	PushTool(Box<Tool<D>>),
+	PopTool(),
+    DoOperation(Box<Operation<D>>),
 }
 
 /// Trait for editable datastructures, e.g. scene for 3d editor, etc.
 /// 'editable' could be implemented for components to make dedicated editors,
 /// e.g. mesh ,scene, materials could all be different editables describing their own
-pub trait Editable : Sized+Clone+Default+'static{
-    fn default_tool()->Box<Tool<Self>>;
-    fn edscn_key(&self, ed:&Editor<Self>, k:&KeyAt)->Option<Action<Self>>;
-    fn scn_render(&self, proj_view_matrix:&Mat44);
+pub trait Doc : Sized+Clone+Default+'static{
+    fn doc_default_tool()->Box<Tool<Self>>;
+    fn doc_key(&self, ed:&Editor<Self>, k:&KeyAt)->Option<Action<Self>>;
+    fn doc_render(&self, proj_view_matrix:&Mat44);
     // handlers for common commands all editables should support
-    fn copy(&self, pos:&ScreenPos)->Self;
-    fn paste(&mut self, pos:&ScreenPos, clipboard:&Self);
-    fn delete(&mut self);
-    fn cut(&mut self,pos:&ScreenPos){self.copy(pos); self.delete();}
-    fn select_all(&mut self, sm:BoolOp);    // all editors should have select none command
-    fn cancel(&mut self);                   // escape key should do something sane
-    fn dump(&self);
+    fn doc_copy(&self, pos:&ScreenPos)->Self;
+    fn doc_paste(&mut self, pos:&ScreenPos, clipboard:&Self);
+    fn doc_delete(&mut self);
+    fn doc_cut(&mut self,pos:&ScreenPos){self.doc_copy(pos); self.doc_delete();}
+    fn doc_select_all(&mut self, sm:BoolOp);    // all editors should have select none command
+    fn doc_cancel(&mut self);                   // escape key should do something sane
+    fn doc_dump(&self);
 }
-pub trait Operation<T:Editable> {
+
+pub trait Operation<D:Doc> {
     fn op_name(&self)->String{String::from("operation")}
     fn op_dump(&self){}
     // todo - show UI - tweakable parameters.
     //fn num_params();
     //fn foreach_param((name:string,value:f32));
-    fn op_apply(&self, s:&mut T);
+    fn op_apply(&self, s:&mut D);
     // todo - how to do this without earlier knowledge of the traits
     // e.g. combine many selection operations, combine many transformations, etc.
     // could we say 'this is a combinable Vector operation; this is a combinable Set operation'?
-    fn op_can_collapse_with<'e>(&self, other:&'e Operation<T>)->bool {false}
-    fn op_collapse_with<'e>(&self, other:&'e Operation<T>)->optbox<Operation<T>> {None}
+    fn op_can_collapse_with<'e>(&self, other:&'e Operation<D>)->bool {false}
+    fn op_collapse_with<'e>(&self, other:&'e Operation<D>)->optbox<Operation<D>> {None}
     //todo - dependancy graph sorting..
 }
 
 type SceneViewPos<'e,SCENE/*:Editable*/>=(&'e SCENE, &'e ScreenPos);
 
-pub trait Tool<T:Editable>{
+pub trait Tool<D:Doc>{
 	// why the prefixing? - easier with grep/simple autocomplete.
 	// we still get polymorphism (there are many 'tool_activate..' implementations)
     fn tool_name(&self)->&'static str{"un-named tool"}
     fn tool_activate(&mut self){}
     fn tool_deactivate(&mut self){}
-    fn tool_passive_move(&mut self, e:ViewCursorScene<T>); // common computation between highlight & operation
-    fn tool_lclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_mclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
-    fn tool_rclick(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{return None;}
+    fn tool_passive_move(&mut self, e:ViewCursorScene<D>); // common computation between highlight & operation
+    fn tool_lclick(&mut self, e:ViewCursorScene<D>)->optbox<Operation<D>>{return None;}
+    fn tool_mclick(&mut self, e:ViewCursorScene<D>)->optbox<Operation<D>>{return None;}
+    fn tool_rclick(&mut self, e:ViewCursorScene<D>)->optbox<Operation<D>>{return None;}
 
-    fn tool_drag_begin(&mut self, e:ViewCursorScene<T> );
-    fn tool_drag(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{None}// TODO - return transient Operation..
-    fn tool_drag_end(&mut self, e:ViewCursorScene<T>)->optbox<Operation<T>>{ return None;}
-    fn tool_render(&self, e:ViewCursorScene<T>){}
+    fn tool_drag_begin(&mut self, e:ViewCursorScene<D> );
+    fn tool_drag(&mut self, e:ViewCursorScene<D>)->optbox<Operation<D>>{None}// TODO - return transient Operation..
+    fn tool_drag_end(&mut self, e:ViewCursorScene<D>)->optbox<Operation<D>>{ return None;}
+    fn tool_render(&self, e:ViewCursorScene<D>){}
     fn tool_cancel(&mut self){println!("cancel")}
 }
-pub type PTool<T>=Box<Tool<T>>;
+pub type PTool<D>=Box<Tool<D>>;
 // wrapped op: user defined ops alongside inbuilt 'cut-copy-paste' commands, framework manages copy-buffer
-enum EditorOp<T:Editable>{
-    Op(Box<Operation<T>>),      // modifies actual scene
+enum EditorOp<D:Doc>{
+    Op(Box<Operation<D>>),      // modifies actual scene
     Delete(ScreenPos),          // related to cut-copy-paste buffer.
     Cut(ScreenPos),
     Copy(ScreenPos),
@@ -81,27 +84,27 @@ enum EditorOp<T:Editable>{
     // TODO- cycle multi-copy-buffer, visualize that.
 }
 
-pub struct Editor<T:Editable> {             // a type of frame window.
-    scene:T,    // Current view of whats' being edited
-    clipboard:T,
-    operations:Vec<EditorOp<T>>, // undo stack of operations generating 'scene'
-	redo_stack:Vec<EditorOp<T>>,
-    transient_op:optbox<Operation<T>>,// not part of the doc yet
-    transient_scene:Option<T>,
+pub struct Editor<D:Doc> {             // a type of frame window.
+    scene:D,    // Current view of whats' being edited
+    clipboard:D,
+    operations:Vec<EditorOp<D>>, // undo stack of operations generating 'scene'
+	redo_stack:Vec<EditorOp<D>>,
+    transient_op:optbox<Operation<D>>,// not part of the doc yet
+    transient_scene:Option<D>,
     interest_point    :Vec3f,
     zoom:f32,
-    tool    :Box<Tool<T>>,             // current tool.
-    last_tool    :optbox<Tool<T>>,     // saved for 'last tool toggle'
-    saved_tool    :optbox<Tool<T>>, // saved for 'sticky-keys' mode
+    tool    :Box<Tool<D>>,             // current tool.
+    last_tool    :optbox<Tool<D>>,     // saved for 'last tool toggle'
+    saved_tool    :optbox<Tool<D>>, // saved for 'sticky-keys' mode
 }
 pub enum ViewMode{
     XY,XZ,YZ,Perspective
 }
 // view pane in some sort of holder that gets size
-pub struct SpatialViewPane<T> {
+pub struct SpatialViewPane<D> {
     view: ViewMode,
     cam:   Cam,
-    phantom:PhantomData<T>,
+    phantom:PhantomData<D>,
 }
 // everything passed into Tools for interface to scene
 pub struct ViewCursorSceneS{
@@ -152,7 +155,7 @@ pub struct Cam{
 // should we just pass ownership of the state into the editor when we 'fire it up' ?
 
 
-impl<T:Editable> EditorOp<T>{
+impl<D:Doc> EditorOp<D>{
     pub fn eop_dump(&self){
         match self{
             &EditorOp::Op(ref op)=>op.op_dump(),
@@ -172,26 +175,28 @@ impl<T:Editable> EditorOp<T>{
 // see borrowing issues if you just embed the window in the app.. fail
 
 
-impl<T:Editable> Editor<T> {
-    fn e_scene<'a>(&'a self)->&'a T{
+impl<D:Doc> Editor<D> {
+    fn e_scene<'a>(&'a self)->&'a D{
         match self.transient_scene{
             Some(ref s)=>s,
             None=>&self.scene
         }
     }
-    fn e_scene_mut<'a>(&'a mut self)->&'a mut T{
+    fn e_scene_mut<'a>(&'a mut self)->&'a mut D{
         match self.transient_scene{
             Some(ref mut s)=>s,
             None=>&mut self.scene
         }
     }
-    fn e_action(&mut self, a:Action<T>) {
+    fn e_action(&mut self, a:Action<D>) {
         match a {
             Action::SetTool(t) => self.e_set_tool(t),
+            Action::PushTool(t) => self.e_push_tool(t),
+			Action::PopTool()=> self.e_pop_tool(),
             Action::DoOperation(op) => self.e_push_operation(op),
         }
     }
-    fn e_push_tool(&mut self, newtool: PTool<T>) {
+    fn e_push_tool(&mut self, newtool: PTool<D>) {
         assert!(!self.saved_tool.is_some());
         self.saved_tool = Some(std::mem::replace(&mut self.tool, newtool));
     }
@@ -199,7 +204,7 @@ impl<T:Editable> Editor<T> {
         assert!(self.saved_tool.is_some());
         self.tool=std::mem::replace(&mut self.saved_tool, None).unwrap();
     }
-    fn e_set_tool(&mut self, newtool: PTool<T>){
+    fn e_set_tool(&mut self, newtool: PTool<D>){
 		self.tool.tool_deactivate();
         self.last_tool= Some(std::mem::replace(&mut self.tool, newtool));   // cache the last tool.
 		self.tool.tool_activate();
@@ -228,7 +233,7 @@ impl<T:Editable> Editor<T> {
 			// todo: cache copies logarithmically
 			self.redo_stack.push(op);
 			self.e_recompute_scene();
-            self.scene.dump();
+            self.scene.doc_dump();
 		}
 	}
 	fn e_redo(&mut self){
@@ -248,30 +253,30 @@ vertex_tags: vec ! [],
 edges: vec ! [[0, 1], [2, 3]],
 },
 */
-pub fn make_editor_window<A:'static,T:Editable+'static>() -> sto<Window<A>> {
+pub fn make_editor_window<A:'static,D:Doc+'static>() -> sto<Window<A>> {
 		let views3=true;
 		println!("make editor window");
         window::MainWindow(
-            Editor::<T> {
+            Editor::<D> {
                 operations: Vec::new(),
-                scene: T::default(),
-                clipboard:T::default(),
+                scene: D::default(),
+                clipboard:D::default(),
                 transient_op: None,
                 transient_scene: None,
                 redo_stack: Vec::new(),
-                tool: T::default_tool(),
+                tool: D::doc_default_tool(),
                 saved_tool: None,
                 last_tool: None,
                 interest_point: v3zero(),
                 zoom:1.0f32,
             },
 			// 3 views is predominantly topdown with the other 2 axes slightly minor.  2/4 views would be all equal
-            window::Split::<Editor<T>>(
+            window::Split::<Editor<D>>(
 				if views3 {0.66f32} else {0.5f32},
                 Box::new(SpatialViewPane{
                     view:ViewMode::XY,cam: Cam { pos: (0.0, 0.0, 0.0), zoom: 1.0 },phantom:PhantomData,
                 }),
-				if views3 {window::Split::<Editor<T>>(
+				if views3 {window::Split::<Editor<D>>(
 					0.5f32,
 	                Box::new(SpatialViewPane{
 		                view:ViewMode::XZ, cam: Cam { pos: (0.0, 0.0, 0.0), zoom: 1.0 },phantom:PhantomData,
@@ -302,10 +307,10 @@ pub fn make_editor_window<A:'static,T:Editable+'static>() -> sto<Window<A>> {
 //editor operation sits on a modifier stack
 // these should produce an inspectable graph of operations
 
-impl<T:Editable> SpatialViewPane<T> {
-    fn render(ed: &Editor<T>, rc: &Rect) {}
+impl<D:Doc> SpatialViewPane<D> {
+    fn render(ed: &Editor<D>, rc: &Rect) {}
 
-    fn matrix_world_to_eye(&self, ed: &Editor<T>) -> Mat44f {
+    fn matrix_world_to_eye(&self, ed: &Editor<D>) -> Mat44f {
         // todo: ed -> 'Camera' or something like that
         // it would be nice to hae a better way to specifiy synced/free viewports.
         let mcentre=matrix::translate(&ed.interest_point.vneg());
@@ -316,7 +321,7 @@ impl<T:Editable> SpatialViewPane<T> {
             _ => unimplemented!()
         }
     }
-    fn matrix_eye_to_world(&self, ed:&Editor<T>)->Mat44f{
+    fn matrix_eye_to_world(&self, ed:&Editor<D>)->Mat44f{
         let mcentre=matrix::translate(&ed.interest_point);
         match self.view{
             ViewMode::XY=>mcentre.mul_matrix(&matrix::view_xyz()),
@@ -327,7 +332,7 @@ impl<T:Editable> SpatialViewPane<T> {
 
     }
     // assumes projection centred.
-    fn matrix_eye_to_viewport(&self,ed:&Editor<T>, r:&Rect)->Mat44f {
+    fn matrix_eye_to_viewport(&self,ed:&Editor<D>, r:&Rect)->Mat44f {
         // scale -1 to 1 range into <whatever rect we were given>
         // and transalte across.
         let centre=r.centre();
@@ -335,22 +340,22 @@ impl<T:Editable> SpatialViewPane<T> {
         matrix::scale_translate(&vec3(scale,scale,1.0f32),&vec3(centre.x,centre.y,0.0f32))
     }
 
-    fn matrix_viewport_to_eye(&self, ed:&Editor<T>, r:&Rect)->Mat44f{
+    fn matrix_viewport_to_eye(&self, ed:&Editor<D>, r:&Rect)->Mat44f{
         let centre=r.centre();
         let inv_scale=1.0f32/self.viewport_scale(ed,r);
         matrix::scale_translate(&vec3(inv_scale,inv_scale,1.0f32),&vec3(-centre.x*inv_scale,-centre.y*inv_scale,0.0f32))
 
     }
     // why scissoring, why not just set glViewport to the damn window?
-    fn matrix_world_to_viewport(&self, ed:&Editor<T>, r:&Rect)->Mat44f{
+    fn matrix_world_to_viewport(&self, ed:&Editor<D>, r:&Rect)->Mat44f{
         let m=self.matrix_eye_to_viewport(ed,r).mul_matrix(&self.matrix_world_to_eye(ed));
         m
     }
-    fn matrix_viewport_to_world(&self,ed:&Editor<T>,r:&Rect)->Mat44f{
+    fn matrix_viewport_to_world(&self,ed:&Editor<D>,r:&Rect)->Mat44f{
         self.matrix_eye_to_world(ed).mul_matrix(&self.matrix_viewport_to_eye(ed,r))
     }
 
-    fn viewport_scale(&self,ed:&Editor<T>,r:&Rect)->f32{
+    fn viewport_scale(&self,ed:&Editor<D>,r:&Rect)->f32{
         let dst_size=r.size();//v2sub(&r.1,&r.0);
         let src_size=vec2(2.0f32,2.0f32);
         let scalex=dst_size.x/src_size.x;
@@ -360,7 +365,7 @@ impl<T:Editable> SpatialViewPane<T> {
     }
 
 
-    fn view_cursor_scene_sub(&self,ed:&Editor<T>, w:&WinCursor)->ViewCursorSceneS {
+    fn view_cursor_scene_sub(&self,ed:&Editor<D>, w:&WinCursor)->ViewCursorSceneS {
         let mat_w_to_s=self.matrix_world_to_viewport(ed,&w.rect);
         ViewCursorSceneS {
             drag_start: w.drag_start,
@@ -380,13 +385,13 @@ impl<T:Editable> SpatialViewPane<T> {
 //
 // operations that any 'Editable' must have
 #[derive(Debug,Clone)]
-pub struct OpCut<T:Editable>{at:ScreenPos, phantom:PhantomData<T>}
+pub struct OpCut<D:Doc>{at:ScreenPos, phantom:PhantomData<D>}
 
 #[derive(Debug,Clone)]
-pub struct OpCopy<T:Editable>{at:ScreenPos, phantom: PhantomData<T>}
+pub struct OpCopy<D:Doc>{at:ScreenPos, phantom: PhantomData<D>}
 
 #[derive(Debug,Clone)]
-pub struct OpPaste<T:Editable>{at:ScreenPos, phantom: PhantomData<T>}
+pub struct OpPaste<D:Doc>{at:ScreenPos, phantom: PhantomData<D>}
 
 
 
@@ -394,8 +399,8 @@ pub struct OpPaste<T:Editable>{at:ScreenPos, phantom: PhantomData<T>}
 pub struct ComposedOp<A,B>(A,B);
 
 
-impl<T:Editable, A:Operation<T>,B:Operation<T>> Operation<T> for ComposedOp<A,B>{
-    fn op_apply(&self,ns:&mut T){
+impl<D:Doc, A:Operation<D>,B:Operation<D>> Operation<D> for ComposedOp<A,B>{
+    fn op_apply(&self,ns:&mut D){
         self.0.op_apply(ns);
         self.1.op_apply(ns);
     }
@@ -460,36 +465,36 @@ static g_color_wireframe:u32=0xffc0c0c0;
 
 
 
-impl<T:Editable> EditorOp<T>{
-    fn wo_apply(&self, s:&mut T, clipboard:&mut T) {
+impl<D:Doc> EditorOp<D>{
+    fn wo_apply(&self, s:&mut D, clipboard:&mut D) {
         match self {
             &EditorOp::Op(ref o) => o.op_apply(s),
-            &EditorOp::Delete(ref pos) => {s.delete()},
-            &EditorOp::Cut(ref pos) => {*clipboard=s.copy(pos); s.delete()},
-            &EditorOp::Copy(ref pos) => { *clipboard = s.copy(pos)},
-            &EditorOp::Paste(ref pos) => s.paste(pos, clipboard),
-            &EditorOp::SelectAll(sm) => s.select_all(sm),
-			&EditorOp::Cancel()=>s.cancel(),
+            &EditorOp::Delete(ref pos) => {s.doc_delete()},
+            &EditorOp::Cut(ref pos) => {*clipboard=s.doc_copy(pos); s.doc_delete()},
+            &EditorOp::Copy(ref pos) => { *clipboard = s.doc_copy(pos)},
+            &EditorOp::Paste(ref pos) => s.doc_paste(pos, clipboard),
+            &EditorOp::SelectAll(sm) => s.doc_select_all(sm),
+			&EditorOp::Cancel()=>s.doc_cancel(),
         }
     }
 }
 // editor working on a specific type of document, with an undo stack.
-impl<T:Editable> Editor<T> {
-    fn e_clear_clipboard(&mut self){ self.clipboard=T::default();}
+impl<D:Doc> Editor<D> {
+    fn e_clear_clipboard(&mut self){ self.clipboard=D::default();}
 
-    fn e_push_op(&mut self, wo:EditorOp<T>){
+    fn e_push_op(&mut self, wo:EditorOp<D>){
         wo.wo_apply(&mut self.scene,&mut self.clipboard);
         self.operations.push(wo);
             //o.op_dump();
     }
-    fn e_push_operation(&mut self, op:Box<Operation<T>>){
+    fn e_push_operation(&mut self, op:Box<Operation<D>>){
         op.op_apply(&mut self.scene);
         self.operations.push(EditorOp::Op(op));
     }
-    fn e_push_op_maybe(&mut self, op:optbox<Operation<T>>){
+    fn e_push_op_maybe(&mut self, op:optbox<Operation<D>>){
         if let Some(o)=op{ self.e_push_operation(o);}
     }
-    fn e_transient_op(&mut self, oo:optbox<Operation<T>>){
+    fn e_transient_op(&mut self, oo:optbox<Operation<D>>){
         //match self.app.doc.transient_op{
           //  Some(ref op)=>{self.app.transient_scene}
         //}
@@ -506,10 +511,10 @@ impl<T:Editable> Editor<T> {
     fn e_recompute_scene(&mut self){
         println!("e_recompute_scene ops={}",self.operations.len());
         // todo - logarithmic caching spacing eg [0       n/2      n-n/4 n-n/8 n-1 n]
-        let mut s=T::default();
+        let mut s=D::default();
         for o in self.operations.iter() {
             o.wo_apply(&mut s, &mut self.clipboard);
-            self.scene.dump();
+            self.scene.doc_dump();
         }
         self.scene=s;
         match self.transient_op{
@@ -551,8 +556,8 @@ fn unwrap_ref_or<'q,T>(a:&'q Option<T>,b:&'q T)->&'q T{
     if let Some(ref x)=*a{x} else {b}
 }
 //type A=();
-impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
-    fn key_mappings(&mut self, ed:&mut Editor<T>, f:&mut KeyMappings<Editor<T>>){
+impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
+    fn win_key_mappings(&mut self, ed:&mut Editor<D>, f:&mut KeyMappings<Editor<D>>){
         f('\x1b',"cancel",  &mut ||{ed.e_cancel();Flow::Continue()});
         f('q',"back",  &mut ||Flow::Pop());
         f('1',"foo",  &mut ||Flow::Pop());
@@ -560,11 +565,11 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
     }
     // universal keys, also consults the Scene's key preferences.
     // todo - less messy..
-    fn on_key(&mut self, ed:&mut Editor<T>, k:KeyAt,wc:&WinCursor)->Flow<Editor<T>> {
+    fn win_key(&mut self, ed:&mut Editor<D>, k:KeyAt,wc:&WinCursor)->Flow<Editor<D>> {
         if k.1 == window::CTRL { println!("ctrl"); }
         let vpos = k.pos();
         //todo -we want plain chars really
-        if let Some(keyaction)=ed.e_scene().edscn_key(ed, &k){
+        if let Some(keyaction)=ed.e_scene().doc_key(ed, &k){
 			ed.e_action(keyaction);
 			return Flow::Continue();
         }
@@ -602,14 +607,14 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         ed.interest_point.vassign_add(&wdelta);
         Flow::Continue()
     }
-    fn render(&self,ed:&Editor<T>, wc:&WinCursor){
+    fn win_render(&self,ed:&Editor<D>, wc:&WinCursor){
 			
 
         draw::rect_outline_v2(&wc.rect.min, &wc.rect.max, if v2is_inside(&wc.pos, (&wc.rect.min, &wc.rect.max)){0xa0a0a0}else{0x909090});
 
         let scn=ed.e_scene();
         let mat=self.matrix_world_to_viewport(ed, &wc.rect);
-        scn.scn_render(&mat);
+        scn.doc_render(&mat);
         //for t in self.vertex_tags(){
 
         //}
@@ -617,18 +622,18 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
 		ed.tool.tool_render((scn,&vcs));
         draw::main_mode_text("lmb-draw rmb-cancel");
     }
-    fn on_passive_move(&mut self,ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>> {
+    fn win_passive_move(&mut self,ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
         let vcs=self.view_cursor_scene_sub(ed,wc);
         ed.tool.tool_passive_move((&ed.scene,&vcs));
         Flow::Continue()
     }
-    fn on_ldrag_begin(&mut self,ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>>{
+    fn win_ldrag_begin(&mut self,ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>>{
         let vcs=self.view_cursor_scene_sub(ed,wc);
 		ed.tool.tool_drag_begin((&ed.scene,&vcs));
         Flow::Continue()
     }
 
-    fn on_ldragging(&mut self, ed:&mut Editor<T>, d:&window::Dragging,wc:&WinCursor)->Flow<Editor<T>> {
+    fn win_ldragging(&mut self, ed:&mut Editor<D>, d:&window::Dragging,wc:&WinCursor)->Flow<Editor<D>> {
         // todo - where is the transient
         println!("where is the transient scene?");
         let transient_op={
@@ -641,7 +646,7 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         Flow::Continue()
     }
 
-    fn on_ldrag_end(&mut self, ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>> {
+    fn win_ldrag_end(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
         println!("editor ldrag end");
         ed.e_transient_op(None);
         let vcs:ViewCursorSceneS = self.view_cursor_scene_sub(ed,wc);
@@ -653,18 +658,18 @@ impl<T:Editable> Window<Editor<T>> for SpatialViewPane<T> {
         Flow::Continue()
     }
 
-//    fn on_rdragging(&mut self, a:&mut A, startpos:ScreenPos, pos:ScreenPos )->Flow<A> {
+//    fn win_rdragging(&mut self, a:&mut A, startpos:ScreenPos, pos:ScreenPos )->Flow<A> {
 //        self.tool.drag(startpos, (&self.app.scene,&pos));
 //            Flow::Continue()
 //    }
-    fn on_lclick(&mut self, ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>>{
+    fn win_lclick(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>>{
         println!("editor onclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
         let op=ed.tool.tool_lclick((&ed.scene,&vcs));
         ed.e_push_op_maybe(op);
         Flow::Continue()
     }
-    fn on_rclick(&mut self, ed:&mut Editor<T>, wc:&WinCursor)->Flow<Editor<T>> {
+    fn win_rclick(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
         println!("editor onrclick");
         let vcs=self.view_cursor_scene_sub(ed,wc);
         let op = ed.tool.tool_rclick((&ed.scene,&vcs));

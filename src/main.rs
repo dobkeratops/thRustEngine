@@ -705,7 +705,7 @@ struct ShaderTest {
     time:i32
 }
 impl<A:'static> window::Window<A> for ShaderTest {
-    fn update(&mut self, a:&mut A,_:f32)->Flow<A>{
+    fn win_update(&mut self, a:&mut A,_:f32)->Flow<A>{
 		use window::Flow;
         self.time-=1;
         if self.time>0 {
@@ -714,7 +714,7 @@ impl<A:'static> window::Window<A> for ShaderTest {
             Flow::Pop()//(world::new())
         }
     }
-    fn render(&self,a:&A, _:&window::WinCursor){
+    fn win_render(&self,a:&A, _:&window::WinCursor){
         render_no_swap(if self.time &15>8{1}else{0});
     }
 }

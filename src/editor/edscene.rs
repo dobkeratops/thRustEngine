@@ -479,10 +479,10 @@ impl Tool<Scene> for DrawTool {
         */
 }
 
-impl Editable for Scene {
-    fn default_tool()->Box<Tool<Scene>>{ Box::new(DrawTool::default()) }
+impl Doc for Scene {
+    fn doc_default_tool()->Box<Tool<Scene>>{ Box::new(DrawTool::default()) }
 
-    fn edscn_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Option<Action<Scene>>{
+    fn doc_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Option<Action<Scene>>{
         match (k.0, k.1, k.2) {
             (WinKey::KeyCode('d'),0,KeyDown)=>Some(Action::SetTool(Box::new(DrawTool::default()))),
             //(WinKey::KeyCode('m'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
@@ -494,7 +494,7 @@ impl Editable for Scene {
         }
     }
 
-    fn scn_render(&self, mat: &Mat44) {
+    fn doc_render(&self, mat: &Mat44) {
         //let ofs = (rc.rect.0.0 + 1.0f32, rc.rect.0.1 + 1.0f32, 0.0f32);
         let ofs=(0.0,0.0,0.0);//vzero();
 
@@ -560,7 +560,7 @@ impl Editable for Scene {
         }
     }
 
-    fn copy(&self, pos:&ScreenPos)->Self{
+    fn doc_copy(&self, pos:&ScreenPos)->Self{
         let mut clipboard=Self::default();
         let null_vertex=(-(1 as isize)) as VertexIndex;	// todo , will they?
         let mut vertex_xlat:Vec<VertexIndex>=vec![null_vertex; self.vertices.len()];
@@ -576,7 +576,7 @@ impl Editable for Scene {
     }
     //'delete selection', whatever that maybe
     //todo - mode filters ? (vertex,edge,..)
-    fn delete(&mut self){
+    fn doc_delete(&mut self){
         // delete
         let mut new_edges=vec![];
         // TODO: filter_unordered(..)
@@ -587,18 +587,18 @@ impl Editable for Scene {
         // remove unused vertices..
         // renumber vertices..
     }
-	fn cancel(&mut self){
+	fn doc_cancel(&mut self){
 		println!("cancel");
 	}
-	fn select_all(&mut self, bop:BoolOp){
+	fn doc_select_all(&mut self, bop:BoolOp){
 		for tag in self.vertex_tags.iter_mut(){
 			*tag=bop.apply(*tag);
 		}
 	}
-    fn paste(&mut self, pos:&ScreenPos, clipboard:&Self){
+    fn doc_paste(&mut self, pos:&ScreenPos, clipboard:&Self){
 
     }
-    fn dump(&self){ println!("edscene: vertices={} edges={}",self.vertices.len(),self.edges.len());}
+    fn doc_dump(&self){ println!("edscene: vertices={} edges={}",self.vertices.len(),self.edges.len());}
 }
 
 impl Scene {
