@@ -26,7 +26,7 @@ impl<A:'static> window::Window<A> for FlyMode {
     fn win_key(&mut self, a:&mut A, kp:w::KeyAt,wc:&window::WinCursor)->window::Flow<A>{
         println!("{:?}",kp);
         match (kp.0,kp.2) {
-            (window::WinKey::KeyCode('e'),window::KeyTransition::KeyDown)=>Flow::Push(editor::make_editor_window::<A,editor::Scene>()),
+            (window::WinKey::KeyCode('e'),window::KeyTransition::KeyDown)=>Flow::Push(editor::make_editor_window::<A,edscene::Scene>()),
             _=>Flow::Continue()
         }
     }

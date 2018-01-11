@@ -42,6 +42,7 @@ pub mod window;
 use window::Flow;
 mod world;
 pub mod editor;
+pub mod edscene;
 pub mod landscape;
 pub mod texture;
 pub mod test;
@@ -836,7 +837,7 @@ pub fn main(){
 //    #[cfg(any(target_os = "emscripten",editor))]
     {
         println!("config: editor");
-        window::run_loop(vec![editor::make_editor_window::<(),editor::Scene>()] , &mut ());
+        window::run_loop(vec![editor::make_editor_window::<(),edscene::Scene>()] , &mut ());
     }
 
     #[cfg(all(shadertest,target_os="emscripten"))]
