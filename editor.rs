@@ -513,6 +513,7 @@ impl<D:Doc> Editor<D> {
             o.wo_apply(&mut s, &mut self.clipboard);
             self.scene.doc_dump();
         }
+		
         self.scene=s;
         match self.transient_op{
             Some(ref op)=>{
