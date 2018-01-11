@@ -23,7 +23,7 @@ pub enum Action<D:Doc>{
 /// e.g. mesh ,scene, materials could all be different editables describing their own
 pub trait Doc : Sized+Clone+Default+'static{
     fn doc_default_tool()->Box<Tool<Self>>;
-    fn doc_key(&self, ed:&Editor<Self>, k:&KeyAt)->Option<Action<Self>>;
+    fn doc_key(&self,  k:&KeyAt)->Option<Action<Self>>;
     fn doc_render(&self, proj_view_matrix:&Mat44);
     // handlers for common commands all editables should support
     fn doc_copy(&self, pos:&ScreenPos)->Self;
@@ -567,7 +567,7 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
         if k.1 == window::CTRL { println!("ctrl"); }
         let vpos = k.pos();
         //todo -we want plain chars really
-        if let Some(keyaction)=ed.ed_scene().doc_key(ed, &k){
+        if let Some(keyaction)=ed.ed_scene().doc_key(&k){
 			ed.ed_action(keyaction);
 			return Flow::Continue();
         }

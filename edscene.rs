@@ -4,12 +4,13 @@ use super::window::*;
 
 type VertexIndex=usize;
 
+pub type Polygon=Vec<VertexIndex>;//todo - smallvec optimized for N=4
 pub type Edge=[VertexIndex;2];
 pub type Vertex=V3;
 #[derive(Default,Clone)]
 pub struct Scene{   // todo - switch to TriMesh hrc and tags as seperate entity
     vertices:   Vec<Vertex>,
-    edges:      Vec<Edge>,
+    polygons:      Vec<Polygon>,
     vertex_tags:Vec<bool>,
 }
 
@@ -87,10 +88,10 @@ impl Scene{
             editor::BoolOp::Clear=>false
         }
     }
-    fn create_vertex(&mut self, pos:V3,tag:bool){
+    fn create_vertex(&mut self, pos:V3,tag:bool)->VertexIndex{
         self.vertices.push(pos);
         self.vertex_tags.push(tag);
-
+		return self.vertices.len()-1;
     }
     pub fn dump(&self){
         dump!(self.vertices.len());
@@ -104,7 +105,8 @@ impl Scene{
         vi as VertexIndex
     }
     fn add_edge(&mut self,a:VertexIndex,b:VertexIndex){
-        self.edges.push([a,b]);
+		assert!(a<self.vertices.len(),b<self.vertices.len());
+        self.polygons.push(vec![a,b]);
     }
 }
 
@@ -202,20 +204,21 @@ impl Operation<Scene> for Subdivide {
         println!("subdivide op");
         let mut new_edges=vec![];
         //todo,it could consume
-        for edge in msh.edges.iter(){
-            if msh.is_edge_tagged(edge){
-                let ev0=edge[0];let ev1=edge[1];
+        for poly in msh.polygons.iter(){
+            if msh.is_poly_all_tagged(poly){
+				assert!(poly.len()==2,"todo: subdivide n-sided polygon");
+                let ev0=poly[0];let ev1=poly[1];
                 let new_vti=msh.vertices.len();
                 let newvt=msh.vertices[ev0].vlerp(&msh.vertices[ev1],0.5f32);
                 msh.vertices.push(newvt);
-                new_edges.push([ev0,new_vti]);
-                new_edges.push([new_vti,ev1]);
+                new_edges.push(vec![ev0,new_vti]);
+                new_edges.push(vec![new_vti,ev1]);
                 msh.vertex_tags.push(true);
-            } else {new_edges.push(edge.clone())}
+            } else {new_edges.push(poly.clone())}
         }
         // todo: combined filter_and_unordered_append
         //msh.edges.append(&mut new_edges);
-        msh.edges=new_edges;
+        msh.polygons=new_edges;
         //(&mut new_edges);
     }
 }
@@ -283,7 +286,7 @@ impl Operation<Scene> for Extrude {
         let mut new_vertex=d.vertices.len();
         for i in 0.. d.vertices.len(){
             if d.vertex_tags[i]{
-                new_edges.push([i,new_vertex]);
+                new_edges.push(vec![i,new_vertex]);
                 vtmap.insert(i,new_vertex); new_vertex+=1;
                 new_vertices.push(d.vertices[i].clone());
             }
@@ -292,13 +295,14 @@ impl Operation<Scene> for Extrude {
         // for every edge, extrude a polygon.. TODO
         // for the moment we just create a wireframe around where the poly would be.
         // if we go the half-edge route..
-        for edge in d.edges.iter(){
-            if d.is_edge_tagged(edge){
-                new_edges.push([vtmap[&edge[0]],vtmap[&edge[1]]]);
+        for poly in d.polygons.iter(){
+            if d.is_poly_all_tagged(poly){
+				assert!(poly.len()==2,"todo: polygon extrusion for n sides");
+                new_edges.push(vec![vtmap[&poly[0]],vtmap[&poly[1]]]);
             }
         }
         d.clear_vertex_tags();
-        d.edges.append(&mut new_edges);
+        d.polygons.append(&mut new_edges);
         d.vertices.append(&mut new_vertices);
 
         for (_,_) in vtmap.iter(){
@@ -310,8 +314,8 @@ impl Operation<Scene> for Extrude {
 impl Operation<Scene> for DrawLine{
     fn op_apply(&self,ns:&mut Scene){
         ns.clear_vertex_tags();
-        ns.create_vertex(self.1, true); // create a vertex and tag it
-        ns.edges.push([self.0, (ns.vertices.len() as  VertexIndex)-1]);
+        let nvt=ns.create_vertex(self.1, true); // create a vertex and tag it
+        ns.add_edge(self.0, nvt);
     }
     fn op_dump(&self){println!("{:?}",self); }
 }
@@ -320,7 +324,7 @@ impl Operation<Scene> for ConnectLine{
     fn op_apply(&self,ns:&mut Scene){
         if !ns.edge_exists(self.0,self.1) {
             ns.clear_vertex_tags();
-            ns.edges.push([self.0, self.1]);
+            ns.add_edge(self.0, self.1);
             ns.vertex_tags[self.1] = true;
         }
     }
@@ -486,7 +490,7 @@ impl Tool<Scene> for DrawTool {
 impl Doc for Scene {
     fn doc_default_tool()->Box<Tool<Scene>>{ Box::new(DrawTool::default()) }
 
-    fn doc_key(&self, ed:&Editor<Scene>, k:&KeyAt)->Option<Action<Scene>>{
+    fn doc_key(&self, k:&KeyAt)->Option<Action<Scene>>{
         match (k.0, k.1, k.2) {
             (WinKey::KeyCode('d'),0,KeyDown)=>Some(Action::SetTool(Box::new(DrawTool::default()))),
             //(WinKey::KeyCode('m'),0,KeyDown)=>Action::SetTool(Box::new(DrawTool::default())),
@@ -543,8 +547,11 @@ impl Doc for Scene {
 			}
 		}
 
-        for line in self.edges.iter() {
-            draw::line_c(&v3add(&self.vertices[line[0] as usize], &ofs), &v3add(&self.vertices[line[1] as usize], &ofs), g_color_wireframe)
+        for poly in self.polygons.iter() {
+			for i in 0..poly.len(){ 
+				let edge=[poly[i] as VertexIndex,poly[(i+1)%poly.len() as VertexIndex]];
+				draw::line_c(&v3add(&self.vertices[edge[0]], &ofs), &v3add(&self.vertices[edge[1]], &ofs), g_color_wireframe);
+			}
         }
         draw::set_matrix(0, &matrix::identity());
 /*
@@ -582,12 +589,12 @@ impl Doc for Scene {
     //todo - mode filters ? (vertex,edge,..)
     fn doc_delete(&mut self){
         // delete
-        let mut new_edges=vec![];
+        let mut new_polys=vec![];
         // TODO: filter_unordered(..)
-        for edge in self.edges.iter(){
-            if !self.is_edge_tagged(edge){new_edges.push(edge.clone())}
+        for poly in self.polygons.iter(){
+            if !self.is_poly_all_tagged(poly){new_polys.push(poly.clone())}
         }
-        self.edges=new_edges;
+        self.polygons=new_polys;
         // remove unused vertices..
         // renumber vertices..
     }
@@ -602,13 +609,22 @@ impl Doc for Scene {
     fn doc_paste(&mut self, pos:&ScreenPos, clipboard:&Self){
 
     }
-    fn doc_dump(&self){ println!("edscene: vertices={} edges={}",self.vertices.len(),self.edges.len());}
+    fn doc_dump(&self){ println!("edscene: vertices={} edges={}",self.vertices.len(),self.polygons.len());}
 }
 
 impl Scene {
-    fn is_edge_tagged(&self,e:&Edge)->bool {
+    fn is_edge_all_tagged(&self,e:&Edge)->bool {
         self.vertex_tags[e[0]] && self.vertex_tags[e[1]]
     }
+    fn is_poly_all_tagged(&self,p:&Polygon)->bool {
+		if 0==p.len() {return false;}
+		for &vti in p.iter(){ if !self.vertex_tags[vti]{return false;}}
+		return true;
+    }
+	fn is_poly_part_tagged(&self,p:&Polygon)->bool{
+		for &vti in p.iter(){ if self.vertex_tags[vti]{return true;}}
+		return false;
+	}
     fn get_vertices_in_rect(&self,r:&ScreenRect)->Vec<VertexIndex>
     {
         let mut ret=Vec::new();
@@ -624,15 +640,20 @@ impl Scene {
         ret
     }
     fn edge_exists(&self,sv:VertexIndex,ev:VertexIndex)->bool{
-        for edge in self.edges.iter() {
-            if edge[0]==sv && edge[1]==ev || edge[0]==ev && edge[1]==sv{return true;}
+        for poly in self.polygons.iter() {
+			// todo - poly-edge iterator or 'foreach edge of poly'..
+			for vti in 0..poly.len(){
+				let edge=[poly[vti],poly[vti+1%poly.len()]];
+	            if edge[0]==sv && edge[1]==ev || edge[0]==ev && edge[1]==sv{return true;}
+			}
         }
         return false;
     }
     fn translate_vertex_indices(&mut self, xlat:&Vec<VertexIndex>) {
-        for edge in self.edges.iter_mut() {
-            edge[0]=xlat[edge[0]];
-            edge[1]=xlat[edge[1]];
+        for poly in self.polygons.iter_mut() {
+			for pvti in poly.iter_mut(){
+				*pvti=xlat[*pvti];
+			}
         }
 
     }
