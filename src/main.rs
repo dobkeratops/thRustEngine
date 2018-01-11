@@ -38,10 +38,15 @@
 #[macro_use]
 pub mod r3d;
 pub use r3d::*;
+pub mod draw;
+pub mod macros;
+pub mod array3d;
+pub use array3d::*;
 pub mod vector;
 pub mod matrix;
 pub use vector::*;
 pub use matrix::*;
+pub use macros::*;
 pub mod window;
 use window::Flow;
 mod world;
@@ -816,7 +821,7 @@ pub fn try_autocomplete() {
     let d:Vec4f=c.into();
     dump!(d);
 
-    let ar:r3d::array3d::Array3d<f32>;
+    let ar:array3d::Array3d<f32>;
     //let m1=Matrix43(Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32),Vector3(0.0f32,0.0f32,0.0f32));
     //let m2:Matrix43f;
     //let m3:Mat43f;

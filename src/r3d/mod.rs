@@ -1,6 +1,5 @@
 //pub mod vectypes;
 pub mod quaternion;
-pub mod array3d;
 pub mod geom;
 pub mod voxels;
 pub mod vertex;
@@ -12,8 +11,6 @@ pub mod gl_h_consts;
 pub mod glut_h_consts;
 pub mod tuplevecmath;
 pub mod cstuff;
-pub mod draw;
-pub mod macros;
 pub mod classes;
 pub mod bsp;
 pub use sdl::*;
@@ -21,9 +18,9 @@ pub use super::matrix::*;
 pub use super::vector::*;
 use ::matrix;
 use ::vector;
+use ::array3d;
 pub extern crate vecgenericindex;
 pub extern crate half;
-pub use array3d::*;
 //pub extern crate vec_xyzw;
 //pub use vec_xyzw::*;
 
@@ -158,7 +155,6 @@ pub use ::std::{io,fs,ops,path,mem,ffi,os,num,cmp,vec,collections,fmt,marker,con
 pub use io::Read;
 pub use fmt::Debug;
 pub use vertex::*;
-use ::std::f32::consts::PI;
 
 pub use ffi::{CString,CStr};
 pub use ffi::CString as c_str;
@@ -182,7 +178,7 @@ type Scalar=f32;
 
 pub use vector::*;
 
-pub struct Array3d<T>{pub shape:Vec3<i32>,pub data:Vec<T>}
+//pub struct Array3d<T>{pub shape:Vec3<i32>,pub data:Vec<T>}
 
 //pub use array3d::*;
 pub use rawglbinding::*;
