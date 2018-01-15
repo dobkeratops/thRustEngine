@@ -251,6 +251,7 @@ impl Operation<Scene> for Merge {
         let mut vt_xlat=vec![];
         vt_xlat.resize(d.vertices.len(),(-1isize) as usize);
         let mut mergevt:Option<VertexIndex>=None; // this will be pushed
+		
         let vt_xlat:Vec<_> = (0..d.vertices.len()).map(|vti|
             if d.vertex_tags[vti] {
                 // allocate the first vertex index as the merged point,
@@ -301,6 +302,7 @@ impl Operation<Scene> for Extrude {
                 new_edges.push(vec![vtmap[&poly[0]],vtmap[&poly[1]]]);
             }
         }
+
         d.clear_vertex_tags();
         d.polygons.append(&mut new_edges);
         d.vertices.append(&mut new_vertices);
@@ -376,6 +378,7 @@ impl Tool<Scene> for DrawTool {
             (Some(si),Some(ei)) =>ToolState::CanConnectLine(si,ei)
         };
         //dump!(ret);
+		
         self.state=ret;
     }
 
@@ -503,8 +506,6 @@ impl Doc for Scene {
     }
 
     fn doc_render(&self, mat: &Mat44) {
-        //let ofs = (rc.rect.0.0 + 1.0f32, rc.rect.0.1 + 1.0f32, 0.0f32);
-        let ofs=(0.0,0.0,0.0);//vzero();
 
         // linedraw with transformation matrix..
         draw::set_matrix(0, &mat);
@@ -540,7 +541,6 @@ impl Doc for Scene {
 				glEnd();
 				glDisable(GL_TEXTURE_2D);
 */
-			
 				draw::set_texture(0,g_test_texture[0]);
 				draw::rect_tex(&vec2(-0.5f32,-0.5f32),&vec2(0.5f32,0.5f32),0.99f32 );
 				draw::set_texture(0,0);
@@ -550,7 +550,7 @@ impl Doc for Scene {
         for poly in self.polygons.iter() {
 			for i in 0..poly.len(){ 
 				let edge=[poly[i] as VertexIndex,poly[(i+1)%poly.len() as VertexIndex]];
-				draw::line_c(&v3add(&self.vertices[edge[0]], &ofs), &v3add(&self.vertices[edge[1]], &ofs), g_color_wireframe);
+				draw::line_c(&self.vertices[edge[0]], &self.vertices[edge[1]], g_color_wireframe);
 			}
         }
         draw::set_matrix(0, &matrix::identity());
@@ -565,9 +565,8 @@ impl Doc for Scene {
             let epos=mat.mul_vec3_point(&v.to_vec3());
             let spos=epos.project_to_vec3();
             //    draw::vertex(v,2,0xff00ff00);
-            draw::circle_fill_xy_c(&spos, g_snap_radius * 0.5f32,
-                                   if self.vertex_tags[i] { g_color_selected } else { g_color_wireframe }
-            );
+			let color=if self.vertex_tags[i] { g_color_selected } else { g_color_wireframe };
+            draw::circle_fill_xy_c(&spos, g_snap_radius * 0.5f32, color);
         }
     }
 
@@ -640,6 +639,7 @@ impl Scene {
         ret
     }
     fn edge_exists(&self,sv:VertexIndex,ev:VertexIndex)->bool{
+		
         for poly in self.polygons.iter() {
 			// todo - poly-edge iterator or 'foreach edge of poly'..
 			for vti in 0..poly.len(){
@@ -650,13 +650,14 @@ impl Scene {
         return false;
     }
     fn translate_vertex_indices(&mut self, xlat:&Vec<VertexIndex>) {
+		
         for poly in self.polygons.iter_mut() {
 			for pvti in poly.iter_mut(){
 				*pvti=xlat[*pvti];
 			}
         }
-
     }
+	
     //fn delete_unused(&mut self){
       //  let mut tags:Vec<bool>=vec![false;self.vertices.len()];
         //for edge in self.edges.iter_mut() {tags[edge[0]]=true; tags[edge[1]]=true;}
@@ -694,4 +695,13 @@ impl Scene {
         self.vertices.resize(lastvt+1,zero());
         self.vertex_tags.resize(lastvt+1,false);
     }*/
+}
+impl Pos for Vertex{
+	type Output=Vec3f;
+	fn pos(&self)->Vec3f{vec3(self.0,self.1,self.2)}
+}
+
+impl HasVertices<Vertex> for Scene {
+	fn num_vertices(&self)->VTI{self.vertices.len() as VTI}
+	fn vertex<'a>(&'a self,i:VTI)->&'a Vertex {&self.vertices[i as usize]}
 }

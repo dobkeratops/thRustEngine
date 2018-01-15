@@ -846,7 +846,7 @@ pub fn main(){
 //    #[cfg(any(target_os = "emscripten",editor))]
     {
         println!("config: editor");
-        window::run_loop(vec![editor::make_editor_window::<(),edscene::Scene>()] , &mut ());
+        window::run_loop(vec![editor::make_editor_window::<(),edscene::Scene>(), Box::new(ShaderTest{time:30})] , &mut ());
     }
 
     #[cfg(all(shadertest,target_os="emscripten"))]

@@ -308,8 +308,10 @@ impl<D:Doc> SpatialViewPane<D> {
     fn render(ed: &Editor<D>, rc: &Rect) {}
 
     fn matrix_world_to_eye(&self, ed: &Editor<D>) -> Mat44f {
+		
         // todo: ed -> 'Camera' or something like that
         // it would be nice to hae a better way to specifiy synced/free viewports.
+
         let mcentre=matrix::translate(&ed.interest_point.vneg());
         match self.view {
             ViewMode::XY => matrix::inv_view_xyz().mul_matrix(&mcentre),
@@ -645,6 +647,7 @@ impl<D:Doc> Window<Editor<D>> for SpatialViewPane<D> {
     }
 
     fn win_ldrag_end(&mut self, ed:&mut Editor<D>, wc:&WinCursor)->Flow<Editor<D>> {
+		
         println!("editor ldrag end");
         ed.ed_transient_op(None);
         let vcs:ViewCursorSceneS = self.view_cursor_scene_sub(ed,wc);
